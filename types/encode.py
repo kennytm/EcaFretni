@@ -17,7 +17,7 @@
 
 """This module defines __str__ and __repr__ for Type to turn them into type encodings."""
 
-from type.type import *
+from types.types import *
 
 #-----------------
 
@@ -76,7 +76,7 @@ def __encodeObjCType(objc):
 def __reprObjCType(objc):
 	if objc.protos is None:
 		return 'ObjCType({!r})'.format(objc.name)
-	else
+	else:
 		return 'ObjCType({!r}, {!r})'.format(objc.name, objc.protos)
 
 ObjCType.__str__ = __encodeObjCType
