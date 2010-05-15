@@ -17,7 +17,7 @@
 
 """This module defines __str__ and __repr__ for Type to turn them into type encodings."""
 
-from types.types import *
+from objctype.types import *
 
 #-----------------
 

@@ -17,7 +17,7 @@
 
 """This module parses an Objective-C encoded type string into Types."""
 
-from types.types import *
+from objctype.types import *
 from balancedSubstring import *
 import re
 
