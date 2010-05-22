@@ -23,9 +23,8 @@ class DylibCommand(LoadCommand):
 	"""The dylib load command."""
 
 	def analyze(self):
-		(offset, self.timestamp, self.version, self.minVersion) = readFormatStruct(self.o.file, '4L', self.o.endian, self.o.is64bit)
-		self.o.file.seek(offset + self.offset - 8)
-		self.name = readString(self.o.file)
+		(offset, self.timestamp, self.version, self.minVersion) = self.o.readFormatStruct('4L')
+		self.name = self.o.peekString(position=offset + self.offset - 8)
 			
 	def __str__(self):
 		return "<Dylib {!r}>".format(self.name)

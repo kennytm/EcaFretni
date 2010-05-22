@@ -24,7 +24,7 @@ class LoadCommand(object):
 	
 	def seek(self):
 		"""Move the file pointer to the offset of this load command."""
-		self.o.file.seek(self.offset)
+		self.o.seek(self.offset)
 	
 	def analyze(self):
 		"""Analyze the load command.

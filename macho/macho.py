@@ -17,7 +17,7 @@
 #	
 
 from macho.arch import Arch
-from macho.utilities import readStruct, readFormatStruct
+from macho.utilities import readStruct, readFormatStruct, peekString
 from factory import factory
 from macho.loadCommands.loadCommand import LoadCommand
 import os
@@ -75,6 +75,25 @@ class MachO(object):
 			return retval
 
 
+	def seek(self, offset):
+		"""Jump the cursor to the specific file offset, factoring out the file origin."""
+		self.file.seek(offset + self.origin)
+	
+	def tell(self):
+		"""Get the current file offset, factoring out the file origin."""
+		return self.file.tell() - self.origin
+
+	def peekString(self, encoding='utf_8', position=None):
+		"""Read a null-terminated string without moving the cursor, factoring out the file origin."""
+		if position is not None:
+			position += self.origin
+		return peekString(self.file, encoding, position)
+
+	def readFormatStruct(self, fmt):
+		"""Format a Python struct type encoding and read it."""
+		return readFormatStruct(self.file, fmt, self.endian, self.is64bit)
+
+
 	def allLoadCommands(self, cls):
 		"""Get all load command with the specified class."""
 		if isinstance(cls, int):
@@ -128,6 +147,7 @@ class MachO(object):
 		
 		
 	def __readMagic(self):
+		self.origin = self.file.tell()
 		(magic, ) = readStruct(self.file, '<L')
 		if magic == 0xfeedface:
 			self.endian = '<'
@@ -158,7 +178,7 @@ class MachO(object):
 		# Read all load commands.
 		for i in range(ncmds):
 			(cmd, cmdsize) = readFormatStruct(self.file, '2L', self.endian)
-			offset = self.file.tell()
+			offset = self.tell()
 			cmdname = LoadCommand.cmdname(cmd)
 			if cmdname is None:
 				raise MachOError('Unrecognized load command 0x{:x}.'.format(cmd))
@@ -171,7 +191,7 @@ class MachO(object):
 		loadCommandClasses = {}
 		for lc in self.loadCommands:
 			clsname = type(lc).__name__
-			if type(lc) in loadCommandClasses:
+			if clsname in loadCommandClasses:
 				loadCommandClasses[clsname].append(lc)
 			else:
 				loadCommandClasses[clsname] = [lc]

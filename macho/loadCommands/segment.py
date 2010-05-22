@@ -93,7 +93,7 @@ class SegmentCommand(LoadCommand):
 		fileoff = self.fromVM(vmaddr)
 		if fileoff is None:
 			return None
-		self.fn.seek(fileoff)
+		self.seek(fileoff)
 		return readFormatStruct(self.fn, fmt, self.endian, self.is64bit)
 	
 	def __str__(self):
