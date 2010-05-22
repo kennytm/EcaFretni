@@ -54,8 +54,7 @@ class Section(object):
 class SegmentCommand(LoadCommand):
 	"""The segment load command."""
 
-	def analyze(self):
-		# LC_SEGMENT_64
+	def __loadSections(self):
 		is64bit = self.cmd == 'SEGMENT_64'
 		
 		(segname, self.vmaddr, self.vmsize, self.fileoff, self.filesize, _, _, nsects, _) = readFormatStruct(self.o.file, '16s4^2i2L', self.o.endian, is64bit)
@@ -67,7 +66,15 @@ class SegmentCommand(LoadCommand):
 			sect = Section.createSection(self.o.file, self.o.endian, is64bit)
 			sections[sect.sectname] = sect
 		self.sections = sections
+
+	def analyze(self):
+		if not hasattr(self, 'sections'):
+			self.__loadSections()
+			return True
+		else:
+			return False
 		
+			
 	def fromVM(self, vmaddr):
 		"""Convert VM address to file offset. Returns None if out of range."""
 		if self.vmaddr <= vmaddr < self.vmaddr + self.vmsize:
@@ -99,8 +106,8 @@ LoadCommand.registerFactory('SEGMENT_64', SegmentCommand)
 
 def __macho_forEachSegment(attrName):
 	def f(self, addr):
-		for lc in self.loadCommandClasses[SegmentCommand]:
-			addr = lc.__getattribute__(attrName)(vmaddr)
+		for lc in self.loadCommandClasses['SegmentCommand']:
+			addr = getattr(lc, attrName)(vmaddr)
 			if addr is not None:
 				return addr
 		return None

@@ -74,6 +74,25 @@ class MachO(object):
 			self.file = None
 			return retval
 
+
+	def allLoadCommands(self, cls):
+		"""Get all load command with the specified class."""
+		if isinstance(cls, int):
+			cls = LoadCommand.cmdname(cls)
+		if isinstance(cls, str):
+			f = LoadCommand.getFactory(cls)
+			if f is not None:
+				cls = f.__name__
+		return self.loadCommandClasses.get(cls, [])
+	
+	def anyLoadCommand(self, cls):
+		"""Get the first load command with the specified class."""
+		arr = self.allLoadCommands(cls)
+		if len(arr) > 0:
+			return arr[0]
+		else:
+			return None
+
 		
 	def __analyze(self):
 		self.__pickArchFromFatFile()
@@ -151,10 +170,11 @@ class MachO(object):
 		# Classify the load commands 
 		loadCommandClasses = {}
 		for lc in self.loadCommands:
+			clsname = type(lc).__name__
 			if type(lc) in loadCommandClasses:
-				loadCommandClasses[type(lc)].append(lc)
+				loadCommandClasses[clsname].append(lc)
 			else:
-				loadCommandClasses[type(lc)] = [lc]
+				loadCommandClasses[clsname] = [lc]
 		self.loadCommandClasses = loadCommandClasses
 		
 		# Analyze all load commands.

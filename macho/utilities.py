@@ -33,10 +33,12 @@ def readString(f, encoding='utf_8'):
 	return res.decode(encoding)
 
 
-def peekString(f, encoding='utf_8'):
+def peekString(f, encoding='utf_8', position=None):
 	"""Read a null-terminated string without moving the cursor."""
 	
 	pos = f.tell()
+	if position is not None:
+		f.seek(position)
 	res = readString(f, encoding)
 	f.seek(pos)
 	return res

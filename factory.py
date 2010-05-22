@@ -51,10 +51,16 @@ def factory(cls):
 	cls.registerFactory = registerFactory
 	
 	@classmethod
+	def getFactory(cls, keyword):
+		"""Return the factory of a keyword."""
+		return cls.__factories.get(keyword, cls)
+		
+	cls.getFactory = getFactory
+	
+	@classmethod
 	def create(cls, keyword, *args, **kargs):
-		"""Factory of a keyword."""
-		theCls = cls.__factories.get(keyword, cls)
-		return theCls(keyword, *args, **kargs)
+		"""Create an instance by keyword"""
+		return cls.getFactory(keyword)(keyword, *args, **kargs)
 	
 	cls.create = create
 	
