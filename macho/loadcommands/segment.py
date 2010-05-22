@@ -17,7 +17,7 @@
 #	
 
 from macho.loadcommands.loadcommand import LoadCommand
-from macho.utilities import readFormatStruct, fromStringz
+from macho.utilities import fromStringz
 from macho.macho import MachO
 from factory import factory
 

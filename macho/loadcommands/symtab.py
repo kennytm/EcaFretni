@@ -17,7 +17,6 @@
 #	
 
 from macho.loadcommands.loadcommand import LoadCommand
-from macho.utilities import readFormatStruct, peekString
 
 class Symbol(object):
 	"""A symbol in Mach-O file."""

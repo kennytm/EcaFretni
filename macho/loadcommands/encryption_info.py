@@ -17,7 +17,6 @@
 #	
 
 from macho.loadcommands.loadcommand import LoadCommand
-from macho.utilities import readFormatStruct
 
 class EncryptionInfoCommand(LoadCommand):
 	"""The encryption info load command."""

@@ -17,7 +17,6 @@
 #	
 
 from macho.loadcommands.loadcommand import LoadCommand
-from macho.utilities import readFormatStruct, readString
 
 class DylibCommand(LoadCommand):
 	"""The dylib load command."""
