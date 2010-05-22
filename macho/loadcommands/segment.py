@@ -39,14 +39,13 @@ class Section(object):
 		ftype = flags & 0xff
 		attrib = flags >> 8
 		
-		return cls.create(sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved, machO, is64bit)
+		return cls.create(sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved)
 	
-	def __init__(self, sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved, machO, is64bit):
+	def __init__(self, sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved):
 		(self.sectname, self.segname, self.addr, self.size, self.offset,
 			self.align, self.reloff, self.nreloc, self.ftype, self.attrib,
-			self.reserved, self._o, self._is64bit) = (sectname, segname, addr,
-				size, offset, align, reloff, nreloc, ftype, attrib, reserved,
-				machO, is64bit)
+			self.reserved) = (sectname, segname, addr, size, offset, align,
+				reloff, nreloc, ftype, attrib, reserved)
 	
 	def __str__(self):
 		return "<Section: {},{}. 0x{:x}/{:x}>".format(self.segname, self.sectname, self.addr, self.offset)
@@ -59,22 +58,23 @@ class SegmentCommand(LoadCommand):
 		"""Get the segment name."""
 		return self._segname
 
-	def _loadSections(self):
+	def _loadSections(self, machO):
 		is64bit = self._cmd == 'SEGMENT_64'
 		
-		(segname, self._vmaddr, self._vmsize, self._fileoff, self._filesize, _, _, nsects, _) = self._o.readFormatStruct('16s4^2i2L', is64bit=is64bit)
+		(segname, self._vmaddr, self._vmsize, self._fileoff, self._filesize, _, _, nsects, _) = machO.readFormatStruct('16s4^2i2L', is64bit=is64bit)
 		
 		self._segname = fromStringz(segname)
+		self._o = machO
 		
 		sections = {}
 		for i in range(nsects):
-			sect = Section.createSection(self._o, is64bit)
+			sect = Section.createSection(machO, is64bit)
 			sections[sect.sectname] = sect
 		self._sections = sections
 
-	def analyze(self):
+	def analyze(self, machO):
 		if not hasattr(self, 'sections'):
-			self._loadSections()
+			self._loadSections(machO)
 		
 #		symtab = self.o.anyLoadCommand('SYMTAB')
 #		if symtab is not None:
@@ -101,7 +101,7 @@ class SegmentCommand(LoadCommand):
 		if fileoff is None:
 			return None
 		self._o.seek(fileoff)
-		val = self._o.readFormatStruct(fmt, is64bit=self._is64bit)
+		val = self._o.readFormatStruct(fmt, is64bit=(self._cmd == 'SEGMENT_64'))
 		self._o.tell(fileoff)
 		return val
 	

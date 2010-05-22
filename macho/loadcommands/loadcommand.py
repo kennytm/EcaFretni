@@ -26,7 +26,7 @@ class LoadCommand(object):
 		"""Move the file pointer to the offset of this load command."""
 		self._o.seek(self._offset)
 	
-	def analyze(self):
+	def analyze(self, machO):
 		"""Analyze the load command.
 		
 		The file pointer is guaranteed to be at the desired offset when this
@@ -36,8 +36,7 @@ class LoadCommand(object):
 		
 		return None
 	
-	def __init__(self, cmd, machO, size, offset):
-		self._o = machO
+	def __init__(self, cmd, size, offset):
 		self._cmd = cmd
 		self._size = size
 		self._offset = offset
@@ -46,6 +45,11 @@ class LoadCommand(object):
 	def cmd(self):
 		"""Get the name of this load command."""
 		return self._cmd
+
+	@property
+	def offset(self):
+		"""Get the offset of this load command (pass the 8-byte common header)."""
+		return self._offset
 
 	__names = [
 		'SEGMENT',           # 0x1, segment of this file to be mapped

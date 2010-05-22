@@ -21,9 +21,9 @@ from macho.loadcommands.loadcommand import LoadCommand
 class DylibCommand(LoadCommand):
 	"""The dylib load command."""
 
-	def analyze(self):
-		(offset, self.timestamp, self.version, self.minVersion) = self._o.readFormatStruct('4L')
-		self.name = self._o.peekString(position=offset + self._offset - 8)
+	def analyze(self, machO):
+		(offset, self.timestamp, self.version, self.minVersion) = machO.readFormatStruct('4L')
+		self.name = machO.peekString(position=offset + self._offset - 8)
 			
 	def __str__(self):
 		return "<Dylib {!r}>".format(self.name)

@@ -213,7 +213,7 @@ class MachO(object):
 			cmdname = LoadCommand.cmdname(cmd)
 			if cmdname is None:
 				raise MachOError('Unrecognized load command 0x{:x}.'.format(cmd))
-			self._loadCommands.append(LoadCommand.create(cmdname, self, cmdsize, offset))
+			self._loadCommands.append(LoadCommand.create(cmdname, cmdsize, offset))
 			self._file.seek(cmdsize - 8, os.SEEK_CUR)
 		
 		
@@ -233,8 +233,8 @@ class MachO(object):
 		while any(requiresAnalysis):
 			for i, lc in enumerate(self._loadCommands):
 				if requiresAnalysis[i]:
-					lc.seek()
-					requiresAnalysis[i] = lc.analyze()
+					self.seek(lc.offset)
+					requiresAnalysis[i] = lc.analyze(self)
 		
 		
 		

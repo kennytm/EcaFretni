@@ -21,8 +21,8 @@ from macho.loadcommands.loadcommand import LoadCommand
 class EncryptionInfoCommand(LoadCommand):
 	"""The encryption info load command."""
 
-	def analyze(self):
-		(self.cryptoff, self.cryptsize, self.cryptid) = self._o.readFormatStruct('3L')
+	def analyze(self, machO):
+		(self.cryptoff, self.cryptsize, self.cryptid) = machO.readFormatStruct('3L')
 			
 	def __str__(self):
 		return "<EncryptionInfo {}/{:x}>".format(self.cryptid, self.cryptoff)

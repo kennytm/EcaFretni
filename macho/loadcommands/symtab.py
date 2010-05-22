@@ -61,13 +61,13 @@ class SymtabCommand(LoadCommand):
 		return self._strings
 	
 	
-	def analyze(self):
-		(symoff, nsyms, stroff, _) = self._o.readFormatStruct('4L')
+	def analyze(self, machO):
+		(symoff, nsyms, stroff, _) = machO.readFormatStruct('4L')
 		
-		self._o.seek(symoff)
+		machO.seek(symoff)
 		symbols = []
 		for i in range(nsyms):
-			sym = Symbol(stroff, self._o)
+			sym = Symbol(stroff, machO)
 			symbols.append(sym)
 		
 		self._symbols = symbols
