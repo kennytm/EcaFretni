@@ -16,24 +16,37 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-from macho.macho import MachO, LoadCommand, MachOError
+from macho.loadCommands.loadCommand import LoadCommand
 from macho.utilities import readFormatStruct, fromStringz
-from collections import OrderedDict
+from macho.macho import MachO
+from factory import factory
 
+@factory
 class Section(object):
-	"""A section."""
+	"""An abstract section."""
 	
-	def __init__(self, fn, endian, is64bit):
-		(sectname, segname, self.addr, self.size,
-			self.offset, self.align, reloff, nreloc, flags, rs1, rs2) = readFormatStruct(fn, '16s16s2^7L', endian, is64bit)
+	@classmethod
+	def createSection(cls, fn, endian, is64bit):
+		(sectname, segname, addr, size,
+			offset, align, reloff, nreloc, flags, rs1, rs2) = readFormatStruct(fn, '16s16s2^7L', endian, is64bit)
+		
 		rs3 = readFormatStruct(fn, 'L', endian, is64bit)[0] if is64bit else 0
 		
-		self.sectname = fromStringz(sectname)
-		self.segname = fromStringz(segname)
-		self.reserved = (None, rs1, rs2, rs3)
+		sectname = fromStringz(sectname)
+		segname = fromStringz(segname)
+		reserved = (None, rs1, rs2, rs3)
 		
-		self.type = flags & 0xff
-		self.attrib = flags >> 8
+		ftype = flags & 0xff
+		attrib = flags >> 8
+		
+		return cls.create(sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved, fn, endian, is64bit)
+	
+	def __init__(self, sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved, fn, endian, is64bit):
+		(self.sectname, self.segname, self.addr, self.size, self.offset,
+			self.align, self.reloff, self.nreloc, self.ftype, self.attrib,
+			self.reserved, self.fn, self.endian, self.is64bit) = (sectname,
+				segname, addr, size, offset, align, reloff, nreloc, ftype,
+				attrib, reserved, fn, endian, is64bit)
 	
 	def __str__(self):
 		return "<Section: {},{}. 0x{:x}/{:x}>".format(self.segname, self.sectname, self.addr, self.offset)
@@ -45,20 +58,54 @@ class SegmentCommand(LoadCommand):
 		# LC_SEGMENT_64
 		is64bit = self.cmd == 0x19
 		
-		(segname, self.vmaddr, _, fileoff, _, _, _, nsects, _) = readFormatStruct(self.o.file, '16s4^2i2L', self.o.endian, is64bit)
+		(segname, self.vmaddr, self.vmsize, self.fileoff, self.filesize, _, _, nsects, _) = readFormatStruct(self.o.file, '16s4^2i2L', self.o.endian, is64bit)
 		
 		self.segname = fromStringz(segname)
-		self.vmdiff = self.vmaddr - fileoff
 		
-		sections = OrderedDict()
+		sections = {}
 		for i in range(nsects):
-			sect = Section(self.o.file, self.o.endian, is64bit)
+			sect = Section.createSection(self.o.file, self.o.endian, is64bit)
 			sections[sect.sectname] = sect
 		self.sections = sections
+		
+	def fromVM(self, vmaddr):
+		"""Convert VM address to file offset. Returns None if out of range."""
+		if self.vmaddr <= vmaddr < self.vmaddr + self.vmsize:
+			return vmaddr + self.fileoff - self.vmaddr
+		else:
+			return None
+	
+	def toVM(self, fileoff):
+		"""Convert file offset to VM address. Returns None if out of range."""
+		if self.fileoff <= fileoff < self.fileoff + self.filesize:
+			return fileoff + self.vmaddr - self.fileoff
+		else:
+			return None
+	
+	def deref(self, vmaddr, fmt):
+		fileoff = self.fromVM(vmaddr)
+		if fileoff is None:
+			return None
+		self.fn.seek(fileoff)
+		return readFormatStruct(self.fn, fmt, self.endian, self.is64bit)
 	
 	def __str__(self):
 		return "<Segment: {} [{}]>".format(self.segname, ', '.join(map(str, self.sections.values())))
 
 
-LoadCommand.registerFactory([1, 0x19], SegmentCommand)
-		
+LoadCommand.registerFactory('SEGMENT', SegmentCommand)
+LoadCommand.registerFactory('SEGMENT_64', SegmentCommand)
+
+
+def __macho_forEachSegment(attrName):
+	def f(self, addr):
+		for lc in self.loadCommandClasses[SegmentCommand]:
+			addr = lc.__getattribute__(attrName)(vmaddr)
+			if addr is not None:
+				return addr
+		return None
+	return f
+
+MachO.fromVM = __macho_forEachSegment('fromVM')
+MachO.toVM = __macho_forEachSegment('toVM')
+MachO.deref = __macho_forEachSegment('deref')

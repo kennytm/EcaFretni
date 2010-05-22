@@ -18,6 +18,8 @@
 
 from macho.arch import Arch
 from macho.utilities import readStruct, readFormatStruct
+from factory import factory
+from macho.loadCommands.loadCommand import LoadCommand
 import os
 
 class MachOError(Exception):
@@ -26,38 +28,6 @@ class MachOError(Exception):
 	def __str__(self):
 		return self.message
 
-class LoadCommand(object):
-	"""An abstract load command."""
-	
-	__commandFactories = {}
-	
-	def registerFactory(lcs, cls):
-		"""Register load commands with a class. For internal use only."""
-		for lc in lcs:
-			LoadCommand.__commandFactories[lc] = cls
-	
-	def create(machO, cmd, size, offset):
-		"""Factory of a load command."""
-		cls = LoadCommand.__commandFactories.get(cmd, LoadCommand)
-		return cls(machO, cmd, size, offset)
-	
-	def seek(self):
-		"""Move the file pointer to the offset of this load command."""
-		self.o.file.seek(self.offset)
-	
-	def analyze(self):
-		"""Analyze the load command."""
-		pass
-	
-	def __init__(self, machO, cmd, size, offset):
-		self.o = machO
-		self.cmd = cmd
-		self.size = size
-		self.offset = offset
-
-
-	def __str__(self):
-		return "<LoadCommand: #{:x}/{:x}>".format(self.cmd, self.offset)
 
 class MachO(object):
 	"""A simple Mach-O format parser."""
@@ -107,7 +77,9 @@ class MachO(object):
 		
 	def __analyze(self):
 		self.__pickArchFromFatFile()
+		self.__readMagic()
 		self.__readHeader()
+		self.__analyzeLoadCommands()
 		
 		
 	def __pickArchFromFatFile(self):
@@ -136,10 +108,8 @@ class MachO(object):
 		self.file.seek(offsets[bestMatch])
 		
 		
-	def __readHeader(self):
+	def __readMagic(self):
 		(magic, ) = readStruct(self.file, '<L')
-		
-		# Read the magic.
 		if magic == 0xfeedface:
 			self.endian = '<'
 		elif magic == 0xcefaedfe:
@@ -152,7 +122,9 @@ class MachO(object):
 			self.is64bit = True
 		else:
 			raise MachOError('Invalid magic "0x{:08x}".'.format(magic))
-		
+	
+	
+	def __readHeader(self):
 		# Read the header.
 		(cputype, cpusubtype, _, ncmds, _, _) = readFormatStruct(self.file, '6L', self.endian)
 		arch = Arch((cputype, cpusubtype))
@@ -168,15 +140,22 @@ class MachO(object):
 		for i in range(ncmds):
 			(cmd, cmdsize) = readFormatStruct(self.file, '2L', self.endian)
 			offset = self.file.tell()
-			self.loadCommands.append(LoadCommand.create(self, cmd, cmdsize, offset))
+			cmdname = LoadCommand.cmdname(cmd)
+			if cmdname is None:
+				raise MachOError('Unrecognized load command 0x{:x}.'.format(cmd))
+			self.loadCommands.append(LoadCommand.create(cmdname, self, cmdsize, offset))
 			self.file.seek(cmdsize - 8, os.SEEK_CUR)
 		
+		
+	def __analyzeLoadCommands(self):
+		# Classify the load commands 
 		loadCommandClasses = {}
 		for lc in self.loadCommands:
 			if type(lc) in loadCommandClasses:
 				loadCommandClasses[type(lc)].append(lc)
 			else:
 				loadCommandClasses[type(lc)] = [lc]
+		self.loadCommandClasses = loadCommandClasses
 		
 		# Analyze all load commands.
 		for lc in self.loadCommands:

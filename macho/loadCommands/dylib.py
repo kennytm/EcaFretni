@@ -1,5 +1,5 @@
 #	
-#	encryptionInfo.py ... LC_ENCRYPTION_INFO load command.
+#	dylib.py ... LC_LOAD_DYLIB load command.
 #	Copyright (C) 2010  KennyTM~ <kennytm@gmail.com>
 #	
 #	This program is free software: you can redistribute it and/or modify
@@ -17,17 +17,23 @@
 #	
 
 from macho.loadCommands.loadCommand import LoadCommand
-from macho.utilities import readFormatStruct
+from macho.utilities import readFormatStruct, readString
 
-class EncryptionInfoCommand(LoadCommand):
-	"""The encryption info load command."""
+class DylibCommand(LoadCommand):
+	"""The dylib load command."""
 
 	def analyze(self):
-		(self.cryptoff, self.cryptsize, self.cryptid) = readFormatStruct(self.o.file, '3L', self.o.endian, self.o.is64bit)
+		(offset, self.timestamp, self.version, self.minVersion) = readFormatStruct(self.o.file, '4L', self.o.endian, self.o.is64bit)
+		self.o.file.seek(offset + self.offset - 8)
+		self.name = readString(self.o.file)
 			
 	def __str__(self):
-		return "<EncryptionInfo {}/{:x}>".format(self.cryptid, self.cryptoff)
+		return "<Dylib {!r}>".format(self.name)
 
 
-LoadCommand.registerFactory('ENCRYPTION_INFO', EncryptionInfoCommand)
-		
+LoadCommand.registerFactory('LOAD_DYLIB', DylibCommand)
+LoadCommand.registerFactory('ID_DYLIB', DylibCommand)
+LoadCommand.registerFactory('LOAD_WEAK_DYLIB', DylibCommand)
+LoadCommand.registerFactory('REEXPORT_DYLIB', DylibCommand)
+LoadCommand.registerFactory('LAZY_LOAD_DYLIB', DylibCommand)
+
