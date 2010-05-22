@@ -19,7 +19,7 @@
 from macho.arch import Arch
 from macho.utilities import readStruct, readFormatStruct, peekString
 from factory import factory
-from macho.loadCommands.loadCommand import LoadCommand
+from macho.loadcommands.loadcommand import LoadCommand
 import os
 
 class MachOError(Exception):

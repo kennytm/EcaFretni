@@ -16,7 +16,7 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-from macho.loadCommands.loadCommand import LoadCommand
+from macho.loadcommands.loadcommand import LoadCommand
 from macho.utilities import readFormatStruct, fromStringz
 from macho.macho import MachO
 from factory import factory

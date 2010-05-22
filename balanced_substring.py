@@ -1,5 +1,5 @@
 #
-#	balancedSubstring.py ... Make a balanced substring
+#	balanced_substring.py ... Make a balanced substring
 #	Copyright (C) 2010  KennyTM~ <kennytm@gmail.com>
 #	
 #	This program is free software: you can redistribute it and/or modify
