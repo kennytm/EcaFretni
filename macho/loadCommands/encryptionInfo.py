@@ -23,7 +23,7 @@ class EncryptionInfoCommand(LoadCommand):
 	"""The encryption info load command."""
 
 	def analyze(self):
-		(self.cryptoff, self.cryptsize, self.cryptid) = self.o.readFormatStruct('3L')
+		(self.cryptoff, self.cryptsize, self.cryptid) = self._o.readFormatStruct('3L')
 			
 	def __str__(self):
 		return "<EncryptionInfo {}/{:x}>".format(self.cryptid, self.cryptoff)

@@ -23,7 +23,7 @@ class Symbol(object):
 	"""A symbol in Mach-O file."""
 	
 	@staticmethod
-	def getLibraryOrdinal(desc):
+	def _getLibraryOrdinal(desc):
 		return (desc >> 8) & 0xff
 	
 	def __init__(self, stroff, machO):
@@ -34,7 +34,7 @@ class Symbol(object):
 		
 		self.library = None
 		if typ & 1:	# N_EXT
-			self.library = machO.loadCommandClasses['DylibCommand'][self.getLibraryOrdinal(desc)]
+			self.library = machO.allLoadCommands('DylibCommand')[self._getLibraryOrdinal(desc)]
 		
 		if desc & 8:	# N_ARM_THUMB_DEF
 			self.value &= ~1
@@ -46,19 +46,35 @@ class Symbol(object):
 class SymtabCommand(LoadCommand):
 	"""The symtab (symbol table) load command."""
 	
+	@property
+	def symbols(self):
+		"""Get an ordered list of symbols."""
+		return self._symbols
+
+	@property
+	def values(self):
+		"""Get a dictionary of symbols indiced by address."""
+		return self._values
+	
+	@property
+	def strings(self):
+		"""Get a dictionary of symbols indiced by address."""
+		return self._strings
+	
+	
 	def analyze(self):
-		(symoff, nsyms, stroff, _) = self.o.readFormatStruct('4L')
+		(symoff, nsyms, stroff, _) = self._o.readFormatStruct('4L')
 		
-		self.o.seek(symoff)
+		self._o.seek(symoff)
 		symbols = []
 		for i in range(nsyms):
-			sym = Symbol(stroff, self.o)
+			sym = Symbol(stroff, self._o)
 			symbols.append(sym)
 		
-		self.symbols = symbols
+		self._symbols = symbols
 		
-		self.values = {s.value:s for s in symbols}
-		self.strings = {s.string:s for s in symbols}
+		self._values = {s.value:s for s in symbols}
+		self._strings = {s.string:s for s in symbols}
 	
 LoadCommand.registerFactory('SYMTAB', SymtabCommand)
 		

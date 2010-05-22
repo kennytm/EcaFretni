@@ -26,11 +26,11 @@ class Section(object):
 	"""An abstract section."""
 	
 	@classmethod
-	def createSection(cls, fn, endian, is64bit):
+	def createSection(cls, machO, is64bit):
 		(sectname, segname, addr, size,
-			offset, align, reloff, nreloc, flags, rs1, rs2) = readFormatStruct(fn, '16s16s2^7L', endian, is64bit)
+			offset, align, reloff, nreloc, flags, rs1, rs2) = machO.readFormatStruct('16s16s2^7L', is64bit=is64bit)
 		
-		rs3 = readFormatStruct(fn, 'L', endian, is64bit)[0] if is64bit else 0
+		rs3 = machO.readFormatStruct('L')[0] if is64bit else 0
 		
 		sectname = fromStringz(sectname)
 		segname = fromStringz(segname)
@@ -39,14 +39,14 @@ class Section(object):
 		ftype = flags & 0xff
 		attrib = flags >> 8
 		
-		return cls.create(sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved, fn, endian, is64bit)
+		return cls.create(sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved, machO, is64bit)
 	
-	def __init__(self, sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved, fn, endian, is64bit):
+	def __init__(self, sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved, machO, is64bit):
 		(self.sectname, self.segname, self.addr, self.size, self.offset,
 			self.align, self.reloff, self.nreloc, self.ftype, self.attrib,
-			self.reserved, self.fn, self.endian, self.is64bit) = (sectname,
-				segname, addr, size, offset, align, reloff, nreloc, ftype,
-				attrib, reserved, fn, endian, is64bit)
+			self.reserved, self._o, self._is64bit) = (sectname, segname, addr,
+				size, offset, align, reloff, nreloc, ftype, attrib, reserved,
+				machO, is64bit)
 	
 	def __str__(self):
 		return "<Section: {},{}. 0x{:x}/{:x}>".format(self.segname, self.sectname, self.addr, self.offset)
@@ -54,65 +54,74 @@ class Section(object):
 class SegmentCommand(LoadCommand):
 	"""The segment load command."""
 
-	def __loadSections(self):
-		is64bit = self.cmd == 'SEGMENT_64'
+	@property
+	def segname(self):
+		"""Get the segment name."""
+		return self._segname
+
+	def _loadSections(self):
+		is64bit = self._cmd == 'SEGMENT_64'
 		
-		(segname, self.vmaddr, self.vmsize, self.fileoff, self.filesize, _, _, nsects, _) = readFormatStruct(self.o.file, '16s4^2i2L', self.o.endian, is64bit)
+		(segname, self._vmaddr, self._vmsize, self._fileoff, self._filesize, _, _, nsects, _) = self._o.readFormatStruct('16s4^2i2L', is64bit=is64bit)
 		
-		self.segname = fromStringz(segname)
+		self._segname = fromStringz(segname)
 		
 		sections = {}
 		for i in range(nsects):
-			sect = Section.createSection(self.o.file, self.o.endian, is64bit)
+			sect = Section.createSection(self._o, is64bit)
 			sections[sect.sectname] = sect
-		self.sections = sections
+		self._sections = sections
 
 	def analyze(self):
 		if not hasattr(self, 'sections'):
-			self.__loadSections()
-			return True
-		else:
-			return False
+			self._loadSections()
+		
+#		symtab = self.o.anyLoadCommand('SYMTAB')
+#		if symtab is not None:
+#			if not hasattr(symtab, 'symbols'):
+
 		
 			
 	def fromVM(self, vmaddr):
 		"""Convert VM address to file offset. Returns None if out of range."""
-		if self.vmaddr <= vmaddr < self.vmaddr + self.vmsize:
-			return vmaddr + self.fileoff - self.vmaddr
+		if self._vmaddr <= vmaddr < self._vmaddr + self._vmsize:
+			return vmaddr + self._fileoff - self._vmaddr
 		else:
 			return None
 	
 	def toVM(self, fileoff):
 		"""Convert file offset to VM address. Returns None if out of range."""
-		if self.fileoff <= fileoff < self.fileoff + self.filesize:
-			return fileoff + self.vmaddr - self.fileoff
+		if self._fileoff <= fileoff < self._fileoff + self._filesize:
+			return fileoff + self._vmaddr - self._fileoff
 		else:
 			return None
 	
 	def deref(self, vmaddr, fmt):
-		fileoff = self.fromVM(vmaddr)
+		fileoff = self._fromVM(vmaddr)
 		if fileoff is None:
 			return None
-		self.seek(fileoff)
-		return readFormatStruct(self.fn, fmt, self.endian, self.is64bit)
+		self._o.seek(fileoff)
+		val = self._o.readFormatStruct(fmt, is64bit=self._is64bit)
+		self._o.tell(fileoff)
+		return val
 	
 	def __str__(self):
-		return "<Segment: {} [{}]>".format(self.segname, ', '.join(map(str, self.sections.values())))
+		return "<Segment: {} [{}]>".format(self._segname, ', '.join(map(str, self._sections.values())))
 
 
 LoadCommand.registerFactory('SEGMENT', SegmentCommand)
 LoadCommand.registerFactory('SEGMENT_64', SegmentCommand)
 
 
-def __macho_forEachSegment(attrName):
+def _macho_forEachSegment(attrName):
 	def f(self, addr):
-		for lc in self.loadCommandClasses['SegmentCommand']:
+		for lc in self.allLoadCommands('SegmentCommand'):
 			addr = getattr(lc, attrName)(vmaddr)
 			if addr is not None:
 				return addr
 		return None
 	return f
 
-MachO.fromVM = __macho_forEachSegment('fromVM')
-MachO.toVM = __macho_forEachSegment('toVM')
-MachO.deref = __macho_forEachSegment('deref')
+MachO.fromVM = _macho_forEachSegment('fromVM')
+MachO.toVM = _macho_forEachSegment('toVM')
+MachO.deref = _macho_forEachSegment('deref')

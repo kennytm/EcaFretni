@@ -41,27 +41,42 @@ class MachO(object):
 		return self.close(exc_type, exc_value, traceback)
 
 	def __init__(self, filename, arch="armv6", lenientArchMatching=False):
-		self.filename = filename
-		self.arch = Arch(arch)
-		self.lenientArchMatching = lenientArchMatching
+		self._filename = filename
+		self._arch = Arch(arch)
+		self._lenientArchMatching = lenientArchMatching
 		
-		self.file = None
+		self._file = None
 		
-		self.loadCommands = []
-		self.is64bit = False
-		self.endian = '<'
+		self._loadCommands = []
+		self._is64bit = False
+		self._endian = '<'
 
-		
+	
+	@property
+	def file(self):
+		"""Return the file object of this Mach-O file."""
+		return self._file
+	
+	@property
+	def endian(self):
+		"""Return the endianness of this Mach-O file."""
+		return self._endian
+	
+	@property
+	def is64bit(self):
+		"""Return if this Mach-O file is using a 64-bit ABI."""
+		return self.__is64bit
+	
 	
 	def open(self):
 		"""Open the Mach-O file object for access.
 		
 		The 'with' statement should be used instead."""
 		
-		if self.file is None:
-			self.file = open(self.filename, 'rb').__enter__()
+		if self._file is None:
+			self._file = open(self._filename, 'rb').__enter__()
 		else:
-			self.file.seek(0)
+			self._file.seek(0)
 		self.__analyze()
 	
 	def close(self, exc_type=None, exc_value=None, traceback=None):
@@ -69,40 +84,56 @@ class MachO(object):
 		
 		The 'with' statement should be used instead."""
 	
-		if self.file is not None:
-			retval = self.file.__exit__(exc_type, exc_value, traceback)
-			self.file = None
+		if self._file is not None:
+			retval = self._file.__exit__(exc_type, exc_value, traceback)
+			self._file = None
 			return retval
 
 
 	def seek(self, offset):
 		"""Jump the cursor to the specific file offset, factoring out the file origin."""
-		self.file.seek(offset + self.origin)
+		self._file.seek(offset + self._origin)
 	
 	def tell(self):
 		"""Get the current file offset, factoring out the file origin."""
-		return self.file.tell() - self.origin
+		return self._file.tell() - self._origin
 
 	def peekString(self, encoding='utf_8', position=None):
 		"""Read a null-terminated string without moving the cursor, factoring out the file origin."""
 		if position is not None:
-			position += self.origin
-		return peekString(self.file, encoding, position)
+			position += self._origin
+		return peekString(self._file, encoding, position)
 
-	def readFormatStruct(self, fmt):
-		"""Format a Python struct type encoding and read it."""
-		return readFormatStruct(self.file, fmt, self.endian, self.is64bit)
+	def readFormatStruct(self, fmt, endian=None, is64bit=None):
+		"""Format a Python struct type encoding and read it.
+		
+		Always ignore the last 2 arguments unless you want to override the default in this call."""
+		if endian is None:
+			endian = self._endian
+		if is64bit is None:
+			is64bit = self._is64bit
+		return readFormatStruct(self._file, fmt, endian, is64bit)
 
 
-	def allLoadCommands(self, cls):
-		"""Get all load command with the specified class."""
+	def _allLoadCommands(self, cls):
+		# get all load command which is not found in _loadCommandClasses.
 		if isinstance(cls, int):
 			cls = LoadCommand.cmdname(cls)
 		if isinstance(cls, str):
 			f = LoadCommand.getFactory(cls)
 			if f is not None:
 				cls = f.__name__
-		return self.loadCommandClasses.get(cls, [])
+		return self._loadCommandClasses.get(cls, [])
+		
+
+	def allLoadCommands(self, cls):
+		"""Get all load command with the specified class."""
+		if cls in self._loadCommandClasses:
+			return self._loadCommandClasses[cls]
+		else:
+			return self._allLoadCommands(cls)
+		
+		
 	
 	def anyLoadCommand(self, cls):
 		"""Get the first load command with the specified class."""
@@ -121,86 +152,86 @@ class MachO(object):
 		
 		
 	def __pickArchFromFatFile(self):
-		(magic, nfat_arch) = readStruct(self.file, '>2L')
+		(magic, nfat_arch) = readStruct(self._file, '>2L')
 		
 		# Reset and return if not a fat file.
 		if magic != 0xcafebabe:
-			self.file.seek(0)
+			self._file.seek(0)
 			return
 		
 		# Get all the possible fat archs.
 		offsets = {}
 		for i in range(nfat_arch):
-			(cputype, cpusubtype, offset, _, _) = readStruct(self.file, '>5L')
+			(cputype, cpusubtype, offset, _, _) = readStruct(self._file, '>5L')
 			offsets[Arch((cputype, cpusubtype))] = offset
 		
 		# Find the best match.
-		scoreLimit = 1000 if not self.lenientArchMatching else 2000
-		bestMatch = self.arch.bestMatch(offsets.keys(), scoreLimit)
+		scoreLimit = 1000 if not self._lenientArchMatching else 2000
+		bestMatch = self._arch.bestMatch(offsets.keys(), scoreLimit)
 		
 		# Cannot find best match, raise an error. 
 		if bestMatch is None:
-			raise MachOError('Cannot find an arch matching "{}". Available archs are: {}'.format(self.arch, ', '.join(map(str, offsets.keys())) ))
+			raise MachOError('Cannot find an arch matching "{}". Available archs are: {}'.format(self._arch, ', '.join(map(str, offsets.keys())) ))
 		
 		# Jump to offset if best match is found.
-		self.file.seek(offsets[bestMatch])
+		self._file.seek(offsets[bestMatch])
 		
 		
 	def __readMagic(self):
-		self.origin = self.file.tell()
-		(magic, ) = readStruct(self.file, '<L')
+		self._origin = self._file.tell()
+		(magic, ) = readStruct(self._file, '<L')
 		if magic == 0xfeedface:
-			self.endian = '<'
+			self._endian = '<'
 		elif magic == 0xcefaedfe:
-			self.endian = '>'
+			self._endian = '>'
 		elif magic == 0xfeedfacf:
-			self.endian = '<'
-			self.is64bit = True
+			self._endian = '<'
+			self._is64bit = True
 		elif magic == 0xcffaedfe:
-			self.endian = '>'
-			self.is64bit = True
+			self._endian = '>'
+			self._is64bit = True
 		else:
 			raise MachOError('Invalid magic "0x{:08x}".'.format(magic))
 	
 	
 	def __readHeader(self):
 		# Read the header.
-		(cputype, cpusubtype, _, ncmds, _, _) = readFormatStruct(self.file, '6L', self.endian)
+		(cputype, cpusubtype, _, ncmds, _, _) = readFormatStruct(self._file, '6L', self._endian)
 		arch = Arch((cputype, cpusubtype))
-		if self.is64bit:
-			self.file.read(4)	# there is a reserved member in 64-bit ABI.
+		if self._is64bit:
+			self._file.read(4)	# there is a reserved member in 64-bit ABI.
 		
 		# Make sure the CPU type matches.
-		scoreLimit = 1000 if not self.lenientArchMatching else 2000
-		if self.arch.match(arch) >= scoreLimit:
-			raise MachOError('Cannot find an arch matching "{}". Available arch is: {}'.format(self.arch, arch))
+		scoreLimit = 1000 if not self._lenientArchMatching else 2000
+		if self._arch.match(arch) >= scoreLimit:
+			raise MachOError('Cannot find an arch matching "{}". Available arch is: {}'.format(self._arch, arch))
 		
 		# Read all load commands.
 		for i in range(ncmds):
-			(cmd, cmdsize) = readFormatStruct(self.file, '2L', self.endian)
+			(cmd, cmdsize) = readFormatStruct(self._file, '2L', self._endian)
 			offset = self.tell()
 			cmdname = LoadCommand.cmdname(cmd)
 			if cmdname is None:
 				raise MachOError('Unrecognized load command 0x{:x}.'.format(cmd))
-			self.loadCommands.append(LoadCommand.create(cmdname, self, cmdsize, offset))
-			self.file.seek(cmdsize - 8, os.SEEK_CUR)
+			self._loadCommands.append(LoadCommand.create(cmdname, self, cmdsize, offset))
+			self._file.seek(cmdsize - 8, os.SEEK_CUR)
 		
 		
 	def __analyzeLoadCommands(self):
 		# Classify the load commands 
 		loadCommandClasses = {}
-		for lc in self.loadCommands:
+		for lc in self._loadCommands:
 			clsname = type(lc).__name__
 			if clsname in loadCommandClasses:
 				loadCommandClasses[clsname].append(lc)
 			else:
 				loadCommandClasses[clsname] = [lc]
-		self.loadCommandClasses = loadCommandClasses
+		self._loadCommandClasses = loadCommandClasses
 		
 		# Analyze all load commands.
-		requiresAnalysis = [True]*len(self.loadCommands)
+		requiresAnalysis = [True]*len(self._loadCommands)
 		while any(requiresAnalysis):
-			for i, lc in enumerate(self.loadCommands):
+			for i, lc in enumerate(self._loadCommands):
 				if requiresAnalysis[i]:
 					lc.seek()
 					requiresAnalysis[i] = lc.analyze()

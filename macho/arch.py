@@ -114,6 +114,7 @@ class Arch(object):
 		return Arch(self)
 	
 	
+	@property
 	def is64bit(self):
 		"""Checks if the architecture is 64-bit."""
 		return bool(self.cputype & 0x1000000)
@@ -159,13 +160,13 @@ class Arch(object):
 if __name__ == "__main__":
 	a = Arch("x86_64")
 	assert a.cputype == 0x1000007 and a.cpusubtype == 3
-	assert a.is64bit()
+	assert a.is64bit
 	
 	b = Arch((0x1000007, 3))
 	assert str(b) == "x86_64"
 	assert a.match(b) == 0
 	assert b.match(a) == 0
-	assert b.is64bit()
+	assert b.is64bit
 	
 	c = Arch("armv7")
 	d = Arch("armv6")
@@ -175,8 +176,8 @@ if __name__ == "__main__":
 	assert c.match("arm") == 1
 	assert d.match(c) == 2000
 	assert d.match("any") == 5000
-	assert not c.is64bit()
-	assert not d.is64bit()
+	assert not c.is64bit
+	assert not d.is64bit
 	
 	assert str(c.bestMatch([a, b, c, d])) == "armv7"
 	assert str(c.bestMatch([a, b, d])) == "armv6"

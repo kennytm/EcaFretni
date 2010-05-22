@@ -1,3 +1,5 @@
 *.o
 *.pyc
 .DS_Store
+test.py
+XcodeProject

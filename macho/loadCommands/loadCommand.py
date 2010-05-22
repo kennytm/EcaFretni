@@ -24,7 +24,7 @@ class LoadCommand(object):
 	
 	def seek(self):
 		"""Move the file pointer to the offset of this load command."""
-		self.o.seek(self.offset)
+		self._o.seek(self._offset)
 	
 	def analyze(self):
 		"""Analyze the load command.
@@ -37,11 +37,15 @@ class LoadCommand(object):
 		return None
 	
 	def __init__(self, cmd, machO, size, offset):
-		self.o = machO
-		self.cmd = cmd
-		self.size = size
-		self.offset = offset
+		self._o = machO
+		self._cmd = cmd
+		self._size = size
+		self._offset = offset
 
+	@property
+	def cmd(self):
+		"""Get the name of this load command."""
+		return self._cmd
 
 	__names = [
 		'SEGMENT',           # 0x1, segment of this file to be mapped
@@ -99,4 +103,4 @@ class LoadCommand(object):
 		return cls.__names_map.get(name, -1) + 1
 
 	def __str__(self):
-		return "<LoadCommand: LC_{}/{:x}>".format(self.cmd, self.offset)
+		return "<LoadCommand: LC_{}/{:x}>".format(self._cmd, self._offset)
