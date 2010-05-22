@@ -80,7 +80,9 @@ class LoadCommand(object):
 			'REEXPORT_DYLIB',    # 0x1f, load and re-export dylib
 			'LAZY_LOAD_DYLIB',   # 0x20, delay load of dylib until first use
 			'ENCRYPTION_INFO',   # 0x21, encrypted segment information
-			'DYLD_INFO']		 # 0x22, compressed dyld information
+			'DYLD_INFO',         # 0x22, compressed dyld information
+			'LOAD_UPWARD_DYLIB'  # 0x23, load upward dylib
+		]
 		
 		cmd &= ~0x80000000
 		if 1 <= cmd <= len(names):

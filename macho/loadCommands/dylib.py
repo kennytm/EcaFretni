@@ -30,10 +30,5 @@ class DylibCommand(LoadCommand):
 	def __str__(self):
 		return "<Dylib {!r}>".format(self.name)
 
-
-LoadCommand.registerFactory('LOAD_DYLIB', DylibCommand)
-LoadCommand.registerFactory('ID_DYLIB', DylibCommand)
-LoadCommand.registerFactory('LOAD_WEAK_DYLIB', DylibCommand)
-LoadCommand.registerFactory('REEXPORT_DYLIB', DylibCommand)
-LoadCommand.registerFactory('LAZY_LOAD_DYLIB', DylibCommand)
-
+for i in ['LOAD_DYLIB', 'ID_DYLIB', 'LOAD_WEAK_DYLIB', 'REEXPORT_DYLIB', 'LAZY_LOAD_DYLIB', 'LOAD_UPWARD_DYLIB']:
+	LoadCommand.registerFactory(i, DylibCommand)
