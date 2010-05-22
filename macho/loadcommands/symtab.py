@@ -37,14 +37,16 @@ class SymtabCommand(LoadCommand):
 		
 		# Now analyze the nlist structs
 		symbols = []
+		allDylibs = machO.allLoadCommands('DylibCommand')
 		for (idx, typ, sect, desc, value) in nlists:
 			string = machO.peekString(position=stroff+idx)
 			library = None
-			if typ & 1:	# N_EXT
-				library = machO.allLoadCommands('DylibCommand')[_getLibraryOrdinal(desc)]
+			extern = bool(typ & 1)	# N_EXT
+			if extern:
+				library = allDylibs[_getLibraryOrdinal(desc)]
 			if desc & 8:	# N_ARM_THUMB_DEF
 				value &= ~1
-			symbols.append(Symbol(string, value, library))
+			symbols.append(Symbol(string, value, library, extern))
 		
 		# add those symbols back into the Mach-O.
 		machO.addSymbols(symbols, fromSymtab=True)

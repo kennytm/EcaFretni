@@ -17,7 +17,7 @@
 #	
 
 from macho.arch import Arch
-from macho.utilities import readStruct, readFormatStruct, peekString, readULeb128, readSLeb128
+from macho.utilities import readStruct, readFormatStruct, peekString, readULeb128, readSLeb128, readString
 from factory import factory
 from macho.loadcommands.loadcommand import LoadCommand
 import os
@@ -65,8 +65,12 @@ class MachO(object):
 	@property
 	def is64bit(self):
 		"""Return if this Mach-O file is using a 64-bit ABI."""
-		return self.__is64bit
+		return self._is64bit
 	
+	@property
+	def pointerWidth(self):
+		"""Return the width of pointer in the current ABI."""
+		return 8 if self._is64bit else 4
 	
 	def open(self):
 		"""Open the Mach-O file object for access.
