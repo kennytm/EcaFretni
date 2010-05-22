@@ -58,6 +58,11 @@ class SegmentCommand(LoadCommand):
 		"""Get the segment name."""
 		return self._segname
 
+	@property
+	def vmaddr(self):
+		"""Get the base VM address of this segment."""
+		return self._vmaddr
+
 	def _loadSections(self, machO):
 		is64bit = self._cmd == 'SEGMENT_64'
 		

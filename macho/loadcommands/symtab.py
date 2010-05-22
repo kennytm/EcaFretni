@@ -17,63 +17,40 @@
 #	
 
 from macho.loadcommands.loadcommand import LoadCommand
+from macho.symbol import Symbol
 
-class Symbol(object):
-	"""A symbol in Mach-O file."""
-	
-	@staticmethod
-	def _getLibraryOrdinal(desc):
-		return (desc >> 8) & 0xff
-	
-	def __init__(self, stroff, machO):
-		(idx, typ, sect, desc, value) = machO.readFormatStruct('LBBH^')
+def _getLibraryOrdinal(desc):
+	return (desc >> 8) & 0xff	
 
-		self.string = machO.peekString(position=stroff+idx)
-		self.value = value
-		
-		self.library = None
-		if typ & 1:	# N_EXT
-			self.library = machO.allLoadCommands('DylibCommand')[self._getLibraryOrdinal(desc)]
-		
-		if desc & 8:	# N_ARM_THUMB_DEF
-			self.value &= ~1
-	
-	def __str__(self):
-		return "<Symbol {!r}:0x{:x}>".format(self.string, self.value)
-		
 
 class SymtabCommand(LoadCommand):
 	"""The symtab (symbol table) load command."""
-	
-	@property
-	def symbols(self):
-		"""Get an ordered list of symbols."""
-		return self._symbols
-
-	@property
-	def values(self):
-		"""Get a dictionary of symbols indiced by address."""
-		return self._values
-	
-	@property
-	def strings(self):
-		"""Get a dictionary of symbols indiced by address."""
-		return self._strings
-	
-	
+		
 	def analyze(self, machO):
 		(symoff, nsyms, stroff, _) = machO.readFormatStruct('4L')
 		
+		# Get all nlist structs
 		machO.seek(symoff)
-		symbols = []
+		nlists = []
 		for i in range(nsyms):
-			sym = Symbol(stroff, machO)
-			symbols.append(sym)
+			nlists.append(machO.readFormatStruct('LBBH^'))
 		
-		self._symbols = symbols
+		# Now analyze the nlist structs
+		symbols = []
+		for (idx, typ, sect, desc, value) in nlists:
+			string = machO.peekString(position=stroff+idx)
+			library = None
+			if typ & 1:	# N_EXT
+				library = machO.allLoadCommands('DylibCommand')[_getLibraryOrdinal(desc)]
+			if desc & 8:	# N_ARM_THUMB_DEF
+				value &= ~1
+			symbols.append(Symbol(string, value, library))
 		
-		self._values = {s.value:s for s in symbols}
-		self._strings = {s.string:s for s in symbols}
-	
+		# add those symbols back into the Mach-O.
+		machO.addSymbols(symbols, fromSymtab=True)
+
 LoadCommand.registerFactory('SYMTAB', SymtabCommand)
-		
+
+
+
+
