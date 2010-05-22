@@ -158,9 +158,12 @@ class MachO(object):
 		self.loadCommandClasses = loadCommandClasses
 		
 		# Analyze all load commands.
-		for lc in self.loadCommands:
-			lc.seek()
-			lc.analyze()
+		requiresAnalysis = [True]*len(self.loadCommands)
+		while any(requiresAnalysis):
+			for i, lc in enumerate(self.loadCommands):
+				if requiresAnalysis[i]:
+					lc.seek()
+					requiresAnalysis[i] = lc.analyze()
 		
 		
 		

@@ -30,8 +30,11 @@ class LoadCommand(object):
 		"""Analyze the load command.
 		
 		The file pointer is guaranteed to be at the desired offset when this
-		method is called from MachO.open()."""
-		pass
+		method is called from MachO.open().
+		
+		Return a true value to require further analysis."""
+		
+		return None
 	
 	def __init__(self, cmd, machO, size, offset):
 		self.o = machO

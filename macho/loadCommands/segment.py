@@ -56,7 +56,7 @@ class SegmentCommand(LoadCommand):
 
 	def analyze(self):
 		# LC_SEGMENT_64
-		is64bit = self.cmd == 0x19
+		is64bit = self.cmd == 'SEGMENT_64'
 		
 		(segname, self.vmaddr, self.vmsize, self.fileoff, self.filesize, _, _, nsects, _) = readFormatStruct(self.o.file, '16s4^2i2L', self.o.endian, is64bit)
 		
