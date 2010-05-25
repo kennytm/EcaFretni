@@ -48,7 +48,6 @@ class SortedList(object):
 		index = hint
 		if self.items[index] != obj:
 			# The hint isn't right! Find again.
-			print(obj, index, self.items)
 			index = self.items.index(obj)
 		
 		if index == 0 or self.useCount[index-1] < self.useCount[index]:

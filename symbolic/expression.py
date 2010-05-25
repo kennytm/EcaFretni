@@ -166,7 +166,7 @@ class Expression(object):
 			else:
 				return _retval()
 
-	def __neg__(self): return Expression('-', self)
+	def __neg__(self): return Expression('*', -1, self)
 	def __invert__(self): return Expression('~', self)
 
 	def __add__(self, other): return Expression('+', self, other)
@@ -183,8 +183,8 @@ class Expression(object):
 	def __rmod__(self, other): return Expression('%', other, self)
 	def __pow__(self, other): return Expression('**', self, other)
 	def __rpow__(self, other): return Expression('**', other, self)
-	def __lshift__(self, other): return Expression('<<', self, other)
-	def __rlshift__(self, other): return Expression('<<', other, self)
+	def __lshift__(self, other): return Expression('*', self, Expression('**', 2, other))
+	def __rlshift__(self, other): return Expression('*', other, Expression('**', 2, self))
 	def __rshift__(self, other): return Expression('>>', self, other)
 	def __rrshift__(self, other): return Expression('>>', other, self)
 	def __and__(self, other): return Expression('&', self, other)

@@ -17,7 +17,7 @@
 #	
 
 from symbolic.expression import Expression
-from symbolic.simplify.utilities import split
+from symbolic.simplify.utilities import performIf
 from collections import Counter
 import operator
 import functools
@@ -88,14 +88,13 @@ def _nary(self):
 		rests = Counter()
 		totalValCount = 0
 		
-		# reduce constant values.
-		for child, count in self.children.items():
-			if Expression.isConstant(child):
-				if child != default:
-					val = _applyNtimes(self.type, child, count, val)
-				totalValCount += count
-			else:
-				rests[child] += count
+		def _updateVal(child, count):
+			nonlocal val, totalValCount
+			if child != default:
+				val = _applyNtimes(self.type, child, count, val)
+			totalValCount += count
+		
+		(rests, _) = performIf(self.children, Expression.isConstant, _updateVal)
 		
 		if val != default:
 			rests[val] += 1

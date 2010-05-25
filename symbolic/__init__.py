@@ -15,4 +15,21 @@
 #	You should have received a copy of the GNU General Public License
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+
+This is the symbolic arithmetic package for the EcaFretni project. Unlike other
+symbolic math libraries (e.g. SymPy), this package is aimed for simplification
+and integer arithmetic, which is useful for code analysis and decompiling. 
+Unnecessary features e.g. string parsing, calculus etc. will not be present.
+
+The simplification routine is extensible. To create a new simplification rule,
+just add a module in the simplification/ directory, then call
+
+	Expression.addSimplificationRule(rule, "name of rule")
+
+to enable it. See the documentation of Expression.addSimplificationRule for
+detail.
+
+"""
+
 __all__ = ['expression']

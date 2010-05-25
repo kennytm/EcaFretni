@@ -17,35 +17,30 @@
 #	
 
 from symbolic.expression import Expression
-from symbolic.simplify.utilities import split
 from collections import Counter
+from symbolic.simplify.utilities import performIf
 
 # Commutative semigroup are mathematical structures for an operator + and set S,
 # such that:
 #
 #   forall a,b,c.       (a + b) + c == a + (b + c)     (associative)
 #   forall a,b.               a + b == b + a           (commutative)
-#   exists 0. forall a.       0 + a == a
-#
-# A commutative monoid is called an abelian group if
-#
-#   forall a. exists -a.   a + (-a) == 0
 #
 
 def _flatten(self):
 	# flatten an expression tree of the same type by applying associativity.
 	# a + (b + c) == a + b + c.
+	
 	if self.type in ('+', '*', '&', '|', '^', '&&', '||'):
-		rest = Counter()
-		hasFlatten = False
-		for child, count in self.children.items():
-			if Expression.isType(self.type)(child):
-				rest += child.children
-				hasFlatten = True
-			else:
-				rest[child] += count
-			
+		flatPart = Counter()
+		def _flattenAction(child, count):
+			nonlocal flatPart
+			flatPart += Counter({k: v*count for k, v in child.children.items()})
+		
+		(rest, hasFlatten) = performIf(self.children, Expression.isType(self.type), _flattenAction)
+	
 		if hasFlatten:
+			rest += flatPart
 			return self.replaceChildren(rest)
 
 def _idempotent(self):
