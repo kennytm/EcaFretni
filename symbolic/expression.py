@@ -22,16 +22,21 @@ from copy import deepcopy
 
 class Expression(object):
 	@staticmethod
-	def isConstant(x):
-		"""Checks if x is a constant value."""
-		return isinstance(x, (int, float, bool))
-
-	@staticmethod
 	def isType(typ):
 		"""Returns a functor that checks if the input has the specified type."""
 		def checker(x):
-			return isinstance(x, Expression) and x.type == typ
+			return x.type == typ
 		return checker
+		
+	@staticmethod
+	def isConstant(x):
+		"""Checks whether the input is a constant."""
+		return x.type == '<const>'
+
+	@staticmethod
+	def isAtomic(x):
+		"""Checks whether the expression is atomic (i.e. cannot be further simplified)."""
+		return x.type == '<const>' or x.type == '<symbol>'
 
 	__commutativeOpers = set(['+', '*', '&', '|', '^', '&&', '||', '==', '!='])
 
@@ -39,6 +44,9 @@ class Expression(object):
 		self.type = typ
 		concretizer = Counter if typ in self.__commutativeOpers else list
 		self.children = concretizer(map(deepcopy, args))
+		self._isConstant = False
+		
+		assert all(isinstance(k, type(self)) for k in self.children)
 		
 		# Available types:
 		#   +: Add (n-ary, constant must be at the 0th position)
@@ -77,7 +85,7 @@ class Expression(object):
 		return cp
 	
 	def __eq__(self, other):
-		if not isinstance(other, Expression):
+		if not isinstance(other, type(self)):
 			return False
 		else:
 			return self.type == other.type and self.children == other.children
@@ -166,7 +174,7 @@ class Expression(object):
 			else:
 				return _retval()
 
-	def __neg__(self): return Expression('*', -1, self)
+	def __neg__(self): return Expression('*', Constant(-1), self)
 	def __invert__(self): return Expression('~', self)
 
 	def __add__(self, other): return Expression('+', self, other)
@@ -183,8 +191,8 @@ class Expression(object):
 	def __rmod__(self, other): return Expression('%', other, self)
 	def __pow__(self, other): return Expression('**', self, other)
 	def __rpow__(self, other): return Expression('**', other, self)
-	def __lshift__(self, other): return Expression('*', self, Expression('**', 2, other))
-	def __rlshift__(self, other): return Expression('*', other, Expression('**', 2, self))
+	def __lshift__(self, other): return Expression('*', self, Expression('**', Constant(2), other))
+	def __rlshift__(self, other): return Expression('*', other, Expression('**', Constant(2), self))
 	def __rshift__(self, other): return Expression('>>', self, other)
 	def __rrshift__(self, other): return Expression('>>', other, self)
 	def __and__(self, other): return Expression('&', self, other)
@@ -214,12 +222,40 @@ class Expression(object):
 	@staticmethod
 	def ne(x, y): return Expression('!=', x, y)
 	@staticmethod
-	def gt(x, y): return Expression('>', x, y)
+	def gt(x, y): return Expression('<', y, x)
 	@staticmethod
 	def lt(x, y): return Expression('<', x, y)
 	@staticmethod
-	def ge(x, y): return Expression('>=', x, y)
+	def ge(x, y): return Expression('<=', y, x)
 	@staticmethod
 	def le(x, y): return Expression('<=', x, y)
+
 	
+class Symbol(Expression):
+	"""Creates a symbol expression."""
+	def __init__(self, value):
+		self.type = '<symbol>'
+		self.value = value
+
+	def __str__(self):
+		return str(self.value)
+	
+	def __repr__(self):
+		return '{}({!r})'.format(type(self).__name__, self.value)
+
+	def __eq__(self, other):
+		if not isinstance(other, type(self)):
+			return False
+		else:
+			return self.value == other.value
+
+	def __hash__(self):
+		return hash((self.type, self.value))
+
+
+class Constant(Symbol):
+	"""Creates a constant expression."""
+	def __init__(self, value):
+		super().__init__(value)
+		self.type = '<const>'
 	

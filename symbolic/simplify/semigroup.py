@@ -63,14 +63,16 @@ Expression.addSimplificationRule(_involution, 'involution ((a^a) == 0)')
 
 if __name__ == '__main__':
 	import symbolic.simplify.recursive
+	from symbolic.expression import Symbol
 
 	Expression.setDebugSimplify(True)
 	
-	a = Expression('+', "foo", "bar") + "baz" + Expression('*', 'ma', 'maz') + Expression('-', 'y')
-	assert a.simplify() == Expression('+', 'foo', 'bar', 'baz', Expression('*', 'ma', 'maz'), Expression('-', 'y'))
+	a = Symbol('foo') + Symbol('bar') + Symbol('baz') + Symbol('ma') * Symbol('maz') - Symbol('y')
+	assert a.simplify() == Expression('+', Symbol('foo'), Symbol('bar'), Symbol('baz'), Expression('*', Symbol('ma'), Symbol('maz')), -Symbol('y'))
 	
-	a = (Expression('&', 'foo', 'bar', 'foo', 'baz', 'bar', 'bar') & Expression('^', 'foo', 'bar', 'foo', 'baz', 'bar', 'bar'))
-	assert a.simplify() == Expression('&', 'foo', 'bar', 'baz', Expression('^', 'bar', 'baz'))
+	a = (Expression('&', Symbol('foo'), Symbol('bar'), Symbol('foo'), Symbol('baz'), Symbol('bar'), Symbol('bar')) & \
+		 Expression('^', Symbol('foo'), Symbol('bar'), Symbol('foo'), Symbol('baz'), Symbol('bar'), Symbol('bar')))
+	assert a.simplify() == Expression('&', Symbol('foo'), Symbol('bar'), Symbol('baz'), Expression('^', Symbol('bar'), Symbol('baz')))
 	
 
 

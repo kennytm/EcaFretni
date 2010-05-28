@@ -16,7 +16,7 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-from symbolic.expression import Expression
+from symbolic.expression import Expression, Constant
 from symbolic.simplify.utilities import performIf
 from collections import Counter
 import operator
@@ -56,12 +56,12 @@ __naryFuncs = {
 def _unary(self):
 	f = __unaryFuncs.get(self.type, None)
 	if f is not None and Expression.isConstant(self.children[0]):
-		return f(self.children[0])
+		return Constant(f(self.children[0].value))
 	
 def _binary(self):
 	f = __binaryFuncs.get(self.type, None)
 	if f is not None and Expression.isConstant(self.children[0]) and Expression.isConstant(self.children[1]):
-		return f(self.children[0], self.children[1])
+		return Constant(f(self.children[0].value, self.children[1].value))
 
 def _applyNtimes(oper, value, count, prev):
 	# compute value `oper` value `oper` value `oper` ... with 'count' values.
@@ -90,14 +90,14 @@ def _nary(self):
 		
 		def _updateVal(child, count):
 			nonlocal val, totalValCount
-			if child != default:
-				val = _applyNtimes(self.type, child, count, val)
+			if child.value != default:
+				val = _applyNtimes(self.type, child.value, count, val)
 			totalValCount += count
 		
 		(rests, _) = performIf(self.children, Expression.isConstant, _updateVal)
 		
 		if val != default:
-			rests[val] += 1
+			rests[Constant(val)] += 1
 				
 		if totalValCount > 1 or (totalValCount == 1 and val == default):
 			return self.replaceChildren(rests)
@@ -112,14 +112,14 @@ def _shortCircuit(self):
 		
 		for v in self.children:
 			if Expression.isConstant(v):
-				if targetType(v) == target:
-					return target
+				if targetType(v.value) == target:
+					return Constant(target)
 
 def _naryBaseCondition(self):
 	if self.type in __naryDefaultValue:
 		uniqueChildrenCount = len(self.children)
 		if uniqueChildrenCount == 0:
-			return __naryDefaultValue[self.type]
+			return Constant(__naryDefaultValue[self.type])
 		elif uniqueChildrenCount == 1:
 			(child, value) = list(self.children.items())[0]
 			if value == 1:
@@ -127,7 +127,7 @@ def _naryBaseCondition(self):
 
 def _evaluateIfThenElse(self):
 	if self.type == '?:' and Expression.isConstant(self.children[0]):
-		if self.children[0]:
+		if self.children[0].value:
 			return self.children[1]
 		else:
 			return self.children[2]
@@ -143,20 +143,21 @@ Expression.addSimplificationRule(_evaluateIfThenElse, 'constant condition (?:)')
 
 if __name__ == '__main__':
 	from symbolic.simplify.recursive import *
+	from symbolic.expression import Symbol
 	
 	Expression.setDebugSimplify(True)
 
-	a = Expression('/', 3, 2)
-	assert 1.5 == a.simplify()
+	a = Constant(3) / Constant(2)
+	assert Constant(1.5) == a.simplify()
 	
-	a = Expression('+', 1, 5, 12, 44)
-	assert 62 == a.simplify()
+	a = Expression('+', Constant(1), Constant(5), Constant(12), Constant(44))
+	assert Constant(62) == a.simplify()
 	
-	a = Expression.if_(Expression.ge(7, 2), 11, 55)
-	assert 11 == a.simplify()
+	a = Expression.if_(Expression.ge(Constant(7), Constant(2)), Constant(11), Constant(55))
+	assert Constant(11) == a.simplify()
 	
-	a = (Expression('^', 1, 5) + Expression('-', 122) // 4) ** 2
-	assert 729 == a.simplify()
+	a = (Constant(1) ^ Constant(5) - Constant(122) // Constant(4)) ** Constant(2)
+	assert Constant(676) == a.simplify()
 	
-	a = Expression('*', "foo", 0, "boo")
-	assert 0 == a.simplify()
+	a = Expression('*', Symbol("foo"), Constant(0), Symbol("boo"))
+	assert Constant(0) == a.simplify()

@@ -24,13 +24,16 @@ class _ChildSimplifier(object):
 		self.simplified = False
 	
 	def __call__(self, child):
-		if isinstance(child, Expression):
+		if not Expression.isAtomic(child):
 			(child, hasSimplified) = child.simplify(getSimplifyState=True)
 			self.simplified = self.simplified or hasSimplified
 		return child
 
 
 def _recursiveRule(self):
+	if Expression.isAtomic(self):
+		return None
+
 	simplifier = _ChildSimplifier()
 		
 	if isinstance(self.children, Counter):

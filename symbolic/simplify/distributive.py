@@ -16,7 +16,7 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-from symbolic.expression import Expression
+from symbolic.expression import Expression, Constant
 from collections import Counter
 from symbolic.simplify.utilities import performIf2, performIf, keysExcept
 
@@ -54,7 +54,7 @@ def _repetition(self):
 		
 		grouped = []
 		def _evaluteRepetition(child, count):
-			grouped.append(Expression(star, child, count))
+			grouped.append(Expression(star, child, Constant(count)))
 		
 		(rest, hasRep) = performIf2(self.children, (lambda k, c: c != 1), _evaluteRepetition)
 		
@@ -119,10 +119,14 @@ Expression.addSimplificationRule(_distributive, 'distributive (a*b+a*c=a*(b+c))'
 
 if __name__ == '__main__':
 	import symbolic.simplify.recursive
+	from symbolic.expression import Symbol
 
 	Expression.setDebugSimplify(True)
 	
-	a = Expression('+', 'a', 'a', 'b', 'a', 'b', 'b', 'a', 'c') + Expression('+', 'c', 'a', 'c', 'c', 'b', 'a', 'a', 'd')
-	assert a.simplify() == Expression('+', Expression('*', 'a', 7), Expression('*', 'b', 4), Expression('*', 'c', 4), 'd')
+	a = Expression('+', Symbol('a'), Symbol('a'), Symbol('b'), Symbol('a'), Symbol('b'), Symbol('b'), Symbol('a'), Symbol('c')) + \
+		Expression('+', Symbol('c'), Symbol('a'), Symbol('c'), Symbol('c'), Symbol('b'), Symbol('a'), Symbol('a'), Symbol('d'))
+	assert a.simplify() == Expression('+', Expression('*', Symbol('a'), Constant(7)),
+	                                       Expression('*', Symbol('b'), Constant(4)),
+                                          Expression('*', Symbol('c'), Constant(4)), Symbol('d'))
 	
 
