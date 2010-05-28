@@ -50,7 +50,7 @@ __distributions = {
 def _repetition(self):
 	# a + a + a = 3*a
 	if self.type in ('+', '*'):
-		star = '*' if self.type == '+' else '^'
+		star = '*' if self.type == '+' else '**'
 		
 		grouped = []
 		def _evaluteRepetition(child, count):

@@ -38,11 +38,11 @@ class Expression(object):
 		"""Checks whether the expression is atomic (i.e. cannot be further simplified)."""
 		return x.type == '<const>' or x.type == '<symbol>'
 
-	__commutativeOpers = set(['+', '*', '&', '|', '^', '&&', '||', '==', '!='])
+	__associativeOpers = set(['+', '*', '&', '|', '^', '&&', '||'])
 
 	def __init__(self, typ, *args):
 		self.type = typ
-		concretizer = Counter if typ in self.__commutativeOpers else list
+		concretizer = Counter if typ in self.__associativeOpers else list
 		self.children = concretizer(map(deepcopy, args))
 		self._isConstant = False
 		
@@ -71,7 +71,8 @@ class Expression(object):
 		#  **: power (binary)
 		#  ==: equality (binary)
 		#  !=: inequality (binary)
-		# >=, >, <, <=: etc. (binary)
+		#   <: less-than (binary)
+		#  <=: less-than or equal (binary)
 		# deref: dereference.
 	
 	def addChild(self, x):
