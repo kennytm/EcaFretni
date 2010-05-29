@@ -52,10 +52,36 @@ class Section(object):
 	def __str__(self):
 		return "<{}: {},{}. 0x{:x}/{:x}>".format(type(self).__name__, self.segname, self.sectname, self.addr, self.offset)
 		
-	def _read(self, length=None):
+	def _read(self, o, length=None):
 		"""Read the whole section. For debugging only."""
-		self.o.seek(self.offset)
+		o.seek(self.offset)
 		if length is None:
 			length = self.size
 		length = min(length, self.size)
-		return self.o._file.read(length)
+		return o._file.read(length)
+	
+	def _hexdump(self, o, length=None):
+		"""Hexdump the whole section. For debugging only."""
+		from hexdump import hexdump
+		hexdump(self._read(o, length), location=self.addr)
+	
+	def readStructs(self, fmt, machO):
+		"""Read the whole section as structs.
+		
+		Return a list of (address, struct_content) tuples.
+		
+		"""
+		
+		final = self.addr + self.size
+		curAddr = self.addr
+		results = []
+		
+		structSize = machO.structSize(fmt)
+		while curAddr < final:
+			content = machO.readFormatStruct(fmt)
+			results.append((curAddr, content))
+			curAddr += structSize
+
+		return results
+		
+		
