@@ -54,14 +54,12 @@ __naryFuncs = {
 }
 
 def _unary(self):
-	f = __unaryFuncs.get(self.type, None)
-	if f is not None and Expression.isConstant(self.children[0]):
-		return Constant(f(self.children[0].value))
+	if self.type in __unaryFuncs and Expression.isConstant(self.children[0]):
+		return Constant(__unaryFuncs[self.type](self.children[0].value))
 	
 def _binary(self):
-	f = __binaryFuncs.get(self.type, None)
-	if f is not None and Expression.isConstant(self.children[0]) and Expression.isConstant(self.children[1]):
-		return Constant(f(self.children[0].value, self.children[1].value))
+	if self.type in __binaryFuncs and Expression.isConstant(self.children[0]) and Expression.isConstant(self.children[1]):
+		return Constant(__binaryFuncs[self.type](self.children[0].value, self.children[1].value))
 
 def _applyNtimes(oper, value, count, prev):
 	# compute value `oper` value `oper` value `oper` ... with 'count' values.
