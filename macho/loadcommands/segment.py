@@ -21,6 +21,7 @@ from macho.utilities import fromStringz
 from macho.macho import MachO
 from factory import factory
 from macho.sections.section import Section
+import macho.loadcommands.encryption_info	# ensures macho.macho.encrypted is defined.
 
 class SegmentCommand(LoadCommand):
 	"""The segment load command."""
@@ -48,6 +49,19 @@ class SegmentCommand(LoadCommand):
 			sect = Section.createSection(machO, is64bit)
 			sections[sect.sectname] = sect
 		self._sections = sections
+		self._hasAnalyzedSections = False
+
+
+	def _analyzeSections(self, machO):
+		# we need to make sure the section is not encrypted.
+		requiresAnalysis = {n:not machO.encrypted(s.offset) for n, s in self._sections.items()}
+		while any(requiresAnalysis.values()):
+			for k, s in self._sections.items():
+				if requiresAnalysis[k]:
+					machO.seek(s.offset)
+					requiresAnalysis[k] = s.analyze(self, machO)
+		self._hasAnalyzedSections = True
+		
 
 	def analyze(self, machO):
 		if not hasattr(self, '_sections'):
@@ -57,18 +71,19 @@ class SegmentCommand(LoadCommand):
 #		if symtab is not None:
 #			if not hasattr(symtab, 'symbols'):
 
-		# analyze all sections.
-		requiresAnalysis = {k:True for k in self._sections}
-		while any(requiresAnalysis.values()):
-			for k, s in self._sections.items():
-				if requiresAnalysis[k]:
-					machO.seek(s.offset)
-					requiresAnalysis[k] = s.analyze(self, machO)
- 
+		# make sure all segments are ready
+		allSegments = machO.allLoadCommands(type(self).__name__)
+		if any(not hasattr(seg, '_vmaddr') for seg in allSegments):
+			return True
+		
+		if not self._hasAnalyzedSections:
+			self._analyzeSections(machO)
+
 
 	def section(self, sectName):
 		"""Get the section given the name."""
 		return self._sections[sectName]
+
 		
 	def hasSection(self, sectName):
 		"""Checks whether the specified section exists."""
@@ -107,7 +122,7 @@ LoadCommand.registerFactory('SEGMENT_64', SegmentCommand)
 
 
 def _macho_forEachSegment(attrName):
-	def f(self, addr):
+	def f(self, vmaddr):
 		for lc in self.allLoadCommands('SegmentCommand'):
 			addr = getattr(lc, attrName)(vmaddr)
 			if addr is not None:

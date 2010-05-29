@@ -17,6 +17,7 @@
 #	
 
 from macho.loadcommands.loadcommand import LoadCommand
+from macho.macho import MachO
 
 class EncryptionInfoCommand(LoadCommand):
 	"""The encryption info load command."""
@@ -27,6 +28,17 @@ class EncryptionInfoCommand(LoadCommand):
 	def __str__(self):
 		return "<EncryptionInfo {}/{:x}>".format(self.cryptid, self.cryptoff)
 
+	def encrypted(self, offset):
+		"""Checks if the offset is encrypted."""
+		return self.cryptid != 0 and self.cryptoff <= offset < self.cryptoff + self.cryptsize
+
 
 LoadCommand.registerFactory('ENCRYPTION_INFO', EncryptionInfoCommand)
 		
+def _macho_encrypted(self, offset):
+	"""Checks if the offset is encrypted."""
+	encCmds = self.allLoadCommands('EncryptionInfoCommand')
+	return any(lc.encrypted(offset) for lc in encCmds)
+
+MachO.encrypted = _macho_encrypted
+
