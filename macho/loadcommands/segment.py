@@ -20,35 +20,7 @@ from macho.loadcommands.loadcommand import LoadCommand
 from macho.utilities import fromStringz
 from macho.macho import MachO
 from factory import factory
-
-@factory
-class Section(object):
-	"""An abstract section."""
-	
-	@classmethod
-	def createSection(cls, machO, is64bit):
-		(sectname, segname, addr, size,
-			offset, align, reloff, nreloc, flags, rs1, rs2) = machO.readFormatStruct('16s16s2^7L', is64bit=is64bit)
-		
-		rs3 = machO.readFormatStruct('L')[0] if is64bit else 0
-		
-		sectname = fromStringz(sectname)
-		segname = fromStringz(segname)
-		reserved = (None, rs1, rs2, rs3)
-		
-		ftype = flags & 0xff
-		attrib = flags >> 8
-		
-		return cls.create(sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved)
-	
-	def __init__(self, sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved):
-		(self.sectname, self.segname, self.addr, self.size, self.offset,
-			self.align, self.reloff, self.nreloc, self.ftype, self.attrib,
-			self.reserved) = (sectname, segname, addr, size, offset, align,
-				reloff, nreloc, ftype, attrib, reserved)
-	
-	def __str__(self):
-		return "<Section: {},{}. 0x{:x}/{:x}>".format(self.segname, self.sectname, self.addr, self.offset)
+from macho.sections.section import Section
 
 class SegmentCommand(LoadCommand):
 	"""The segment load command."""
@@ -85,6 +57,9 @@ class SegmentCommand(LoadCommand):
 #		if symtab is not None:
 #			if not hasattr(symtab, 'symbols'):
 
+	def section(self, sectName):
+		"""Get the section given the name."""
+		return self._sections[sectName]
 		
 			
 	def fromVM(self, vmaddr):
@@ -127,6 +102,15 @@ def _macho_forEachSegment(attrName):
 		return None
 	return f
 
+def _macho_segment(self, segname):
+	"""Get the segment given its name"""
+	for lc in self.allLoadCommands('SegmentCommand'):
+		if lc.segname == segname:
+			return lc
+	return None
+
 MachO.fromVM = _macho_forEachSegment('fromVM')
 MachO.toVM = _macho_forEachSegment('toVM')
 MachO.deref = _macho_forEachSegment('deref')
+MachO.segment = _macho_segment
+

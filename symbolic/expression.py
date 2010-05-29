@@ -260,3 +260,8 @@ class Constant(Symbol):
 		super().__init__(value)
 		self.type = '<const>'
 	
+
+class Garbage(Symbol):
+	pass
+	
+	

@@ -88,8 +88,9 @@ if __name__ == '__main__':
 			super().__init__(index, value)
 			print("constructing C")
 	
-	A.registerFactory([4,7], B)
-	A.registerFactory([6], C)
+	A.registerFactory(4, B)
+	A.registerFactory(7, B)
+	A.registerFactory(6, C)
 	
 	print (A.create(3, 6))
 	print (A.create(4, 7))
