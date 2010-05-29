@@ -17,8 +17,8 @@
 #	
 
 from macho.arch import Arch
-from macho.utilities import readStruct, readFormatStruct, peekString, readULeb128, readSLeb128, readString
 from factory import factory
+from macho.utilities import readStruct, readFormatStruct
 from macho.loadcommands.loadcommand import LoadCommand
 import os
 
@@ -93,46 +93,6 @@ class MachO(object):
 			self._file = None
 			return retval
 
-
-	def seek(self, offset):
-		"""Jump the cursor to the specific file offset, factoring out the file origin."""
-		self._file.seek(offset + self._origin)
-	
-	def tell(self):
-		"""Get the current file offset, factoring out the file origin."""
-		return self._file.tell() - self._origin
-	
-	def getc(self):
-		"""Read 1 byte from the file."""
-		return self._file.read(1)[0]
-
-	def readString(self, encoding='utf_8', returnLength=False):
-		"""Read a null-terminated string."""
-		return readString(self._file, encoding, returnLength)
-
-	def peekString(self, encoding='utf_8', position=None):
-		"""Read a null-terminated string without moving the cursor, factoring out the file origin."""
-		if position is not None:
-			position += self._origin
-		return peekString(self._file, encoding, position)
-
-	def readFormatStruct(self, fmt, endian=None, is64bit=None):
-		"""Format a Python struct type encoding and read it.
-		
-		Always ignore the last 2 arguments unless you want to override the default in this call."""
-		if endian is None:
-			endian = self._endian
-		if is64bit is None:
-			is64bit = self._is64bit
-		return readFormatStruct(self._file, fmt, endian, is64bit)
-
-	def readULeb128(self):
-		"""Read an unsigned little-endian base-128 integer."""
-		return readULeb128(self._file)
-
-	def readSLeb128(self):
-		"""Read a signed little-endian base-128 integer."""
-		return readSLeb128(self._file)
 
 	def _allLoadCommands(self, cls):
 		# get all load command which is not found in _loadCommandClasses.
@@ -255,7 +215,7 @@ class MachO(object):
 					self.seek(lc.offset)
 					requiresAnalysis[i] = lc.analyze(self)
 		
-		
+import macho._macho_utilities
 		
 		
 		
