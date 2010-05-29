@@ -20,7 +20,7 @@
 
 import struct
 
-def readString(f, encoding='utf_8'):
+def readString(f, encoding='utf_8', returnLength=False):
 	"""Read a null-terminated string."""
 	
 	res = bytearray()
@@ -30,7 +30,12 @@ def readString(f, encoding='utf_8'):
 			break
 		else:
 			res.append(c[0])
-	return res.decode(encoding)
+			
+	string = res.decode(encoding, 'replace')
+	if returnLength:
+		return (string, len(res))
+	else:
+		return string
 
 
 def peekString(f, encoding='utf_8', position=None):

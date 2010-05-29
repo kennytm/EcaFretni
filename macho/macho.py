@@ -106,9 +106,9 @@ class MachO(object):
 		"""Read 1 byte from the file."""
 		return self._file.read(1)[0]
 
-	def readString(self, encoding='utf_8'):
+	def readString(self, encoding='utf_8', returnLength=False):
 		"""Read a null-terminated string."""
-		return readString(self._file, encoding)
+		return readString(self._file, encoding, returnLength)
 
 	def peekString(self, encoding='utf_8', position=None):
 		"""Read a null-terminated string without moving the cursor, factoring out the file origin."""

@@ -19,6 +19,22 @@
 from macho.sections.section import Section
 
 class CStringSection(Section):
-	pass
+	"""A section of C strings."""
+	
+	def analyze(self, segment, machO):
+		final = self.addr + self.size
+		curAddr = self.addr
+		strings = {}
+		while curAddr < final:
+			(string, length) = machO.readString(returnLength=True)
+			if length:
+				strings[curAddr] = string
+			curAddr += length+1
+		self._strings = strings
+	
+	def stringAt(self, address):
+		"""Returns a string at specified vm address. Returns None if not found."""
+		return self._strings.get(address, None)
 
 Section.registerFactory('__cstring', CStringSection)
+

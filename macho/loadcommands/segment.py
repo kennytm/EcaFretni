@@ -50,18 +50,31 @@ class SegmentCommand(LoadCommand):
 		self._sections = sections
 
 	def analyze(self, machO):
-		if not hasattr(self, 'sections'):
+		if not hasattr(self, '_sections'):
 			self._loadSections(machO)
 		
 #		symtab = self.o.anyLoadCommand('SYMTAB')
 #		if symtab is not None:
 #			if not hasattr(symtab, 'symbols'):
 
+		# analyze all sections.
+		requiresAnalysis = {k:True for k in self._sections}
+		while any(requiresAnalysis.values()):
+			for k, s in self._sections.items():
+				if requiresAnalysis[k]:
+					machO.seek(s.offset)
+					requiresAnalysis[k] = s.analyze(self, machO)
+ 
+
 	def section(self, sectName):
 		"""Get the section given the name."""
 		return self._sections[sectName]
 		
-			
+	def hasSection(self, sectName):
+		"""Checks whether the specified section exists."""
+		return sectName in self._sections
+	
+	
 	def fromVM(self, vmaddr):
 		"""Convert VM address to file offset. Returns None if out of range."""
 		if self._vmaddr <= vmaddr < self._vmaddr + self._vmsize:

@@ -99,4 +99,3 @@ if __name__ == '__main__':
 	print (A.create(7, 10))
 	print (A.create(8, 11))
 	
-	

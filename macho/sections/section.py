@@ -45,5 +45,17 @@ class Section(object):
 			self.reserved) = (sectname, segname, addr, size, offset, align,
 				reloff, nreloc, ftype, attrib, reserved)
 	
+	def analyze(self, segment, machO):
+		"""Analyze this section."""
+		return False
+	
 	def __str__(self):
 		return "<{}: {},{}. 0x{:x}/{:x}>".format(type(self).__name__, self.segname, self.sectname, self.addr, self.offset)
+		
+	def _read(self, length=None):
+		"""Read the whole section. For debugging only."""
+		self.o.seek(self.offset)
+		if length is None:
+			length = self.size
+		length = min(length, self.size)
+		return self.o._file.read(length)
