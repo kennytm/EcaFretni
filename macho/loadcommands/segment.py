@@ -17,7 +17,7 @@
 #	
 
 from macho.loadcommands.loadcommand import LoadCommand
-from macho.utilities import fromStringz
+from macho.utilities import fromStringz, peekStructs, peekString, readStruct
 from macho.macho import MachO
 from factory import factory
 from macho.sections.section import Section
@@ -37,18 +37,16 @@ class SegmentCommand(LoadCommand):
 		return self._vmaddr
 
 	def _loadSections(self, machO):
-		is64bit = self._cmd == 'SEGMENT_64'
-		
-		(segname, self._vmaddr, self._vmsize, self._fileoff, self._filesize, _, _, nsects, _) = machO.readFormatStruct('16s4^2i2L', is64bit=is64bit)
+		segStruct = machO.makeStruct('16s4^2i2L')
+		sectStruct = machO.makeStruct(Section.STRUCT_FORMAT)
+		(segname, self._vmaddr, self._vmsize, self._fileoff, self._filesize, _, _, nsects, _) = readStruct(machO.file, segStruct)
 		
 		self._segname = fromStringz(segname)
 		self._o = machO
 		
-		sections = {}
-		for i in range(nsects):
-			sect = Section.createSection(machO, is64bit)
-			sections[sect.sectname] = sect
-		self._sections = sections
+		sectVals = peekStructs(machO.file, sectStruct, count=nsects)	# get all section headers
+		sectionsList = (Section.createSection(i) for i in sectVals)	# convert all headers into Section objects
+		self._sections = {s.sectname: s for s in sectionsList}	# take the sectname and create a dict.
 		self._hasAnalyzedSections = False
 
 
@@ -95,22 +93,23 @@ class SegmentCommand(LoadCommand):
 		if self._vmaddr <= vmaddr < self._vmaddr + self._vmsize:
 			return vmaddr + self._fileoff - self._vmaddr
 		else:
-			return None
+			return -1
 	
 	def toVM(self, fileoff):
 		"""Convert file offset to VM address. Returns None if out of range."""
 		if self._fileoff <= fileoff < self._fileoff + self._filesize:
 			return fileoff + self._vmaddr - self._fileoff
 		else:
-			return None
+			return -1
 	
-	def deref(self, vmaddr, fmt):
+	def deref(self, vmaddr, stru):
 		fileoff = self._fromVM(vmaddr)
-		if fileoff is None:
+		if fileoff < 0:
 			return None
+		cur = self._o.tell()
 		self._o.seek(fileoff)
-		val = self._o.readFormatStruct(fmt, is64bit=(self._cmd == 'SEGMENT_64'))
-		self._o.tell(fileoff)
+		val = peekStruct(self._o.file, stru)
+		self._o.seek(cur)
 		return val
 	
 	def __str__(self):
@@ -121,24 +120,43 @@ LoadCommand.registerFactory('SEGMENT', SegmentCommand)
 LoadCommand.registerFactory('SEGMENT_64', SegmentCommand)
 
 
-def _macho_forEachSegment(attrName):
+def _macho_forEachSegment(func):
 	def f(self, vmaddr):
-		for lc in self.allLoadCommands('SegmentCommand'):
-			addr = getattr(lc, attrName)(vmaddr)
-			if addr is not None:
-				return addr
-		return None
+		allAddrs = (func(lc, vmaddr) for lc in self.allLoadCommands('SegmentCommand'))
+		try:
+			return next(addr for addr in allAddrs if addr >= 0)
+		except StopIteration:
+			return -1
 	return f
+
+def _macho_deref(self, vmaddr, stru):
+	"""Dereference a struct at vmaddr."""
+	allDerefs = (lc.deref(vmaddr, stru) for lc in self.allLoadCommands('SegmentCommand'))
+	try:
+		return next(val for val in allDerefs if val is not None)
+	except StopIteration:
+		return None
 
 def _macho_segment(self, segname):
 	"""Get the segment given its name"""
-	for lc in self.allLoadCommands('SegmentCommand'):
-		if lc.segname == segname:
-			return lc
-	return None
+	try:
+		 return next(lc for lc in self.allLoadCommands('SegmentCommand') if lc.segname == segname)
+	except StopIteration:
+		return None
 
-MachO.fromVM = _macho_forEachSegment('fromVM')
-MachO.toVM = _macho_forEachSegment('toVM')
-MachO.deref = _macho_forEachSegment('deref')
+def _macho_derefString(self, vmaddr, encoding='utf_8', returnLength=False):
+	"""Dereference a string."""
+	offset = self.fromVM(vmaddr)
+	cur = self.tell()
+	self.seek(offset)
+	res = peekString(self.file, encoding=encoding, returnLength=returnLength)
+	self.seek(cur)
+	return res
+
+
+MachO.fromVM = _macho_forEachSegment(SegmentCommand.fromVM)
+MachO.toVM = _macho_forEachSegment(SegmentCommand.toVM)
+MachO.deref = _macho_deref
+MachO.derefString = _macho_derefString
 MachO.segment = _macho_segment
 

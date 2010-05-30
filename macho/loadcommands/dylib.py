@@ -17,13 +17,15 @@
 #	
 
 from macho.loadcommands.loadcommand import LoadCommand
+from macho.utilities import peekString, peekStruct
 
 class DylibCommand(LoadCommand):
 	"""The dylib load command."""
 
 	def analyze(self, machO):
-		(offset, self.timestamp, self.version, self.minVersion) = machO.readFormatStruct('4L')
-		self.name = machO.peekString(position=offset + self._offset - 8)
+		dylibStruct = machO.makeStruct('4L')
+		(offset, self.timestamp, self.version, self.minVersion) = peekStruct(machO.file, dylibStruct)
+		self.name = peekString(machO.file, position=offset + self._offset - 8)
 			
 	def __str__(self):
 		return "<Dylib {!r}>".format(self.name)

@@ -21,6 +21,8 @@ from objc.ivar import Ivar
 from objc.property import Property
 from objc.protocol import Protocol
 from objc.category import Category
+from macho.utilities import readStruct, peekStruct, peekStructs
+import macho.loadcommands.segment	# to ensure macho.macho.MachO.[fromVM, derefString] are defined.
 
 def _read_method(machO):
 	#	typedef struct method_t {
@@ -28,9 +30,9 @@ def _read_method(machO):
 	#		const char *types;
 	#		IMP imp;
 	#	} method_t;
-	(namePtr, encPtr, imp) = machO.readFormatStruct('3^')
-	name = machO.peekString(position=machO.fromVM(namePtr))
-	encoding = machO.peekString(position=machO.fromVM(encPtr))
+	(namePtr, encPtr, imp) = readStruct(machO.file, machO.makeStruct('3^'))
+	name = machO.derefString(namePtr)
+	encoding = machO.derefString(encPtr)
 	return Method(name, encoding, imp)
 
 
@@ -45,10 +47,10 @@ def _read_ivar(machO):
 	#		uint32_t alignment  __attribute__((deprecated));
 	#		uint32_t size;
 	#	} ivar_t;
-	(offsetPtr, namePtr, encPtr, _, _) = machO.readFormatStruct('3^2L')
+	(offsetPtr, namePtr, encPtr, _, _) = readStruct(machO.file, machO.makeStruct('3^2L'))
 	offset = machO.deref(offsetPtr, '^')[0]
-	name = machO.peekString(position=machO.fromVM(namePtr))
-	encoding = machO.peekString(position=machO.fromVM(encPtr))
+	name = machO.derefString(namePtr)
+	encoding = machO.derefString(encPtr)
 	return Ivar(name, encoding, offset)
 
 
@@ -57,9 +59,9 @@ def _read_prop(machO):
 	#		const char *name;
 	#		const char *attributes;
 	#	};
-	(namePtr, attribPtr) = machO.readFormatStruct('2^')
-	name = machO.peekString(position=machO.fromVM(namePtr))
-	attrib = machO.peekString(position=machO.fromVM(attribPtr))
+	(namePtr, attribPtr) = readStruct(machO.file, machO.makeStruct('2^'))
+	name = machO.derefString(namePtr)
+	attrib = machO.derefString(attribPtr)
 	return Property(name, attrib)
 
 
@@ -67,7 +69,7 @@ def _read_prop(machO):
 def _read_list_at(machO, position, method):
 	if position:
 		machO.seek(machO.fromVM(position))
-		(_, count) = machO.readFormatStruct('2L')
+		(_, count) = readStruct(machO.file, machO.makeStruct('2L'))
 		return [method(machO) for i in range(count)]
 	else:
 		return []
@@ -89,10 +91,9 @@ def readProtocols(protList, machO):
 		#	} protocol_t;
 		
 		machO.seek(loc)
-		(_, namePtr, protocolList, instMethodsPtr, classMethodsPtr, optInstMethodsPtr, optClassMethodsPtr, propsPtr) = machO.readFormatStruct('8^')
+		(_, namePtr, protocolList, instMethodsPtr, classMethodsPtr, optInstMethodsPtr, optClassMethodsPtr, propsPtr) = peekStruct(machO.file, machO.makeStruct('8^'))
 		
-		machO.seek(machO.fromVM(namePtr))
-		name = machO.readString()
+		name = machO.derefString(namePtr)
 		
 		instMethods = _read_list_at(machO, instMethodsPtr, _read_method)
 		classMethods = _read_list_at(machO, classMethodsPtr, _read_method)
@@ -100,7 +101,6 @@ def readProtocols(protList, machO):
 		optClassMethods = _read_list_at(machO, optClassMethodsPtr, _read_method)
 		
 		props = _read_list_at(machO, propsPtr, _read_prop)
-		
 		
 		# we need to manage the protocol list after all protocols are read.
 		proto = Protocol(name, instMethods, optInstMethods, classMethods, optClassMethods, props)
@@ -115,9 +115,10 @@ def readProtocols(protList, machO):
 
 		if protocolList:
 			machO.seek(machO.fromVM(protocolList))
-			count = machO.readFormatStruct('^')[0]
-			protoAddrs = machO.readFormatStruct(str(count) + '^')
-			proto.addProtocols(protoDict[i][0] for i in protoAddrs)
+			ptrStru = machO.makeStruct('^')
+			count = readStruct(machO.file, ptrStru)[0]
+			protoAddrs = peekStructs(machO.file, ptrStru, count=count)
+			proto.addProtocols(protoDict[i][0] for (i,) in protoAddrs)
 
 	protos = {loc: _read_protocol_phase1(machO, loc) for loc in protList}
 	for proto, protocolList in protos.values():

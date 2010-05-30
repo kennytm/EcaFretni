@@ -17,6 +17,7 @@
 #
 
 from macho.sections.section import Section
+from macho.utilities import peekFixedLengthString
 import macho.loadcommands.segment	# to ensure macho.macho.fromVM is defined.
 
 class CFStringSection(Section):
@@ -24,11 +25,17 @@ class CFStringSection(Section):
 	
 	def analyze(self, segment, machO):
 		strings = {}
-		addressesAndLengths = self.readStructs('4^', machO)
+		
+		machO_seek = machO.seek
+		machO_fromVM = machO.fromVM
+		machO_file = machO.file
+		
+		cfstrStruct = machO.makeStruct('4^')
+		addressesAndLengths = self.peekStructs(cfstrStruct, machO)
 		
 		for addr, (_, _, strAddr, strLen) in addressesAndLengths:
-			machO.seek(machO.fromVM(strAddr))
-			string = machO.readFixedLengthString(strLen)
+			machO_seek(machO_fromVM(strAddr))
+			string = peekFixedLengthString(machO_file, strLen)
 			strings[addr] = string
 			
 		self._strings = strings

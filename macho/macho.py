@@ -18,7 +18,8 @@
 
 from macho.arch import Arch
 from factory import factory
-from macho.utilities import readStruct, readFormatStruct
+from macho.utilities import readULeb128, readSLeb128, readStruct, makeStruct
+from struct import Struct
 from macho.loadcommands.loadcommand import LoadCommand
 from mmap import mmap, ACCESS_READ
 import os
@@ -52,6 +53,8 @@ class MachO(object):
 		self._loadCommands = []
 		self._is64bit = False
 		self._endian = '<'
+		
+		self._structCache = {}
 
 	
 	@property
@@ -73,6 +76,11 @@ class MachO(object):
 	def pointerWidth(self):
 		"""Return the width of pointer in the current ABI."""
 		return 8 if self._is64bit else 4
+	
+	@property
+	def origin(self):
+		"""Return the origin of the current architecture."""
+		return self._origin
 	
 	def open(self):
 		"""Open the Mach-O file object for access.
@@ -122,7 +130,6 @@ class MachO(object):
 		else:
 			return self._allLoadCommands(cls)
 		
-		
 	
 	def anyLoadCommand(self, cls):
 		"""Get the first load command with the specified class."""
@@ -131,6 +138,23 @@ class MachO(object):
 			return arr[0]
 		else:
 			return None
+
+
+	def seek(self, offset):
+		"""Jump the cursor to the specific file offset, factoring out the file origin."""
+		self._file.seek(offset + self._origin)
+
+	def tell(self):
+		"""Get the current file offset, factoring out the file origin."""
+		return self._file.tell() - self._origin
+
+
+	def makeStruct(self, fmt):
+		"""Create a struct.Struct object."""
+		sc = self._structCache
+		if fmt not in sc:
+			sc[fmt] = makeStruct(fmt, endian=self._endian, is64bit=self._is64bit)
+		return sc[fmt]
 
 		
 	def __analyze(self):
@@ -141,7 +165,7 @@ class MachO(object):
 		
 		
 	def __pickArchFromFatFile(self):
-		(magic, nfat_arch) = readStruct(self._file, '>2L')
+		(magic, nfat_arch) = readStruct(self._file, Struct('>2L'))
 		
 		# Reset and return if not a fat file.
 		if magic != 0xcafebabe:
@@ -151,7 +175,7 @@ class MachO(object):
 		# Get all the possible fat archs.
 		offsets = {}
 		for i in range(nfat_arch):
-			(cputype, cpusubtype, offset, _, _) = readStruct(self._file, '>5L')
+			(cputype, cpusubtype, offset, _, _) = readStruct(self._file, Struct('>5L'))
 			offsets[Arch((cputype, cpusubtype))] = offset
 		
 		# Find the best match.
@@ -168,7 +192,7 @@ class MachO(object):
 		
 	def __readMagic(self):
 		self._origin = self._file.tell()
-		(magic, ) = readStruct(self._file, '<L')
+		(magic, ) = readStruct(self._file, Struct('<L'))
 		if magic == 0xfeedface:
 			self._endian = '<'
 		elif magic == 0xcefaedfe:
@@ -184,11 +208,12 @@ class MachO(object):
 	
 	
 	def __readHeader(self):
+		headerStruct = self.makeStruct('6L~')
+		cmdStruct = self.makeStruct('2L')
+	
 		# Read the header.
-		(cputype, cpusubtype, _, ncmds, _, _) = readFormatStruct(self._file, '6L', self._endian)
+		(cputype, cpusubtype, _, ncmds, _, _) = readStruct(self._file, headerStruct)
 		arch = Arch((cputype, cpusubtype))
-		if self._is64bit:
-			self._file.seek(4, os.SEEK_CUR)	# there is a reserved member in 64-bit ABI.
 		
 		# Make sure the CPU type matches.
 		scoreLimit = 1000 if not self._lenientArchMatching else 2000
@@ -197,7 +222,7 @@ class MachO(object):
 		
 		# Read all load commands.
 		for i in range(ncmds):
-			(cmd, cmdsize) = readFormatStruct(self._file, '2L', self._endian)
+			(cmd, cmdsize) = readStruct(self._file, cmdStruct)
 			offset = self.tell()
 			cmdname = LoadCommand.cmdname(cmd)
 			if cmdname is None:

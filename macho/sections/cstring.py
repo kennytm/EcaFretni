@@ -17,6 +17,7 @@
 #
 
 from macho.sections.section import Section
+from macho.utilities import readString
 
 class CStringSection(Section):
 	"""A section of C strings."""
@@ -26,7 +27,7 @@ class CStringSection(Section):
 		curAddr = self.addr
 		strings = {}
 		while curAddr < final:
-			(string, length) = machO.readString(returnLength=True)
+			(string, length) = readString(machO.file, returnLength=True)
 			if length:
 				strings[curAddr] = string
 			curAddr += length+1

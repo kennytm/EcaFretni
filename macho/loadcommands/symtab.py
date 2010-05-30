@@ -18,6 +18,7 @@
 
 from macho.loadcommands.loadcommand import LoadCommand
 from macho.symbol import Symbol
+from macho.utilities import peekStruct, peekStructs, peekString
 
 def _getLibraryOrdinal(desc):
 	return (desc >> 8) & 0xff	
@@ -27,19 +28,21 @@ class SymtabCommand(LoadCommand):
 	"""The symtab (symbol table) load command."""
 		
 	def analyze(self, machO):
-		(symoff, nsyms, stroff, _) = machO.readFormatStruct('4L')
+		symtabStruct = machO.makeStruct('4L')
+		nlistStruct = machO.makeStruct('LBBH^')
+		
+		(symoff, nsyms, stroff, _) = peekStruct(machO.file, symtabStruct)
 		
 		# Get all nlist structs
 		machO.seek(symoff)
-		nlists = []
-		for i in range(nsyms):
-			nlists.append(machO.readFormatStruct('LBBH^'))
+		nlists = peekStructs(machO.file, nlistStruct, count=nsyms)
 		
 		# Now analyze the nlist structs
 		symbols = []
 		allDylibs = machO.allLoadCommands('DylibCommand')
 		for (idx, typ, sect, desc, value) in nlists:
-			string = machO.peekString(position=stroff+idx)
+			machO.seek(stroff+idx)
+			string = peekString(machO.file)
 			library = None
 			extern = bool(typ & 1)	# N_EXT
 			if extern:

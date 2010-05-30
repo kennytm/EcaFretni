@@ -18,8 +18,9 @@
 
 """Define functions that could help Mach-O parsing."""
 
-import struct
+from struct import Struct
 import os
+import array
 
 def readString(f, encoding='utf_8', returnLength=False):
 	"""Read a null-terminated string."""
@@ -36,10 +37,10 @@ def readString(f, encoding='utf_8', returnLength=False):
 		return string
 
 
-def peekString(f, encoding='utf_8', position=None, returnLength=False):
+def peekString(f, encoding='utf_8', position=-1, returnLength=False):
 	"""Read a null-terminated string without moving the cursor."""
 	
-	if position is None:
+	if position < 0:
 		position = f.tell()
 	nextZero = f.find(b'\0', position)
 	if nextZero < 0:
@@ -50,6 +51,12 @@ def peekString(f, encoding='utf_8', position=None, returnLength=False):
 		return (string, nextZero - position)
 	else:
 		return string
+
+def peekFixedLengthString(f, length, encoding='utf_8', offset=-1):
+	"""Peek a fixed length string."""
+	if offset < 0:
+		offset = f.tell()
+	return f[offset:offset+length].decode(encoding, 'replace')
 
 
 def readULeb128(f):
@@ -99,26 +106,47 @@ def readSLeb128(f):
 	return res
 
 
-def readStruct(f, fmt):
+def makeStruct(fmt, endian, is64bit):
+	"""Make a struct.Struct object.
+	
+	Use ^ to represent a pointer-sized value, and ~ for a 32-bit padding needed
+	on 64-bit architecture.
+	
+	"""
+	
+	return Struct(endian + fmt.translate({94: 'Q', 0x7e: '4x'} if is64bit else {94: 'L', 0x7e: ''}))
+
+
+def peekStructs(f, stru, count, offset=-1):
+	"""Returns an iteratable which lists all packed structures."""
+
+	if offset < 0:
+		offset = f.tell()
+		
+	end = min(offset + stru.size * count, len(f))
+	
+	return (stru.unpack_from(f, o) for o in range(offset, end, stru.size))
+	
+
+def peekStruct(f, stru, offset=-1):
+	"""Peek a packed structure."""
+	if offset < 0:
+		offset = f.tell()
+	return stru.unpack_from(f, offset)
+
+
+def readStruct(f, stru, offset=-1):
 	"""Read a packed structure."""
-	sz = struct.calcsize(fmt)
-	bs = f.read(sz)
-	return struct.unpack(fmt, bs)
+	val = peekStruct(f, stru, offset)
+	f.seek(stru.size, os.SEEK_CUR)
+	return val
 
-
-def formatStruct(fmt, endian, is64bit):
-	"""Format a Python struct type encoding. Use ^ to represent a pointer-sized value."""
-	return endian + fmt.translate({94: 'Q' if is64bit else 'L'})
-
-
-def readFormatStruct(f, fmt, endian='>', is64bit=False):
-	"""Format a Python struct type encoding and read it."""
-	return readStruct(f, formatStruct(fmt, endian, is64bit))
 
 
 def fromStringz(s):
 	"""Strip terminating zeros of a byte string and decode it into a string."""
-	return s.rstrip(b'\0').decode()
+	return s.rstrip(b'\0').decode('ascii', 'replace')
+
 
 
 if __name__ == '__main__':

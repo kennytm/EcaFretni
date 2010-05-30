@@ -17,22 +17,23 @@
 #	
 
 from factory import factory
-from macho.utilities import fromStringz
+from macho.utilities import fromStringz, peekStructs
+from array import array
 
 @factory
 class Section(object):
 	"""An abstract section."""
 	
+	STRUCT_FORMAT = '16s16s2^7L~'
+	
 	@classmethod
-	def createSection(cls, machO, is64bit):
+	def createSection(cls, val):
 		(sectname, segname, addr, size,
-			offset, align, reloff, nreloc, flags, rs1, rs2) = machO.readFormatStruct('16s16s2^7L', is64bit=is64bit)
-		
-		rs3 = machO.readFormatStruct('L')[0] if is64bit else 0
+			offset, align, reloff, nreloc, flags, rs1, rs2) = val
 		
 		sectname = fromStringz(sectname)
 		segname = fromStringz(segname)
-		reserved = (None, rs1, rs2, rs3)
+		reserved = (rs1, rs2)
 		
 		ftype = flags & 0xff
 		attrib = flags >> 8
@@ -65,23 +66,20 @@ class Section(object):
 		from hexdump import hexdump
 		hexdump(self._read(o, length), location=self.addr, visualizer=visualizer)
 	
-	def readStructs(self, fmt, machO):
+	def peekStructs(self, stru, machO):
 		"""Read the whole section as structs.
 		
-		Return a list of (address, struct_content) tuples.
+		Return an iterator of (address, struct_content) tuples.
 		
 		"""
 		
-		final = self.addr + self.size
-		curAddr = self.addr
-		results = []
+		machO.seek(self.offset)
+		count = self.size // stru.size
+		structs = peekStructs(machO.file, stru, count=count)
+		addrs = range(self.addr, self.addr + self.size, stru.size)
 		
-		structSize = machO.structSize(fmt)
-		while curAddr < final:
-			content = machO.readFormatStruct(fmt)
-			results.append((curAddr, content))
-			curAddr += structSize
-
-		return results
+		return zip(addrs, structs)
+	
 		
+	
 		

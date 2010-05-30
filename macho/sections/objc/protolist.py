@@ -23,7 +23,8 @@ class ObjCProtoListSection(Section):
 		pass
 
 	def _analyze2(self, machO):
-		addressMaps = self.readStructs('^', machO)
+		ptrStruct = machO.makeStruct('^')
+		addressMaps = self.peekStructs(ptrStruct, machO)
 		addresses = (l for _, (l, ) in addressMaps)
 		self.protocols = macho.sections.objc._reader_abi2.readProtocols(addresses, machO)
 
