@@ -19,34 +19,37 @@
 """Define functions that could help Mach-O parsing."""
 
 import struct
+import os
 
 def readString(f, encoding='utf_8', returnLength=False):
 	"""Read a null-terminated string."""
 	
-	res = bytearray()
-	while True:
-		c = f.read(1)
-		if not c or c[0] == 0:
-			break
-		else:
-			res.append(c[0])
-			
-	string = res.decode(encoding, 'replace')
+	(string, length) = peekString(f, encoding=encoding, returnLength=True)
+	try:
+		f.seek(length+1, os.SEEK_CUR)
+	except ValueError:
+		f.seek(0, os.SEEK_END)
+	
 	if returnLength:
-		return (string, len(res))
+		return (string, length)
 	else:
 		return string
 
 
-def peekString(f, encoding='utf_8', position=None):
+def peekString(f, encoding='utf_8', position=None, returnLength=False):
 	"""Read a null-terminated string without moving the cursor."""
 	
-	pos = f.tell()
-	if position is not None:
-		f.seek(position)
-	res = readString(f, encoding)
-	f.seek(pos)
-	return res
+	if position is None:
+		position = f.tell()
+	nextZero = f.find(b'\0', position)
+	if nextZero < 0:
+		nextZero = len(f)
+	string = f[position:nextZero].decode(encoding, 'replace')
+	
+	if returnLength:
+		return (string, nextZero - position)
+	else:
+		return string
 
 
 def readULeb128(f):
@@ -54,16 +57,19 @@ def readULeb128(f):
 	
 	res = 0
 	bit = 0
+	pos = f.tell()
+	maxpos = len(f)
 	
-	while True:
-		c = f.read(1)
-		if not c:
-			break
-		s = c[0] & 0x7f
+	while maxpos > pos:
+		c = f[pos]
+		pos += 1
+		s = c & 0x7f
 		res |= s << bit
 		bit += 7
-		if not (c[0] & 0x80):
+		if not (c & 0x80):
 			break
+	
+	f.seek(pos)
 	
 	return res
 
@@ -73,19 +79,22 @@ def readSLeb128(f):
 	
 	res = 0
 	bit = 0
-	c = None
+	c = 0
+	pos = f.tell()
+	maxpos = len(f)
 	
-	while True:
-		c = f.read(1)
-		if not c:
-			break
-		s = c[0] & 0x7f
+	while maxpos > pos:
+		c = f[pos]
+		pos += 1
+		s = c & 0x7f
 		res |= s << bit
 		bit += 7
-		if not (c[0] & 0x80):
+		if not (c & 0x80):
 			break
-	if c[0] & 0x40:
+	if c & 0x40:
 		res |= (-1) << bit
+	
+	f.seek(pos)
 	
 	return res
 
@@ -114,10 +123,12 @@ def fromStringz(s):
 
 if __name__ == '__main__':
 	from tempfile import TemporaryFile
+	from mmap import mmap
 	
-	with TemporaryFile() as f:
-		f.write(b"hell\xc3\xb3\0world\0\xf4\xa5\x32\xb7\x53wtf")
-		f.seek(0)
+	with TemporaryFile() as g:
+		g.write(b"hell\xc3\xb3\0world\0\xf4\xa5\x32\xb7\x53wtf")
+		g.seek(0)
+		f = mmap(g.fileno(), 0)
 		assert peekString(f) == 'helló'
 		assert readString(f) == 'helló'
 		assert peekString(f) == 'world'
@@ -132,4 +143,4 @@ if __name__ == '__main__':
 		f.seek(pos)
 		assert readSLeb128(f) == -0x1649
 		assert readString(f) == 'wtf'
-
+		f.close()

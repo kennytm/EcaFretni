@@ -188,7 +188,7 @@ class MachO(object):
 		(cputype, cpusubtype, _, ncmds, _, _) = readFormatStruct(self._file, '6L', self._endian)
 		arch = Arch((cputype, cpusubtype))
 		if self._is64bit:
-			self._file.read(4)	# there is a reserved member in 64-bit ABI.
+			self._file.seek(4, os.SEEK_CUR)	# there is a reserved member in 64-bit ABI.
 		
 		# Make sure the CPU type matches.
 		scoreLimit = 1000 if not self._lenientArchMatching else 2000
