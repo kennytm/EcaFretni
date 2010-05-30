@@ -17,17 +17,18 @@
 
 from collections import OrderedDict
 
-def Protocol(object):
+class Protocol(object):
 	"""A structure representing an Objective-C protocol."""
 
-	def __init__(self):
-		self.requiredMethods = OrderedDict()	# method name as key.
-		self.optionalMethods = OrderedDict()
-		self.requiredClassMethods = OrderedDict()
-		self.optionalClassMethods = OrderedDict()
+	def __init__(self, name, requiredMethods, optionalMethods, requiredClassMethods, optionalClassMethods, requiredProperties):
+		self.name = name
+		self.requiredMethods = OrderedDict((m.name, m) for m in requiredMethods)	# method name as key.
+		self.optionalMethods = OrderedDict((m.name, m) for m in optionalMethods)
+		self.requiredClassMethods = OrderedDict((m.name, m) for m in requiredClassMethods)
+		self.optionalClassMethods = OrderedDict((m.name, m) for m in optionalClassMethods)
 		self.protocols = set()
-		self.requiredProperties = OrderedDict()	# property name as key.
-		self.optionalProperties = OrderedDict()
+		reqProps = OrderedDict((p.name, p) for p in requiredProperties if p.getter in self.requiredMethods)	# property name as key.
+		optProps = OrderedDict((p.name, p) for p in requiredProperties if p.getter in self.optionalMethods)
 	
 	def addMethod(self, method, isClassMethod=False, optional=False):
 		"""Add a method to the class."""
@@ -55,7 +56,7 @@ def Protocol(object):
 		"""Add an ivar to the class."""
 		self.ivars.append(ivar)
 	
-	def addProtocol(self, protocol):
+	def addProtocols(self, protocols):
 		"""Add a protocol to the class."""
-		self.protocols.add(protocol)
+		self.protocols.update(protocols)
 	

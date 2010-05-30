@@ -15,10 +15,10 @@
 #	You should have received a copy of the GNU General Public License
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-def Method(object):
+class Method(object):
 	"""A structure representing an Objective-C method."""
 
-	def __init__(self, name, imp, encoding):
+	def __init__(self, name, encoding, imp):
 		self.name = name
 		self.imp = imp
 		self.encoding = encoding

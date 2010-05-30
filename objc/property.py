@@ -17,7 +17,7 @@
 
 from balanced_substring import balancedSubstring
 
-def Property(object):
+class Property(object):
 	"""A structure representing an Objective-C property."""
 
 	def _parseAttributes(self):
@@ -58,7 +58,7 @@ def Property(object):
 			if buffer:
 				joinedBuffer = ','.join(buffer)
 				joinedBufferLength = len(joinedBuffer)
-				if balancedSubstring(joinedBufferLength) <= joinedBufferLength:
+				if balancedSubstring(joinedBuffer) <= joinedBufferLength:
 					self.encoding = joinedBuffer
 					buffer = []
 

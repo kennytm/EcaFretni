@@ -100,8 +100,11 @@ class MachO(object):
 			cls = LoadCommand.cmdname(cls)
 		if isinstance(cls, str):
 			f = LoadCommand.getFactory(cls)
-			if f is not None:
+			# LoadCommand is returned only if the command is undefined.
+			if f != LoadCommand:
 				cls = f.__name__
+			else:
+				return []
 		return self._loadCommandClasses.get(cls, [])
 		
 

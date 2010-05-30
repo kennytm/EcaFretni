@@ -24,6 +24,7 @@ only.
 import re
 from macho.macho import MachO
 from macho.utilities import *
+from struct import calcsize
 
 def _seek(self, offset):
 	"""Jump the cursor to the specific file offset, factoring out the file origin."""
@@ -65,6 +66,18 @@ def _readSLeb128(self):
 	"""Read a signed little-endian base-128 integer."""
 	return readSLeb128(self._file)
 
+def _structSize(self, fmt, endian=None, is64bit=None):
+	"""Compute the struct size of specified format."""
+	if endian is None:
+		endian = self._endian
+	if is64bit is None:
+		is64bit = self._is64bit
+	return calcsize(formatStruct(fmt, endian, is64bit))
+
+def _readFixedLengthString(self, length, encoding='utf_8'):
+	"""Read a string of fixed length."""
+	return self._file.read(length).decode(encoding, 'replace')
+
 MachO.seek = _seek
 MachO.tell = _tell
 MachO.getc = _getc
@@ -73,4 +86,5 @@ MachO.peekString = _peekString
 MachO.readFormatStruct = _readFormatStruct
 MachO.readULeb128 = _readULeb128
 MachO.readSLeb128 = _readSLeb128
-
+MachO.structSize = _structSize
+MachO.readFixedLengthString = _readFixedLengthString

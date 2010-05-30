@@ -17,7 +17,7 @@
 
 from collections import OrderedDict
 
-def Class(object):
+class Class(object):
 	"""A structure representing an Objective-C class."""
 
 	def __init__(self, name):

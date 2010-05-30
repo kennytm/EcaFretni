@@ -15,10 +15,10 @@
 #	You should have received a copy of the GNU General Public License
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-def Ivar(object):
+class Ivar(object):
 	"""A structure representing an Objective-C ivar."""
 
-	def __init__(self, name, offset, encoding, isPrivate=False):
+	def __init__(self, name, encoding, offset, isPrivate=False):
 		self.name = name
 		self.offset = offset
 		self.encoding = encoding

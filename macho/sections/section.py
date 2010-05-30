@@ -60,10 +60,10 @@ class Section(object):
 		length = min(length, self.size)
 		return o._file.read(length)
 	
-	def _hexdump(self, o, length=None):
+	def _hexdump(self, o, length=None, visualizer='ascii'):
 		"""Hexdump the whole section. For debugging only."""
 		from hexdump import hexdump
-		hexdump(self._read(o, length), location=self.addr)
+		hexdump(self._read(o, length), location=self.addr, visualizer=visualizer)
 	
 	def readStructs(self, fmt, machO):
 		"""Read the whole section as structs.
