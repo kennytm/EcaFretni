@@ -23,3 +23,8 @@ class Method(object):
 		self.imp = imp
 		self.encoding = encoding
 	
+	def __str__(self):
+		res = '{} [{}]'.format(self.name, self.encoding)
+		if self.imp:
+			res += ' @ 0x{:x}'.format(self.imp)
+		return res

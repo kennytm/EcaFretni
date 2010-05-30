@@ -70,7 +70,7 @@ def _read_list_at(machO, position, method):
 	if position:
 		machO.seek(machO.fromVM(position))
 		(_, count) = readStruct(machO.file, machO.makeStruct('2L'))
-		return [method(machO) for i in range(count)]
+		return list(reversed([method(machO) for i in range(count)]))
 	else:
 		return []
 
@@ -120,7 +120,7 @@ def readProtocols(protList, machO):
 			protoAddrs = peekStructs(machO.file, ptrStru, count=count)
 			proto.addProtocols(protoDict[i][0] for (i,) in protoAddrs)
 
-	protos = {loc: _read_protocol_phase1(machO, loc) for loc in protList}
+	protos = {loc: _read_protocol_phase1(machO, loc) for loc in reversed(list(protList))}
 	for proto, protocolList in protos.values():
 		_read_protocol_phase2(machO, proto, protocolList, protos)
 	

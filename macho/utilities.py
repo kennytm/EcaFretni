@@ -52,6 +52,7 @@ def peekString(f, encoding='utf_8', position=-1, returnLength=False):
 	else:
 		return string
 
+
 def peekFixedLengthString(f, length, encoding='utf_8', offset=-1):
 	"""Peek a fixed length string."""
 	if offset < 0:
