@@ -250,7 +250,6 @@ class MachO(object):
 					self.seek(lc.offset)
 					requiresAnalysis[i] = lc.analyze(self)
 		
-import macho._macho_utilities
 		
 		
 		
