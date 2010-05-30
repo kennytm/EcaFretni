@@ -20,6 +20,7 @@ from macho.arch import Arch
 from factory import factory
 from macho.utilities import readStruct, readFormatStruct
 from macho.loadcommands.loadcommand import LoadCommand
+from mmap import mmap, ACCESS_READ
 import os
 
 class MachOError(Exception):
@@ -45,6 +46,7 @@ class MachO(object):
 		self._arch = Arch(arch)
 		self._lenientArchMatching = lenientArchMatching
 		
+		self._fileno = -1
 		self._file = None
 		
 		self._loadCommands = []
@@ -78,7 +80,10 @@ class MachO(object):
 		The 'with' statement should be used instead."""
 		
 		if self._file is None:
-			self._file = open(self._filename, 'rb').__enter__()
+			flag = os.O_RDONLY | getattr(os, 'O_BINARY', 0)
+			fileno = os.open(self._filename, flag)
+			self._fileno = fileno
+			self._file = mmap(fileno, 0, access=ACCESS_READ)
 		else:
 			self._file.seek(0)
 		self.__analyze()
@@ -89,9 +94,11 @@ class MachO(object):
 		The 'with' statement should be used instead."""
 	
 		if self._file is not None:
-			retval = self._file.__exit__(exc_type, exc_value, traceback)
+			self._file.close()
 			self._file = None
-			return retval
+		if self._fileno >= 0:
+			os.close(self._fileno)
+			self._fileno = -1
 
 
 	def _allLoadCommands(self, cls):
