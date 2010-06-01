@@ -16,6 +16,22 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
+
+'''
+
+This module can print a byte array as hex dump to the standard output. This is
+useful for debugging a binary blob.
+
+>>> hexdump(b"\\x12\\x34\\x56foobar\\xab\\xcd\\xef" * 3)
+ 0        12 34 56 66 6f 6f 62 61 72 ab cd ef 12 34 56 66        `4Vfoobar````4Vf
+10        6f 6f 62 61 72 ab cd ef 12 34 56 66 6f 6f 62 61        oobar````4Vfooba
+20        72 ab cd ef                                            r```
+
+Members
+=======
+
+'''
+
 def _dumpLine(lineList, index, maxIndexWidth, width, visualizer, skip=0):
 	pl = ['{0:{1}x}'.format(index, maxIndexWidth), '   '*skip + ' '.join(map('{:02x}'.format, lineList)) + '   ' * (width - skip - len(lineList))]
 	if visualizer is not None:
@@ -25,7 +41,24 @@ def _dumpLine(lineList, index, maxIndexWidth, width, visualizer, skip=0):
 
 
 def hexdump(arr, width=16, location=0, visualizer='ascii'):
-	"""Dump the byte array as hexadecimal."""
+	'''
+	
+	Dump the byte array on screen.
+	
+	The *location* argument changes the starting address to print, for example::
+	
+		>>> hexdump(b'123456' * 3)
+		 0        31 32 33 34 35 36 31 32 33 34 35 36 31 32 33 34        1234561234561234
+		10        35 36                                                  56
+		>>> hexdump(b'123456' * 3, location=0x20fc)
+		20f0                                            31 32 33 34                    1234
+		2100        35 36 31 32 33 34 35 36 31 32 33 34 35 36              56123456123456
+
+	The *visualizer* argument defines which function should be applied to the
+	bytes to generate rightmost column. Only the visualizer ``'ascii'`` is
+	defined in this module.
+
+	''' 
 	
 	arrLen = len(arr)
 	
@@ -48,22 +81,31 @@ def hexdump(arr, width=16, location=0, visualizer='ascii'):
 		location += width
 
 def listVisualizers():
-	"""Return an iterator listing all available visualizers."""
+	"""Return an iterator of strings listing all available visualizers."""
+	
 	return __visualizers.keys()
 
 def registerVisualizer(key, func):
 	"""Register a visualizer for use in hexdump.
 	
-	A visualizer should accept 2 parameters:
-	 - a bytes object to be dumped
-	 - an int describing how many empty bytes should be padded.
-	and return a str.
+	A visualizer should accept 2 parameters
 	
+	1. an :class:`bytes` object to be dumped.
+	2. an integer describing how many empty bytes should be padded.
+	
+	and returns a string. For instance, an ASCII-based visualizer may be
+	implemented as::
+	
+		def myAsciiVisualizer(theBytes, skip):
+		    return ' '*skip + theBytes.decode(encoding='ascii', errors='replace')
+	 
 	"""
 	__visualizers[key] = func
 	
 
-__asciiTranslator = bytes.maketrans(bytes(range(0,0x20)) + bytes(range(0x7f,0x100)), b'`' * (0x20 + 0x100 - 0x7f))
+if hasattr(bytes, 'maketrans'):	# hack to make Sphinx work.
+	__asciiTranslator = bytes.maketrans(bytes(range(0,0x20)) + bytes(range(0x7f,0x100)), b'`' * (0x20 + 0x100 - 0x7f))
+
 def _asciiVisualizer(lineList, skip):
 	return ' '*skip + lineList.translate(__asciiTranslator).decode()
 
