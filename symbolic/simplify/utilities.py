@@ -51,35 +51,3 @@ def keysExcept(counter, predicate):
 	
 	"""
 	return (k for k in counter.keys() if not predicate(k))
-
-if not hasattr(Counter, 'subtract'):
-	# Directly copied from http://svn.python.org/projects/python/trunk/Lib/collections.py (@r81515)
-	#
-	def _Counter_subtract(self, iterable=None, **kwds):
-		'''Like dict.update() but subtracts counts instead of replacing them.
-		Counts can be reduced below zero.  Both the inputs and outputs are
-		allowed to contain zero and negative counts.
-
-		Source can be an iterable, a dictionary, or another Counter instance.
-
-		>>> c = Counter('which')
-		>>> c.subtract('witch')           # subtract elements from another iterable
-		>>> c.subtract(Counter('watch'))  # subtract elements from another counter
-		>>> c['h']                        # 2 in which, minus 1 in witch, minus 1 in watch
-		0
-		>>> c['w']                        # 1 in which, minus 1 in witch, minus 1 in watch
-		-1
-
-		'''
-		if iterable is not None:
-			self_get = self.get
-			if isinstance(iterable, Mapping):
-				for elem, count in iterable.items():
-					self[elem] = self_get(elem, 0) - count
-			else:
-				for elem in iterable:
-					self[elem] = self_get(elem, 0) - 1
-		if kwds:
-			self.subtract(kwds)
-		
-	Counter.subtract = _Counter_subtract
