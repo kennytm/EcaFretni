@@ -21,7 +21,7 @@ from macho.utilities import peekFixedLengthString
 import macho.loadcommands.segment	# to ensure macho.macho.fromVM is defined.
 
 class CFStringSection(Section):
-	"""A section of Core Foundation CFStrings."""
+	"""The CoreFoundation string (``__DATA,__cfstring``) section."""
 	
 	def analyze(self, segment, machO):
 		strings = {}
@@ -42,7 +42,12 @@ class CFStringSection(Section):
 
 	
 	def stringAt(self, address):
-		"""Returns a string at specified vm address. Returns None if not found."""
+		"""
+		Returns a string at specified VM address.
+		
+		Returns ``None`` if not found.
+		"""
+		
 		return self._strings.get(address, None)
 
 Section.registerFactory('__cfstring', CFStringSection)

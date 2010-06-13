@@ -1,5 +1,5 @@
 #	
-#	symbol.py ... Represents a symbol in a Mach-O file.
+#	symbol.py ... Symbols
 #	Copyright (C) 2010  KennyTM~ <kennytm@gmail.com>
 #	
 #	This program is free software: you can redistribute it and/or modify
@@ -16,11 +16,57 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-from macho.macho import MachO
+'''
+
+This module defines the :class:`Symbol` class representing a symbol in the Mach-O
+format. It also adds 3 methods to the :class:`macho.macho.MachO` class for
+symbol processing.
+
+Patches
+-------
+
+.. method:: macho.macho.MachO.addSymbols(symbols, fromSymtab=False)
+
+	Add a list of :class:`Symbol`\\s to the Mach-O file.
+
+.. attribute:: macho.macho.MachO.symbols
+
+	Returns a list of :class:`Symbol`\\s sorted by insertion order.
+
+.. method:: macho.macho.MachO.getSymbol(val)
+
+	Returns a symbol which has address or name same being *val*.
+
+Classes
+-------
+
+'''
+
+from .macho import MachO
 
 
 class Symbol(object):
-	"""A symbol in Mach-O file."""
+	"""A symbol in Mach-O file.
+	
+	.. attribute:: string
+	
+		The name of the symbol.
+	
+	.. attribute:: value
+	
+		The address of the symbol
+	
+	.. attribute:: library
+	
+		The :class:`macho.loadcommands.dylib.DylibCommand` object associated with
+		this symbol.
+	
+	.. attribute:: extern
+	
+		A boolean indicating whether this is an external symbol.
+	
+	
+	"""
 	
 	def __init__(self, string, value, library=None, extern=False):
 		(self.string, self.value, self.library, self.extern) = (string, value, library, extern)
@@ -56,12 +102,12 @@ def _macho_symbols(self):
 	"""Get the list of symbols with ordinals."""
 	return self._symbols
 	
-def _macho_getSymbol(self, string=None, value=None):
+def _macho_getSymbol(self, val):
 	"""Get a symbol by string or value (address)."""
-	if string is not None:
-		return self._symstrs.get(string, None)
+	if isinstance(val, str):
+		return self._symstrs.get(val, None)
 	else:
-		return self._symvals.get(value, None)
+		return self._symvals.get(val, None)
 	
 MachO.addSymbols = _macho_addSymbols
 MachO.symbols = property(_macho_symbols)

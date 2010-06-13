@@ -21,11 +21,9 @@ class ObjCClassListSection(Section):
 	def _analyze1(self, machO):
 
 	def _analyze2(self, machO):
-		if not 
-	
-		classes = self.readStructs('5^', machO)
-		
-		for addr, (isa, superclass, _, _, data) 
+		# In ABI 2.0, the __DATA,__objc_classlist contains a list of VM addresses
+		# to a class_t structure as described in objc-runtime-new.h. These only
+		# include classes, not metaclasses.
 
 	def analyze(self, segment, machO):
 		if self.sectname == '__class':

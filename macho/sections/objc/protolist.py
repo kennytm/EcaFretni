@@ -23,6 +23,10 @@ class ObjCProtoListSection(Section):
 		pass
 
 	def _analyze2(self, machO):
+		# In ABI 2.0, the __DATA,__objc_protolist contains a list of file offsets
+		# in native width and endian. These offsets will point to a protocol_t
+		# structure as described in objc-runtime-new.h.
+		 
 		ptrStruct = machO.makeStruct('^')
 		addressMaps = self.peekStructs(ptrStruct, machO)
 		addresses = (l for _, (l, ) in addressMaps)

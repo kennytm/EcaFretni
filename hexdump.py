@@ -28,7 +28,7 @@ useful for debugging a binary blob.
 20        72 ab cd ef                                            r```
 
 Members
-=======
+-------
 
 '''
 
@@ -90,7 +90,8 @@ def registerVisualizer(key, func):
 	
 	A visualizer should accept 2 parameters
 	
-	1. an :class:`bytes` object to be dumped.
+	1. a ``bytes`` object to be dumped.
+	
 	2. an integer describing how many empty bytes should be padded.
 	
 	and returns a string. For instance, an ASCII-based visualizer may be

@@ -16,50 +16,85 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-def factory(cls):
-	"""A class decorator that enables factory pattern.
-	
-	Usage:
-	
-		@factory
-		class Base(object):
-			def __init__(self, keyword, ...):
-				...
-	
-		class D1(Base):
-			...
-			
-		class D2(Base):
-			...
-			
-		Base.registerFactory(1, D1)
-		Base.registerFactory(2, D2)
-		
-		d1 = Base.create(1, ...)
-		d2 = Base.create(2, ...)
-		justBase = Base.create(3, ...)
-	
-	"""
+'''
 
+This module introduces the :func:`factory` class decorator, which can make a
+class adopt the `factory pattern`_ distinguished by a keyword. Factories are 
+registered at runtime, allowing plug-ins to provide extra capabilities without
+modifying the base source code::
+
+	@factory
+	class Image(object):
+	    def __init__(self, typ, width, height):
+	        ...
+
+	class PNGImage(Image):
+	    ...
+		
+	class JPGImage(Image):
+	    ...
+		
+	Image.registerFactory("png", PNGImage)
+	Image.registerFactory("jpg", JPGImage)
+	
+	pngImg = Image.create("png", 100, 100)
+	jpgImg = Image.create("jpg", 800, 600)
+	genericImg = Image.create("gif", 20, 20)
+
+
+.. _`factory pattern`: http://en.wikipedia.org/wiki/Factory_method_pattern
+
+Patches
+-------
+
+The following class methods are added to a class adopting the :func:`factory`
+decorator:
+
+.. classmethod:: registerFactory(cls, keyword, cons)
+
+	Register a keyword with a subclass *cons* of the class *cls*. The subclass's
+	:meth:`__init__` method's signature should be::
+	
+		def __init__(self, keyword, ...):
+		    ...
+
+.. classmethod:: getFactory(cls, keyword)
+
+	Returns the subclass registered with *keyword*. The base class *cls* will be
+	returned if that keyword is unregistered.
+
+.. classmethod:: create(cls, keyword, *args, **kargs)
+
+	Create an instance, specialize to a subclass based on the *keyword*. 
+
+Decorators
+----------
+
+'''
+
+
+def factory(cls):
+	"""A class decorator that enables factory pattern."""
+	
 	cls.__factories = {}
 	
 	@classmethod
 	def registerFactory(cls, keyword, cons):
-		"""Register a keyword with a constructor."""
+		"""Register a keyword with a constructor. See :mod:`factory` for detail."""
 		cls.__factories[keyword] = cons
 	
 	cls.registerFactory = registerFactory
 	
 	@classmethod
 	def getFactory(cls, keyword):
-		"""Return the factory of a keyword."""
+		"""Return the factory of a keyword. See :mod:`factory` for detail."""
 		return cls.__factories.get(keyword, cls)
 		
 	cls.getFactory = getFactory
 	
 	@classmethod
 	def create(cls, keyword, *args, **kargs):
-		"""Create an instance by keyword"""
+		"""Create an instance by keyword. See :mod:`factory` for detail."""
 		return cls.getFactory(keyword)(keyword, *args, **kargs)
 	
 	cls.create = create

@@ -76,7 +76,7 @@ def _read_list_at(machO, position, method):
 
 
 def readProtocols(protList, machO):
-	"""Read a protocols pointed by the list of VM addresses."""
+	"""Read a protocols pointed by the list of file offsets."""
 
 	def _read_protocol_phase1(machO, loc):
 		#	typedef struct protocol_t {
@@ -126,4 +126,49 @@ def readProtocols(protList, machO):
 	
 	return {k: v[0] for k, v in protos.items()}
 	
+def readClasses(classList, machO):
+	def _read_class_ro_t(machO):
+		#	typedef struct class_ro_t {
+		#		uint32_t flags;
+		#		uint32_t instanceStart;
+		#		uint32_t instanceSize;
+		#	#ifdef __LP64__
+		#		uint32_t reserved;
+		#	#endif
+		#
+		#		const uint8_t * ivarLayout;
+		#		
+		#		const char * name;
+		#		const method_list_t * baseMethods;
+		#		const protocol_list_t * baseProtocols;
+		#		const ivar_list_t * ivars;
+		#
+		#		const uint8_t * weakIvarLayout;
+		#		const struct objc_property_list *baseProperties;
+		#	} class_ro_t;
+		
+		(flags, instStart, instSize, _, name, methods, protos, ivars, _, props) = peekStruct(machO.file, machO.makeStruct('3L~7^'))
+		
 
+
+	def _read_class_t_phase1(machO, loc):
+		#	typedef struct class_t {
+		#		struct class_t *isa;
+		#		struct class_t *superclass;
+		#		Cache cache;
+		#		IMP *vtable;
+		#		class_rw_t *data;
+		#	} class_t;
+		
+		# first, read the 
+		machO.seek(machO.fromVM(loc))
+		(isa, superclass, _, _, data) = peekStruct(machO.file, machO.makeStruct('5^'))
+		machO.seek(machO.fromVM(isa))
+		(_, _, _, _, metaData) = peekStruct(machO.file, machO.makeStruct('5^'))
+		
+		machO.seek(machO.fromVM(data))
+		cls = _read_class_ro_t(machO)
+		
+	
+	classes = {loc: for loc in reversed(list(classList))}
+	

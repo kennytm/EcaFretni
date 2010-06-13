@@ -16,11 +16,21 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
+'''
+
+This module defines the :class:`Arch` class, which carries the CPU architecture
+info used in the Mach-O format. 
+
+Members
+-------
+
+'''
+
 import re
 
 
 class InvalidArchError(Exception):
-	"""This error is raised when an arch is invalid (e.g. 'x96_64')."""
+	"""This error is raised when an arch is invalid (e.g. ``'x96_64'``)."""
 
 	def __init__(self, arch):
 		self.arch = arch
@@ -29,7 +39,20 @@ class InvalidArchError(Exception):
 
 
 class Arch(object):
-	"""Represents a CPU architecture."""
+	"""Represents a CPU architecture.
+	
+	An :class:`Arch` can be created by one of the following methods:
+	
+	* Pass the name of the architecture, e.g. ``Arch('armv7')``.
+	* Pass the CPU type and subtype as a tuple, e.g. ``Arch((12, 9))``.
+	* Pass the CPU type and subtype in a string, e.g. ``Arch('12,9')``.
+	
+	* Pass another :class:`Arch` to create a copy.
+	
+	An :exc:`InvalidArchError` will be raised if the argument is none of the 
+	above.
+	
+	"""
 
 	__archs = {
 	  "any": ( -1, -1) ,
@@ -80,7 +103,7 @@ class Arch(object):
 	  "armv7": ( 12, 9)
 	}
 	
-	__revArchs = {y:x for x,y in __archs.items()}
+	__revArchs = dict((y,x) for x,y in __archs.items())
 	
 	__archPairRx = re.compile(r"(\d+)\D*(\d+)")
 	
@@ -94,6 +117,7 @@ class Arch(object):
 			(self.cputype, self.cpusubtype, self.capability) = (arch.cputype, arch.cpusubtype, arch.capability)
 		elif arch in self.__archs:
 			(self.cputype, self.cpusubtype) = self.__archs[arch]
+			self.capability = 0
 		else:
 			m = self.__archPairRx.search(arch)
 			if m is None:
@@ -110,7 +134,7 @@ class Arch(object):
 		return hash((self.cputype, self.cpusubtype, self.capability))
 	
 	def copy(self):
-		"""Create a copy of the Arch."""
+		"""Create a copy of the :class:`Arch`."""
 		return Arch(self)
 	
 	
@@ -121,18 +145,28 @@ class Arch(object):
 	
 	
 	def match(self, other):
-		"""Compute the "match score" between two Archs. The score is defined as:
+		"""Compute the "match score" between two :class:`Arch`\\s. The score is
+		defined as:
 		
-			          0: Totally match
-			          1: Matched against a generic subtype.
-			1000 - 1999: Matched against a compatible subtype, lower is better.
-			       2000: Matched against an incompatible subtype.
-			       5000: Matched against a generic type.
-			      10000: No match.
+		+-------------+--------------------------------------------------------+
+		| Score       | Meaning                                                |
+		+=============+========================================================+
+		| 0           | Totally match.                                         |
+		+-------------+--------------------------------------------------------+
+		| 1           | Matched against a generic subtype.                     |
+		+-------------+--------------------------------------------------------+
+		| 1000--1999  | Matched against a compatible subtype, lower is better. |
+		+-------------+--------------------------------------------------------+
+		| 2000        | Matched against an incompatible subtype.               |
+		+-------------+--------------------------------------------------------+
+		| 5000        | Matched against a generic type.                        |
+		+-------------+--------------------------------------------------------+
+		| 10000       | No match.                                              |
+		+-------------+--------------------------------------------------------+
+				
 		"""
 		
 		if not isinstance(other, Arch):
-			print (other)
 			other = Arch(other)
 		
 		if self.cputype == other.cputype:
@@ -150,6 +184,33 @@ class Arch(object):
 			return 10000
 	
 	def bestMatch(self, others, minLevel=10000):
+		'''Find the best match among a list of other architectures.
+		
+		>>> Arch('armv7').bestMatch(['i386', 'x86_64', 'ppc64', 'armv6'])
+		'armv6'
+		
+		The argument *others* should be an iterable of objects that are
+		convertible to :class:`Arch`.
+		
+		.. note::
+		
+			The compatible subtype order defined by Apple for ARM architecture is
+		
+			5. 'armv4t'
+			6. 'armv6'
+			7. 'armv5'
+			8. 'xscale'
+			
+			9. 'armv7'
+		
+			This may cause confusion when comparing the match score among them,
+			e.g. 
+			
+			>>> Arch('armv7').bestMatch(['armv6', 'armv5'])
+			'armv5'
+
+		
+		'''
 		best = min(others, key=self.match)
 		if self.match(best) >= minLevel:
 			return None

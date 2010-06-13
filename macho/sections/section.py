@@ -16,18 +16,37 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
+'''
+
+This module provides the base class :class:`Section` for all sections.
+
+Members
+-------
+
+'''
+
 from factory import factory
 from macho.utilities import fromStringz, peekStructs
 from array import array
 
 @factory
 class Section(object):
-	"""An abstract section."""
+	"""An abstract section.
+	
+	This class adopts the :func:`factory.factory` decorator. Subclasses should
+	override the :meth:`analyze` method to collect data from the Mach-O file.
+	
+	"""
 	
 	STRUCT_FORMAT = '16s16s2^7L~'
 	
 	@classmethod
 	def createSection(cls, val):
+		'''
+		Creates a section given be section header. *val* should be a tuple
+		ordered as the C ``section`` structure.
+		'''
+	
 		(sectname, segname, addr, size,
 			offset, align, reloff, nreloc, flags, rs1, rs2) = val
 		
@@ -47,25 +66,33 @@ class Section(object):
 				reloff, nreloc, ftype, attrib, reserved)
 	
 	def analyze(self, segment, machO):
-		"""Analyze this section."""
+		"""Analyze the section.
+		
+		The file pointer is guaranteed to be at the desired offset and all
+		segments are loaded when this method is called from
+		:meth:`macho.loadcommands.segment.SegmentCommand.analyze`.
+		
+		Return a true value to require further analysis.
+		"""
+		
 		return False
 	
 	def __str__(self):
 		return "<{}: {},{}. 0x{:x}/{:x}>".format(type(self).__name__, self.segname, self.sectname, self.addr, self.offset)
 		
-	def _read(self, o, length=None):
-		"""Read the whole section. For debugging only."""
-		o.seek(self.offset)
-		if length is None:
-			length = self.size
-		length = min(length, self.size)
-		return o._file.read(length)
-	
-	def _hexdump(self, o, length=None, visualizer='ascii'):
-		"""Hexdump the whole section. For debugging only."""
-		from hexdump import hexdump
-		hexdump(self._read(o, length), location=self.addr, visualizer=visualizer)
-	
+#	def _read(self, o, length=None):
+#		"""Read the whole section. For debugging only."""
+#		o.seek(self.offset)
+#		if length is None:
+#			length = self.size
+#		length = min(length, self.size)
+#		return o._file.read(length)
+#	
+#	def _hexdump(self, o, length=None, visualizer='ascii'):
+#		"""Hexdump the whole section. For debugging only."""
+#		from hexdump import hexdump
+#		hexdump(self._read(o, length), location=self.addr, visualizer=visualizer)
+#	
 	def peekStructs(self, stru, machO):
 		"""Read the whole section as structs.
 		

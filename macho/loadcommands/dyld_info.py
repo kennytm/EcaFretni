@@ -103,7 +103,18 @@ def _recursiveProcessExportTrieNode(machO, start, cur, end, prefix, symbols):
 
 
 class DyldInfoCommand(LoadCommand):
-	"""The dyld info (only) load command."""
+	'''
+	The dyld info (only) load command.
+	
+	This class performs decoding of the ``DYLD_INFO`` and ``DYLD_INFO_ONLY``
+	load commands. These two commands are introduced in Mac OS X 10.6 and iPhone
+	OS 3.1 to replace the ``DYSYMTAB`` command. These, known as *compressed dyld
+	info* to Apple, includes a domain-specific assembly language to encode
+	address binding, and a trie to store the export symbols.
+	
+	When analyzed, the symbols will be added back to the Mach-O object. See the
+	:mod:`macho.symbol` module for how to access these symbols.
+	'''
 
 	def analyze(self, machO):
 		(rebaseOff, rebaseSize, bindOff, bindSize, weakBindOff, weakBindSize, 

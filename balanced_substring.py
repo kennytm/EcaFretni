@@ -42,9 +42,9 @@ A balanced substring means one of these:
 	parenthesis are not distinguished. That means ``"[foo)"`` will be
 	considered as balanced.
 
-
 Members
-=======
+-------
+
 '''
 
 class UnbalancedSubstringError(Exception):

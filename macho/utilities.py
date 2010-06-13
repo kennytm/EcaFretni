@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #	
 #	utilities.py ... Utility functions for Mach-O parsing.
 #	Copyright (C) 2010  KennyTM~ <kennytm@gmail.com>
@@ -16,14 +17,30 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-"""Define functions that could help Mach-O parsing."""
+'''
+
+This module is a collection of utility functions that will help Mach-O parsing.
+It should not be used outside of the :mod:`macho` package.
+
+Members
+-------
+
+'''
+
 
 from struct import Struct
 import os
 import array
 
 def readString(f, encoding='utf_8', returnLength=False):
-	"""Read a null-terminated string."""
+	"""Read a null-terminated string from an :class:`mmap.mmap` object.
+	
+	If the *returnLength* argument is set to ``True``, this function will return
+	a tuple instead of just the string. The 1st element is the string read, and
+	the 2nd element is the number of bytes read. It can be different from the 
+	string's length due to encoding.
+	
+	"""
 	
 	(string, length) = peekString(f, encoding=encoding, returnLength=True)
 	try:
@@ -38,7 +55,13 @@ def readString(f, encoding='utf_8', returnLength=False):
 
 
 def peekString(f, encoding='utf_8', position=-1, returnLength=False):
-	"""Read a null-terminated string without moving the cursor."""
+	"""Read a null-terminated string from a :class:`mmap.mmap` object without
+	moving the cursor. 
+	
+	If *position* is nonnegative, the function will read from that offset instead
+	of the current cursor location.
+	
+	"""
 	
 	if position < 0:
 		position = f.tell()
@@ -53,15 +76,20 @@ def peekString(f, encoding='utf_8', position=-1, returnLength=False):
 		return string
 
 
-def peekFixedLengthString(f, length, encoding='utf_8', offset=-1):
-	"""Peek a fixed length string."""
-	if offset < 0:
-		offset = f.tell()
-	return f[offset:offset+length].decode(encoding, 'replace')
+def peekFixedLengthString(f, length, encoding='utf_8', position=-1):
+	"""Read a fixed length string from an :class:`mmap.mmap` object without
+	moving the cursor.
+	
+	"""
+	
+	if position < 0:
+		position = f.tell()
+	return f[position:position+length].decode(encoding, 'replace')
 
 
 def readULeb128(f):
-	"""Read an unsigned little-endian base-128 integer."""
+	"""Read an unsigned little-endian base-128 integer from an :class:`mmap.mmap`
+	object."""
 	
 	res = 0
 	bit = 0
@@ -83,7 +111,8 @@ def readULeb128(f):
 
 
 def readSLeb128(f):
-	"""Read a signed little-endian base-128 integer."""
+	"""Read a signed little-endian base-128 integer from an :class:`mmap.mmap`
+	object."""
 	
 	res = 0
 	bit = 0
@@ -108,44 +137,73 @@ def readSLeb128(f):
 
 
 def makeStruct(fmt, endian, is64bit):
-	"""Make a struct.Struct object.
+	"""Make a :class:`struct.Struct` object.
 	
-	Use ^ to represent a pointer-sized value, and ~ for a 32-bit padding needed
-	on 64-bit architecture.
+	The *endian* argument should be either ``'>'`` or ``'<'``, and *is64bit*
+	should be a boolean.
+	
+	Besides the standard format characters in :mod:`struct`, this function also
+	supports:
+	
+	* ``^`` --- a pointer-sized value. Translates to ``Q`` if *is64bit* is ``True``,
+	  ``L`` otherwise.
+	
+	* ``~`` --- alignment padding on 64-bit platforms. Translates to ``4x`` (skip
+	  4 bytes) if *is64bit* is ``True``, an empty string otherwise.
+	
+	Example:
+	
+	>>> makeStruct('2^', '<', False).unpack(b'\\x00\\x10\\x00\\x00\\x00\\x20\\x00\\x00')
+	(1024, 2048)
+	>>> makeStruct('2^', '<', True).unpack(b'\\x00\\x10\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x20\\x00\\x00\\x00\\x00\\x00\\x00')
+	(1024, 2048)
 	
 	"""
 	
 	return Struct(endian + fmt.translate({94: 'Q', 0x7e: '4x'} if is64bit else {94: 'L', 0x7e: ''}))
 
 
-def peekStructs(f, stru, count, offset=-1):
-	"""Returns an iteratable which lists all packed structures."""
-
-	if offset < 0:
-		offset = f.tell()
+def peekStructs(f, stru, count, position=-1):
+	"""Returns an iteratable which unpacks the subsequent bytes of the
+	:class:`mmap.mmap` object *f* into *count* copies of structures, given by the
+	:class:`struct.Struct` object *stru*.
 		
-	end = min(offset + stru.size * count, len(f))
+	.. warning:: Do not evaluate the returned iterable more than once. Convert it
+	             to a ``list`` if you need to do so.
 	
-	return (stru.unpack_from(f, o) for o in range(offset, end, stru.size))
+	"""
+
+	if position < 0:
+		position = f.tell()
+		
+	end = min(position + stru.size * count, len(f))
+	
+	return (stru.unpack_from(f, o) for o in range(position, end, stru.size))
 	
 
-def peekStruct(f, stru, offset=-1):
-	"""Peek a packed structure."""
-	if offset < 0:
-		offset = f.tell()
-	return stru.unpack_from(f, offset)
+def peekStruct(f, stru, position=-1):
+	"""Returns a structure unpacked by *stru*."""
+	if position < 0:
+		position = f.tell()
+	return stru.unpack_from(f, position)
 
 
-def readStruct(f, stru, offset=-1):
-	"""Read a packed structure."""
-	val = peekStruct(f, stru, offset)
+def readStruct(f, stru, position=-1):
+	"""Returns a structure unpacked by *stru* and advance the cursor in *f*."""
+	val = peekStruct(f, stru, position)
 	f.seek(stru.size, os.SEEK_CUR)
 	return val
 
 
 
 def fromStringz(s):
-	"""Strip terminating zeros of a byte string and decode it into a string."""
+	"""Strip terminating zeros of a byte string and decode it into a string.
+	
+	>>> fromStringz(b'__TEXT\\0\\0\\0\\0\\0\\0')
+	'__TEXT'
+	
+	
+	"""
 	return s.rstrip(b'\0').decode('ascii', 'replace')
 
 

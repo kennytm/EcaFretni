@@ -1,5 +1,5 @@
 #	
-#	macho.py ... Mach-O format reader.
+#	macho.py ... Mach-O file.
 #	Copyright (C) 2010  KennyTM~ <kennytm@gmail.com>
 #	
 #	This program is free software: you can redistribute it and/or modify
@@ -16,15 +16,30 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-from macho.arch import Arch
+'''
+
+This module includes the :class:`MachO` class, representing a Mach-O file.
+
+Example usage::
+
+	with MachO('foo.dylib') as m:
+	    print('Is 64-bit: ', m.is64bit)
+
+Members
+=======
+
+'''
+
+from .arch import Arch
 from factory import factory
-from macho.utilities import readULeb128, readSLeb128, readStruct, makeStruct
+from .utilities import readStruct, makeStruct
 from struct import Struct
-from macho.loadcommands.loadcommand import LoadCommand
+from .loadcommands.loadcommand import LoadCommand
 from mmap import mmap, ACCESS_READ
 import os
 
 class MachOError(Exception):
+	"""An generic error thrown when the Mach-O file is invalid."""
 	def __init__(self, msg):
 		self.message = msg
 	def __str__(self):
@@ -32,8 +47,17 @@ class MachOError(Exception):
 
 
 class MachO(object):
-	"""A simple Mach-O format parser."""
+	'''The basic class that represents a Mach-O file.
 	
+	A normal Mach-O file consists of a header and many load commands. This class
+	will only read the header and load all load commands into memory without
+	further analysis. To allow analyze on a specific kind of load command, the
+	corresponding module in :mod:`macho.loadcommands` should be imported.
+	
+	The optional *arch* argument is used if the Mach-O file is fat. The best
+	architecture matching *arch* will be chosen on :meth:`open`.
+	
+	'''
 	
 	def __enter__(self):
 		self.open()
@@ -59,12 +83,22 @@ class MachO(object):
 	
 	@property
 	def file(self):
-		"""Return the file object of this Mach-O file."""
+		"""Return the :class:`mmap.mmap` object of this Mach-O file."""
 		return self._file
 	
 	@property
 	def endian(self):
-		"""Return the endianness of this Mach-O file."""
+		"""Return the endianness of this Mach-O file.
+		
+		+--------------+------------+
+		| Return value | Endianness |
+		+==============+============+
+		| ``'>'``      | Big        |
+		+--------------+------------+
+		| ``'<'``      | Little     |
+		+--------------+------------+
+		
+		"""
 		return self._endian
 	
 	@property
@@ -79,13 +113,27 @@ class MachO(object):
 	
 	@property
 	def origin(self):
-		"""Return the origin of the current architecture."""
+		"""Return the origin of the current architecture.
+		
+		This is zero in normal Mach-O files. But in fat Mach-O files, which is
+		composed of several normal Mach-O files and a fat header, the origin will
+		be nonzero. When reading data given a file offset, the location will be
+		shifted by this value.
+		
+		Use the :meth:`seek` and :meth:`tell` methods to transparently use a file
+		offset without checking the :attr:`origin`.
+		
+		"""
+		
 		return self._origin
 	
 	def open(self):
 		"""Open the Mach-O file object for access.
 		
-		The 'with' statement should be used instead."""
+		.. note:: You should use the :keyword:`with` statement instead of calling
+		          this method explicitly.
+		
+		"""
 		
 		if self._file is None:
 			flag = os.O_RDONLY | getattr(os, 'O_BINARY', 0)
@@ -99,7 +147,10 @@ class MachO(object):
 	def close(self, exc_type=None, exc_value=None, traceback=None):
 		"""Close the Mach-O file object.
 		
-		The 'with' statement should be used instead."""
+		.. note:: You should use the :keyword:`with` statement instead of calling
+		          this method explicitly.
+		
+		"""
 	
 		if self._file is not None:
 			self._file.close()
@@ -124,7 +175,21 @@ class MachO(object):
 		
 
 	def allLoadCommands(self, cls):
-		"""Get all load command with the specified class."""
+		"""Get all load commands with the specified class.
+		
+		The *cls* can be:
+		
+		* The name of the load command class, e.g. ``'EncryptionInfoCommand'``.
+		* The class object itself, e.g. :class:`EncryptionInfoCommand`.
+		
+		* The actual name of the load command, e.g. ``'ENCRYPTION_INFO'``.
+		
+		The load commands are chosen by the class, not the command value. For
+		instance, with *cls* being ``'LOAD_DYLIB'``, all load commands matching
+		the 6 variants of :class:`DylibCommand` will also be returned.
+		
+		"""
+		
 		if cls in self._loadCommandClasses:
 			return self._loadCommandClasses[cls]
 		else:
@@ -132,7 +197,12 @@ class MachO(object):
 		
 	
 	def anyLoadCommand(self, cls):
-		"""Get the first load command with the specified class."""
+		"""Get the first load command with the specified class.
+		
+		Returns ``None`` if no such command is found.
+		
+		"""
+		
 		arr = self.allLoadCommands(cls)
 		if len(arr) > 0:
 			return arr[0]
@@ -141,16 +211,18 @@ class MachO(object):
 
 
 	def seek(self, offset):
-		"""Jump the cursor to the specific file offset, factoring out the file origin."""
+		"""Jump the cursor to the specific file offset, factoring out the
+		:attr:`origin`."""
 		self._file.seek(offset + self._origin)
 
 	def tell(self):
-		"""Get the current file offset, factoring out the file origin."""
+		"""Get the current file offset, factoring out the :attr:`origin`."""
 		return self._file.tell() - self._origin
 
 
 	def makeStruct(self, fmt):
-		"""Create a struct.Struct object."""
+		"""Create a :class:`struct.Struct` object. See
+		:func:`macho.utilities.makeStruct` for detail."""
 		sc = self._structCache
 		if fmt not in sc:
 			sc[fmt] = makeStruct(fmt, endian=self._endian, is64bit=self._is64bit)

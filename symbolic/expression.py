@@ -16,21 +16,116 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-from collections import Counter
+'''
+This module introduces the :class:`Expression` class, which is the basic element
+of a symbolic expression.
+
+Members
+-------
+'''
+
+from symbolic.py2compat import Counter
 from sorted_list import SortedList
 from copy import deepcopy
 
 class Expression(object):
+	'''
+	The base class of all generic expressions. This is also the class
+	representing an expression.
+	
+	There are two ways to construct an expression. You could rewrite the
+	expression in prefix form, and use the initializer::
+	
+		# 2 * (x + y/w + z/w)
+		Expression('*', Constant(2),
+		                Expression('+', Symbol('x'),
+		                                Expression('/', Symbol('y'), Symbol('w')),
+		                                Expression('/', Symbol('z'), Symbol('w'))
+		                )
+		)
+	
+	However, this class also have overloaded several operators, that you could
+	write it naturally::
+	
+		Constant(2) * (Symbol('x') + Symbol('y')/Symbol('w') + Symbol('x')/Symbol('w'))
+	
+	.. method:: __neg__(self)
+		__invert__(self)
+		__add__(self, other)
+		__radd__(self, other)
+		__sub__(self, other)
+		__rsub__(self, other)
+		__mul__(self, other)
+		__rmul__(self, other)
+		__floordiv__(self, other)
+		__truediv__(self, other)
+		__rfloordiv__(self, other)
+		__rtruediv__(self, other)
+		__mod__(self, other)
+		__rmod__(self, other)
+		__pow__(self, other)
+		__rpow__(self, other)
+		__lshift__(self, other)
+		__rlshift__(self, other)
+		__rshift__(self, other)
+		__rrshift__(self, other)
+		__and__(self, other)
+		__rand__(self, other)
+		__or__(self, other)
+		__ror__(self, other)
+		__xor__(self, other)
+		__rxor__(self, other)
+	
+		These operators are overloaded for expression construction.
+
+	.. staticmethod:: and_(x, y)
+		or_(x, y)
+		not_(x)
+		rol(x, y)
+		ror(x, y)
+		fn(fptr, *args)
+		if_(cond, true, false)
+		eq(x, y)
+		ne(x, y)
+		gt(x, y)
+		lt(x, y)
+		ge(x, y)
+		le(x, y)
+		
+		Convenient static methods to construct an expression.
+
+	.. attribute:: children
+	
+		Children of this expression. It is a :class:`collections.Counter` if the
+		type is a commutative semigroup operator, and a list if not.
+	
+	.. attribute:: type
+	
+		The operator type (e.g. ``'+'``, ``'*'``, etc.) of the expression.
+	
+	'''
+
 	@staticmethod
 	def isType(typ):
-		"""Returns a functor that checks if the input has the specified type."""
+		'''
+		Returns a functor that checks if the input has the specified type.
+		Usage:
+		
+		>>> isPlus = Expression.isType('+')
+		>>> isPlus(Expression('+', Constant(1), Constant(2)))
+		True
+		>>> isPlus(Expression('*', Constant(1), Constant(2)))
+		False
+		
+		'''
+		
 		def checker(x):
 			return x.type == typ
 		return checker
 		
 	@staticmethod
 	def isConstant(x):
-		"""Checks whether the input is a constant."""
+		"""Checks whether the input is a :class:`Constant`."""
 		return x.type == '<const>'
 
 	@staticmethod
@@ -47,45 +142,30 @@ class Expression(object):
 		self._isConstant = False
 		
 		assert all(isinstance(k, type(self)) for k in self.children)
-		
-		# Available types:
-		#   +: Add (n-ary, constant must be at the 0th position)
-		#   *: Multiply (n-ary, constant must be at the 0th position)
-		#   /: Divide (binary)
-		#   %: Mod (binary)
-		# neg: Negate (unary)
-		#  >>: Right-shift (binary)
-		# >>>: Unsigned right-shift (binary)
-		#  <<: Left-shift (binary) (folded to y*2^x if RHS is constant.)
-		# rol: Rotate left (binary)
-		# ror: Rotate right (binary)
-		#   &: And (n-ary)
-		#   |: Or (n-ary)
-		#   ^: Xor (n-ary)
-		#   ~: Not (unary)
-		#  ?:: If-then-else (ternary)
-		#  &&: Logical-and (n-ary)
-		#  ||: Logical-or (n-ary)
-		#   !: Logical-not (unary)
-		#  fn: function-application (1-arg + n-ary).
-		#  **: power (binary)
-		#  ==: equality (binary)
-		#  !=: inequality (binary)
-		#   <: less-than (binary)
-		#  <=: less-than or equal (binary)
-		# deref: dereference.
 	
 	def addChild(self, x):
-		"""Adds the expression object x as the children of this expression."""
+		"""Append the expression *x* as the children of this expression."""
 		self.children.append(x)
 	
 	def replaceChildren(self, newChildren):
-		"""Returns a copy of itself, but with new children."""
+		"""
+		Returns a copy of itself, but replace the children with *newChildren*.
+		Usage::
+		
+			>>> j = Expression('/', Constant(4), Constant(6))
+			>>> j.replaceChildren([Constant(8), Constant(2)])
+			Expression('/', Constant(8), Constant(2))
+			>>> k = Expression('+', Constant(23), Constant(11))
+			>>> k.replaceChildren(Counter([Constant(6), Constant(22), Symbol('x')]))
+			Expression('+', Symbol('x'), Constant(22), Constant(6))
+		
+		"""
 		cp = Expression(self.type)
 		cp.children = newChildren
 		return cp
 	
 	def __eq__(self, other):
+		"""Compare equality of two expressions."""
 		if not isinstance(other, type(self)):
 			return False
 		else:
@@ -117,36 +197,48 @@ class Expression(object):
 		"""Adds a new simplification rule.
 		
 		The simplification rule takes exactly 1 argument: the expression. It
-		should return the simplified expression, or None if no simplication was
-		done.
+		should return the simplified expression, or ``None`` if no simplication
+		was done. If ``None`` is returned, the expression should not be modified.
 		
-		If None is returned, the expression should not be modified.
+		Usage::
+		
+			def powEval(expr):
+			    if expr.type == '**':
+			        if all(Expression.isConstant, expr.children):
+			            return Constant(expr.children[0].value ** expr.children[1].value)
+			
+			Expression.addSimplificationRule(powEval, 'evaluate x ** y')
 		
 		"""
 		cls.__simplicationRules.append((rule, name))
 
 	__debugSimplify = False
 	@classmethod
-	def setDebugSimplify(cls, newVal):
+	def setDebugSimplify(cls, shouldDebug):
 		"""Set whether to debug simplification."""
-		cls.__debugSimplify = newVal
-
+		cls.__debugSimplify = shouldDebug
 	
-	@classmethod
-	def simplificationRules(cls):
-		"""Get an iterator of simplification rules and the use count"""
-		useCounts = cls.__simplicationRules.useCount
-		rules = cls.__simplicationRules.items
-		return ((r[1], -u) for u, r in zip(useCounts, rules))
+#	@classmethod
+#	def simplificationRules(cls):
+#		"""Get an iterator of simplification rules and their use count"""
+#		useCounts = cls.__simplicationRules.useCount
+#		rules = cls.__simplicationRules.items
+#		return ((r[1], -u) for u, r in zip(useCounts, rules))
 	
 	def simplify(self, getSimplifyState=False):
 		"""Simplify the expression.
 		
-		If the getSimplifyState parameter is set to True, the return value will
-		be an (Expression, bool) tuple. The last element means whether
+		.. note::
+		
+			By default there were no simplification routines available. Import
+			modules from the subpackage :mod:`symbolic.simplify` to define them.
+		
+		If the *getSimplifyState* parameter is set to ``True``, the return value
+		will be an (Expression, bool) tuple. The last element indicates whether
 		simplification has taken place.
 		
 		"""
+		
 		retval = self
 		hasSimplified = False
 		
@@ -233,7 +325,14 @@ class Expression(object):
 
 	
 class Symbol(Expression):
-	"""Creates a symbol expression."""
+	"""Creates a symbol. A :class:`Symbol` is an :class:`Expression` with
+	:attr:`type` being ``'<symbol>'`` and have no children.
+	
+	.. attribute:: value
+	
+		Name of the symbol.
+	
+	"""
 	def __init__(self, value):
 		self.type = '<symbol>'
 		self.value = value
@@ -255,7 +354,14 @@ class Symbol(Expression):
 
 
 class Constant(Symbol):
-	"""Creates a constant expression."""
+	"""Creates a constant. A :class:`Constant` is a :class:`Symbol` with
+	:attr:`type` being ``'<const>'``.
+	
+	.. attribute:: value
+	
+		Value of the constant.
+	
+	"""
 	def __init__(self, value):
 		super().__init__(value)
 		self.type = '<const>'

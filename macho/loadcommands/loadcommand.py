@@ -16,21 +16,31 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+'''
+
+This module provides the base class :class:`LoadCommand` for all load commands.
+
+Members
+-------
+
+'''
+
 from factory import factory
 
 @factory
 class LoadCommand(object):
-	"""An abstract load command."""
+	"""An abstract load command.
 	
-	def seek(self):
-		"""Move the file pointer to the offset of this load command."""
-		self._o.seek(self._offset)
+	This class adopts the :func:`factory.factory` decorator. Subclasses should
+	override the :meth:`analyze` method to collect data from the Mach-O file.
+	
+	"""
 	
 	def analyze(self, machO):
 		"""Analyze the load command.
 		
 		The file pointer is guaranteed to be at the desired offset when this
-		method is called from MachO.open().
+		method is called from :meth:`macho.macho.MachO.open`.
 		
 		Return a true value to require further analysis."""
 		
@@ -48,7 +58,8 @@ class LoadCommand(object):
 
 	@property
 	def offset(self):
-		"""Get the offset of this load command (pass the 8-byte common header)."""
+		"""Get the file offset of this load command, after the 8-byte common
+		header."""
 		return self._offset
 
 	__names = [
@@ -91,11 +102,12 @@ class LoadCommand(object):
 		'DYLD_INFO',         # 0x22, compressed dyld information
 		'LOAD_UPWARD_DYLIB'  # 0x23, load upward dylib
 	]
-	__names_map = {j:i for i, j in enumerate(__names)}
+	__names_map = dict((j, i) for i, j in enumerate(__names))
 		
 	@classmethod
 	def cmdname(cls, cmd):
-		"""Get the name of the load command."""
+		"""Get the name of a load command given the numeric value. Returns
+		``None`` if not found."""
 		cmd &= ~0x80000000
 		if 1 <= cmd <= len(cls.__names):
 			return cls.__names[cmd-1]
@@ -104,6 +116,7 @@ class LoadCommand(object):
 
 	@classmethod
 	def cmdindex(cls, name):
+		"""Get the numeric value from the name of the load command."""
 		return cls.__names_map.get(name, -1) + 1
 
 	def __str__(self):

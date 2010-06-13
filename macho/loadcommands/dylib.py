@@ -20,11 +20,44 @@ from macho.loadcommands.loadcommand import LoadCommand
 from macho.utilities import peekString, peekStruct
 
 class DylibCommand(LoadCommand):
-	"""The dylib load command."""
+	"""A dylib load command. This can represent any of these commands:
+	
+	+-----------------------+----------+
+	| Command name          | Value    |
+	+=======================+==========+
+	| ``LOAD_DYLIB``        | ``0x0c`` |
+	+-----------------------+----------+
+	| ``ID_DYLIB``          | ``0x0d`` |
+	+-----------------------+----------+
+	| ``LOAD_WEAK_DYLIB``   | ``0x18`` |
+	+-----------------------+----------+
+	| ``REEXPORT_DYLIB``    | ``0x1f`` |
+	+-----------------------+----------+
+	| ``LAZY_LOAD_DYLIB``   | ``0x20`` |
+	+-----------------------+----------+
+	| ``LOAD_UPWARD_DYLIB`` | ``0x23`` |
+	+-----------------------+----------+
+	
+	.. attribute:: name
+	
+		The name of the dynamic library.
+	
+	.. attribute:: timestamp
+	
+		The timestamp of the dynamic library.
+	
+	.. attribute:: version
+	
+		The version of the dynamic library.
+	
+	.. attribute:: minVersion
+	
+		The compatibility version of the dynamic library.
+	
+	"""
 
 	def analyze(self, machO):
-		dylibStruct = machO.makeStruct('4L')
-		(offset, self.timestamp, self.version, self.minVersion) = peekStruct(machO.file, dylibStruct)
+		(offset, self.timestamp, self.version, self.minVersion) = peekStruct(machO.file, machO.makeStruct('4L'))
 		self.name = peekString(machO.file, position=offset + self._offset - 8)
 			
 	def __str__(self):

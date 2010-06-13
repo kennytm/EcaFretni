@@ -198,3 +198,8 @@ latex_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'http://docs.python.org/py3k/': None}
+
+
+autodoc_member_order = 'bysource'
+highlight_language = 'python'
+

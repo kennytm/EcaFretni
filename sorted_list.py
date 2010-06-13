@@ -16,17 +16,43 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+'''
+
+This module provides a simplistic :class:`SortedList` container, which can sort
+a list automatically based on usage frequency::
+
+	sl = SortedList()
+	sl.append('foo')
+	sl.append('bar')
+	
+	print (list(sl))
+	# ['foo', 'bar']
+	
+	sl.use('bar')
+	print (list(sl))
+	# ['bar', 'foo']
+
+Members
+-------
+
+'''
+
 from bisect import bisect_right
 
 class SortedList(object):
-	"""A list of items sorted by use count."""
+	"""A list of items sorted automatically by usage frequency.
+	
+	.. note:: This container does not implement the ``list`` interface. The
+	          only way you could access its content is by iterating it.
+	
+	"""
 
 	def __init__(self):
 		self.items = []
 		self.useCount = []
 	
 	def append(self, obj):
-		"""Append an object with use count of 0."""
+		"""Append an object with usage frequency of 0."""
 		self.items.append(obj)
 		self.useCount.append(0)
 	
@@ -34,7 +60,13 @@ class SortedList(object):
 		return iter(self.items)
 	
 	def use(self, obj, hint=0):
-		"""Increase the use count of an object at the specific index by 1."""
+		'''
+		
+		Increase the usage frequency of *obj* by 1.
+		
+		If *hint* is given, it will be assumed the *obj* is at that rank. 
+		
+		'''
 		
 		# Two cases where there's no need to change place.
 		#  1. Already the most popular item.

@@ -16,6 +16,56 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
+'''
+
+This module provides the :class:`SegmentCommand` representing the a segment load
+command. A segment consists of many sections, which contain actual code and
+data.
+
+.. note::
+
+	Sections falling in the encrypted region will not be analyzed. See
+	:mod:`macho.loadcommands.encryption_info` for detail.
+
+This module also provides virtual memory (VM) address-related methods to
+:class:`macho.macho.MachO` as they are meaningful only to segments.
+
+Patches
+-------
+
+.. method:: macho.macho.MachO.fromVM(vmaddr)
+
+	Convert a VM address to file offset. Returns -1 if the address does not
+	exist.
+
+.. method:: macho.macho.MachO.toVM(fileoff)
+
+	Convert a file offset to VM address. Returns -1 if the address does not
+	exist.
+	
+.. method:: macho.macho.MachO.deref(vmaddr, stru)
+
+	Dereference a structure at VM address *vmaddr*. The structure is defined by
+	the :class:`struct.Struct` instance *stru*. Returns ``None`` if the address
+	does not exist.
+
+.. method:: macho.macho.MachO.derefString(vmaddr)
+
+	Read a null-terminated string at VM address *vmaddr*. Returns ``None`` if
+	the address does not exist.
+
+.. method:: macho.macho.MachO.segment(segname)
+
+	Get a :class:`SegmentCommand` with segment name equals to *segname*, for
+	example,
+	
+	>>> m.segment('__TEXT')
+
+Members
+-------
+
+'''
+
 from macho.loadcommands.loadcommand import LoadCommand
 from macho.utilities import fromStringz, peekStructs, peekString, readStruct
 from macho.macho import MachO
@@ -24,7 +74,8 @@ from macho.sections.section import Section
 import macho.loadcommands.encryption_info	# ensures macho.macho.encrypted is defined.
 
 class SegmentCommand(LoadCommand):
-	"""The segment load command."""
+	'''The segment load command. This can represent the 32-bit ``SEGMENT``
+	command (``0x01``) or the 64-bit ``SEGMENT_64`` command  (``0x19``).'''
 
 	@property
 	def segname(self):
@@ -46,13 +97,13 @@ class SegmentCommand(LoadCommand):
 		
 		sectVals = peekStructs(machO.file, sectStruct, count=nsects)	# get all section headers
 		sectionsList = (Section.createSection(i) for i in sectVals)	# convert all headers into Section objects
-		self._sections = {s.sectname: s for s in sectionsList}	# take the sectname and create a dict.
+		self._sections = dict((s.sectname, s) for s in sectionsList)	# take the sectname and create a dict.
 		self._hasAnalyzedSections = False
 
 
 	def _analyzeSections(self, machO):
 		# we need to make sure the section is not encrypted.
-		requiresAnalysis = {n:not machO.encrypted(s.offset) for n, s in self._sections.items()}
+		requiresAnalysis = dict((n, not machO.encrypted(s.offset)) for n, s in self._sections.items())
 		while any(requiresAnalysis.values()):
 			for k, s in self._sections.items():
 				if requiresAnalysis[k]:
@@ -89,20 +140,28 @@ class SegmentCommand(LoadCommand):
 	
 	
 	def fromVM(self, vmaddr):
-		"""Convert VM address to file offset. Returns None if out of range."""
+		"""Convert VM address to file offset. Returns -1 if out of range."""
 		if self._vmaddr <= vmaddr < self._vmaddr + self._vmsize:
 			return vmaddr + self._fileoff - self._vmaddr
 		else:
 			return -1
 	
 	def toVM(self, fileoff):
-		"""Convert file offset to VM address. Returns None if out of range."""
+		"""Convert file offset to VM address. Returns -1 if out of range."""
 		if self._fileoff <= fileoff < self._fileoff + self._filesize:
 			return fileoff + self._vmaddr - self._fileoff
 		else:
 			return -1
 	
 	def deref(self, vmaddr, stru):
+		'''
+		
+		Dereference a structure at VM address *vmaddr*. The structure is defined
+		by the :class:`struct.Struct` instance *stru*. Returns ``None`` if out
+		of range.
+		
+		'''
+		
 		fileoff = self._fromVM(vmaddr)
 		if fileoff < 0:
 			return None
@@ -147,6 +206,8 @@ def _macho_segment(self, segname):
 def _macho_derefString(self, vmaddr, encoding='utf_8', returnLength=False):
 	"""Dereference a string."""
 	offset = self.fromVM(vmaddr)
+	if offset < 0:
+		return None
 	cur = self.tell()
 	self.seek(offset)
 	res = peekString(self.file, encoding=encoding, returnLength=returnLength)

@@ -16,24 +16,39 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-from collections import Counter
+from symbolic.py2compat import Counter
 
 def performIf(counter, predicate, action):
-	"""Filter the counter collection by a predicate and perform some action on
-	them. Returns a tuple of whether anything satisfies the predicate, and the 
-	counter collection of unsatisfying items.
+	"""Filter the *counter* collection by a *predicate* and perform some
+	*action* on them. Returns a tuple of whether anything satisfies the
+	predicate, and the counter collection of unsatisfying items.
 	
-	The "predicate" takes a key of the counter collection, and returns a boolean.
+	The *predicate* should take a key of the counter collection, and returns a
+	``bool``. The *action* should take a key and its count in the counter
+	collection.
 	
-	The "action" takes a key and its count in the counter collection, and returns
-	Nothing.
+	Example:
+	
+	>>> pred = (lambda key: key % 2 == 0)
+	>>> action = (lambda key, count: print('Key =', key, ' Count =', count))
+	>>> performIf(Counter([1,1,2,3,6,6,6,6]), pred, action)
+	Key = 2  Count = 1
+	Key = 6  Count = 4
+	(Counter({1: 2, 3: 1}), True)
+	>>> performIf(Counter([1,1,3]), pred, action)
+	(Counter({1: 2, 3: 1}), False)
+	>>> performIf(Counter([2,6,6,6,6]), pred, action)
+	Key = 2  Count = 1
+	Key = 6  Count = 4
+	(Counter(), True)
 	
 	"""
 
 	return performIf2(counter, (lambda k, c: predicate(k)), action)
 
 def performIf2(counter, predicate, action):
-	"""Similar to performIf, but the predicate accepts the count argument as well."""
+	"""Similar to :func:`performIf`, but the *predicate* accepts the count as
+	the second argument."""
 	
 	normal = Counter()
 	anyTrue = False
@@ -46,8 +61,11 @@ def performIf2(counter, predicate, action):
 	return (normal, anyTrue)
 
 def keysExcept(counter, predicate):
-	"""Returns a generator of keys of the counter collection does not satisfy the
-	predicate.
+	"""Returns an iterator of keys of the *counter* collection that does not
+	satisfy the predicate.
 	
+	>>> pred = (lambda key: key % 2 == 0)
+	>>> list(keysExcept(Counter([1,1,2,3,6,6,6,6]), pred))
+	[1, 3]
 	"""
 	return (k for k in counter.keys() if not predicate(k))

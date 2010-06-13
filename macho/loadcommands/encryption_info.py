@@ -16,11 +16,47 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
+'''
+
+This module provides the :class:`EncryptionInfoCommand` representing the an
+encryption info load command. This load command marks a range of file offset as
+encrypted. 
+
+An encrypted region cannot be used (the decryption procedure is in the kernel).
+Users may first check if a file offset is encrypted.
+
+Patches
+-------
+
+.. method:: macho.macho.MachO.encrypted(fileoff)
+
+	Checks if the file offset is in any encrypted region.
+
+Members
+-------
+
+'''
+
+
 from macho.loadcommands.loadcommand import LoadCommand
 from macho.macho import MachO
 
 class EncryptionInfoCommand(LoadCommand):
-	"""The encryption info load command."""
+	"""The encryption info load command.
+	
+	.. attribute:: cryptoff
+	
+		The starting file offset of this encryption region.
+
+	.. attribute:: cryptsize
+	
+		The size of this encryption region.
+	
+	.. attribute:: cryptid
+	
+		The method of encryption.
+	
+	"""
 
 	def analyze(self, machO):
 		(self.cryptoff, self.cryptsize, self.cryptid) = machO.readFormatStruct('3L')

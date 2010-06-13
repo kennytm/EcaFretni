@@ -25,7 +25,13 @@ def _getLibraryOrdinal(desc):
 
 
 class SymtabCommand(LoadCommand):
-	"""The symtab (symbol table) load command."""
+	"""
+	
+	The ``SYMTAB`` (symbol table) load command. When analyzed, the symbols will
+	be added back to the Mach-O object. See the :mod:`macho.symbol` module for
+	how to access these symbols.
+	
+	"""
 		
 	def analyze(self, machO):
 		symtabStruct = machO.makeStruct('4L')
