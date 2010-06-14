@@ -26,7 +26,7 @@ Example usage::
 	    print('Is 64-bit: ', m.is64bit)
 
 Members
-=======
+-------
 
 '''
 
@@ -79,7 +79,6 @@ class MachO(object):
 		self._endian = '<'
 		
 		self._structCache = {}
-
 	
 	@property
 	def file(self):
@@ -159,7 +158,6 @@ class MachO(object):
 			os.close(self._fileno)
 			self._fileno = -1
 
-
 	def _allLoadCommands(self, cls):
 		# get all load command which is not found in _loadCommandClasses.
 		if isinstance(cls, int):
@@ -172,7 +170,6 @@ class MachO(object):
 			else:
 				return []
 		return self._loadCommandClasses.get(cls, [])
-		
 
 	def allLoadCommands(self, cls):
 		"""Get all load commands with the specified class.
@@ -189,12 +186,10 @@ class MachO(object):
 		the 6 variants of :class:`DylibCommand` will also be returned.
 		
 		"""
-		
 		if cls in self._loadCommandClasses:
 			return self._loadCommandClasses[cls]
 		else:
 			return self._allLoadCommands(cls)
-		
 	
 	def anyLoadCommand(self, cls):
 		"""Get the first load command with the specified class.
@@ -202,13 +197,11 @@ class MachO(object):
 		Returns ``None`` if no such command is found.
 		
 		"""
-		
 		arr = self.allLoadCommands(cls)
 		if len(arr) > 0:
 			return arr[0]
 		else:
 			return None
-
 
 	def seek(self, offset):
 		"""Jump the cursor to the specific file offset, factoring out the
@@ -219,7 +212,6 @@ class MachO(object):
 		"""Get the current file offset, factoring out the :attr:`origin`."""
 		return self._file.tell() - self._origin
 
-
 	def makeStruct(self, fmt):
 		"""Create a :class:`struct.Struct` object. See
 		:func:`macho.utilities.makeStruct` for detail."""
@@ -227,14 +219,12 @@ class MachO(object):
 		if fmt not in sc:
 			sc[fmt] = makeStruct(fmt, endian=self._endian, is64bit=self._is64bit)
 		return sc[fmt]
-
 		
 	def __analyze(self):
 		self.__pickArchFromFatFile()
 		self.__readMagic()
 		self.__readHeader()
 		self.__analyzeLoadCommands()
-		
 		
 	def __pickArchFromFatFile(self):
 		(magic, nfat_arch) = readStruct(self._file, Struct('>2L'))
@@ -261,7 +251,6 @@ class MachO(object):
 		# Jump to offset if best match is found.
 		self._file.seek(offsets[bestMatch])
 		
-		
 	def __readMagic(self):
 		self._origin = self._file.tell()
 		(magic, ) = readStruct(self._file, Struct('<L'))
@@ -277,7 +266,6 @@ class MachO(object):
 			self._is64bit = True
 		else:
 			raise MachOError('Invalid magic "0x{:08x}".'.format(magic))
-	
 	
 	def __readHeader(self):
 		headerStruct = self.makeStruct('6L~')
@@ -302,7 +290,6 @@ class MachO(object):
 			self._loadCommands.append(LoadCommand.create(cmdname, cmdsize, offset))
 			self._file.seek(cmdsize - 8, os.SEEK_CUR)
 		
-		
 	def __analyzeLoadCommands(self):
 		# Classify the load commands 
 		loadCommandClasses = {}
@@ -321,7 +308,3 @@ class MachO(object):
 				if requiresAnalysis[i]:
 					self.seek(lc.offset)
 					requiresAnalysis[i] = lc.analyze(self)
-		
-		
-		
-		
