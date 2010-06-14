@@ -28,7 +28,7 @@ Members
 '''
 
 
-from struct import Struct
+from struct import Struct, unpack_from
 import os
 import array
 
@@ -136,6 +136,9 @@ def readSLeb128(f):
 	return res
 
 
+def _formatFmt(fmt, endian, is64bit):
+	return endian + fmt.translate({94: 'Q', 0x7e: '4x'} if is64bit else {94: 'L', 0x7e: ''})
+
 def makeStruct(fmt, endian, is64bit):
 	"""Make a :class:`struct.Struct` object.
 	
@@ -160,7 +163,7 @@ def makeStruct(fmt, endian, is64bit):
 	
 	"""
 	
-	return Struct(endian + fmt.translate({94: 'Q', 0x7e: '4x'} if is64bit else {94: 'L', 0x7e: ''}))
+	return Struct(_formatFmt(fmt, endian, is64bit))
 
 
 def peekStructs(f, stru, count, position=-1):
@@ -178,8 +181,21 @@ def peekStructs(f, stru, count, position=-1):
 		
 	end = min(position + stru.size * count, len(f))
 	
-	return (stru.unpack_from(f, o) for o in range(position, end, stru.size))
+	return (stru.unpack_from(f, offset=o) for o in range(position, end, stru.size))
+
+
+def peekPrimitives(f, fmt, count, endian, is64bit, position=-1):
+	"""Returns an iteratable which unpacks the subsequent bytes of the 
+	:class:`mmap.mmap` object *f* into *count* copies of primitives, given by
+	the format *fmt*. 
+	"""
 	
+	if position < 0:
+		position = f.tell()
+	
+	newFmt = _formatFmt(str(count) + fmt, endian, is64bit)
+	return unpack_from(newFmt, f, offset=position)
+
 
 def peekStruct(f, stru, position=-1):
 	"""Returns a structure unpacked by *stru*."""
@@ -230,4 +246,6 @@ if __name__ == '__main__':
 		f.seek(pos)
 		assert readSLeb128(f) == -0x1649
 		assert readString(f) == 'wtf'
+		assert list(peekPrimitives(f, 'B', 3, endian='>', is64bit=False, position=4)) == [0xc3, 0xb3, 0]
+		assert list(peekPrimitives(f, 'H', 2, endian='<', is64bit=False, position=4)) == [0xb3c3, 0x7700]
 		f.close()
