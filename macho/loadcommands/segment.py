@@ -61,6 +61,17 @@ Patches
 	
 	>>> m.segment('__TEXT')
 
+.. method:: macho.macho.MachO.hasSection(segname, sectname)
+
+	Checks if a section exists.
+	
+.. method:: macho.macho.MachO.section(segname, sectname)
+
+	Returns a :class:`macho.sections.section.Section`. 
+	
+	If the segment with *segname* does not exist, returns ``None``. If the
+	segment exists but the section not, raises a :exc:`KeyError` exception.
+
 Members
 -------
 
@@ -130,7 +141,8 @@ class SegmentCommand(LoadCommand):
 
 
 	def section(self, sectName):
-		"""Get the section given the name."""
+		"""Get the section given the name. Raises a :exc:`KeyError` exception
+		if the section does not exist."""
 		return self._sections[sectName]
 
 		
@@ -141,7 +153,7 @@ class SegmentCommand(LoadCommand):
 	
 	def fromVM(self, vmaddr):
 		"""Convert VM address to file offset. Returns -1 if out of range."""
-		if self._vmaddr <= vmaddr < self._vmaddr + self._vmsize:
+		if vmaddr > 0 and self._vmaddr <= vmaddr < self._vmaddr + self._vmsize:
 			return vmaddr + self._fileoff - self._vmaddr
 		else:
 			return -1
@@ -155,14 +167,12 @@ class SegmentCommand(LoadCommand):
 	
 	def deref(self, vmaddr, stru):
 		'''
-		
 		Dereference a structure at VM address *vmaddr*. The structure is defined
 		by the :class:`struct.Struct` instance *stru*. Returns ``None`` if out
 		of range.
-		
 		'''
 		
-		fileoff = self._fromVM(vmaddr)
+		fileoff = self.fromVM(vmaddr)
 		if fileoff < 0:
 			return None
 		cur = self._o.tell()
@@ -199,9 +209,18 @@ def _macho_deref(self, vmaddr, stru):
 def _macho_segment(self, segname):
 	"""Get the segment given its name"""
 	try:
-		 return next(lc for lc in self.allLoadCommands('SegmentCommand') if lc.segname == segname)
+		return next(lc for lc in self.allLoadCommands('SegmentCommand') if lc.segname == segname)
 	except StopIteration:
 		return None
+
+def _macho_withSegment(func, defVal):
+	def f(self, segname, sectname):
+		seg = self.segment(segname)
+		if seg is None:
+			return defVal
+		else:
+			return func(seg, sectname)
+	return f
 
 def _macho_derefString(self, vmaddr, encoding='utf_8', returnLength=False):
 	"""Dereference a string."""
@@ -220,4 +239,5 @@ MachO.toVM = _macho_forEachSegment(SegmentCommand.toVM)
 MachO.deref = _macho_deref
 MachO.derefString = _macho_derefString
 MachO.segment = _macho_segment
-
+MachO.hasSection = _macho_withSegment(SegmentCommand.hasSection, False)
+MachO.section = _macho_withSegment(SegmentCommand.section, None)
