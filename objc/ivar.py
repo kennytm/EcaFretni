@@ -24,3 +24,5 @@ class Ivar(object):
 		self.encoding = encoding
 		self.isPrivate = isPrivate
 	
+	def __str__(self):
+		return '{} [{}] / 0x{:x}'.format(self.name, self.encoding, self.offset)

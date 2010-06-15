@@ -79,8 +79,10 @@ class Property(object):
 		self.synthesizedIvar = ''
 		self.gcStrength = ''
 		self.encoding = ''
+		self.optional = False
 		self._parseAttributes()
 	
+	@property
 	def attributeList(self):
 		"""Return a list of attributes."""
 		attribList = [self.accessMethod]

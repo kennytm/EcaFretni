@@ -15,32 +15,14 @@
 #	You should have received a copy of the GNU General Public License
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from collections import OrderedDict
+from .classlike import ClassLike
 
-class Category(object):
+class Category(ClassLike):
 	"""A structure representing an Objective-C class."""
 
-	def __init__(self, name):
-		self.class_ = None
-		self.name = name
-		self.methods = OrderedDict()	# method name as key.
-		self.classMethods = OrderedDict()
-		self.protocols = set()
-		self.properties = OrderedDict()	# property name as key.
-			
-	def addMethod(self, method, isClassMethod=False):
-		"""Add a method to the category."""
-		if isClassMethod:
-			self.classMethods[method.name] = method
-		else:
-			self.methods[method.name] = method
+	def __init__(self, name, class_):
+		super().__init__(name)
+		self.class_ = class_
 	
-	def addProperty(self, prop):
-		"""Add a property to the category."""
-		self.properties[property.name] = property
-	
-	def addProtocol(self, protocol):
-		"""Add a protocol to the category."""
-		self.protocols.add(protocol)
-		
-	
+	def __str__(self):
+		return self.stringify('@interface {} ('.format(self.class_.name), ')', '')

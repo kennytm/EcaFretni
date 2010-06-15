@@ -15,64 +15,36 @@
 #	You should have received a copy of the GNU General Public License
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from collections import OrderedDict
+from .classlike import ClassLike
 
-class Class(object):
+class Class(ClassLike):
 	"""A structure representing an Objective-C class."""
 
-	def __init__(self, name):
+	def __init__(self, name, flags):
+		super().__init__(name)
 		self.superClass = None
-		self.metaClass = None
-		self.name = name
-		self.isMeta = False
-		self.isRoot = False
-		self.hasStructors = False
-		self.hidden = False
-		self.exception = False
-		self.methods = OrderedDict()	# method name as key.
 		self.ivars = []
-		self.protocols = set()
-		self.properties = OrderedDict()	# property name as key.
+		self.parseFlags(flags)
 	
-	def parseFlag(self, flag):
+	def parseFlags(self, flag):
 		"""Parse a flag from ObjC 2 ABI."""
 		self.isMeta = flag & 1
 		self.isRoot = flag & 2
 		self.hasStructors = flag & 4
 		self.hidden = flag & 16
 		self.exception = flag & 32
-		
-	def addMethod(self, method):
-		"""Add a method to the class."""
-		self.methods[method.name] = method
 	
-	def addProperty(self, prop):
-		"""Add a property to the class."""
-		self.properties[property.name] = property
-	
-	def addIvar(self, ivar):
-		"""Add an ivar to the class."""
-		self.ivars.append(ivar)
-	
-	def addProtocol(self, protocol):
-		"""Add a protocol to the class."""
-		self.protocols.add(protocol)
-	
-	def instanceMethod(self, methodName):
-		"""Returns the specified instance method, including superclasses."""
-		theClass = self
-		while theClass:
-			if methodName in theClass.methods:
-				return theClass.methods[methodName]
-			else:
-				theClass = self.superClass
-		return None
-	
-	def classMethod(self, methodName):
-		"""Returns the specified class method, including superclasses."""
-		if self.metaClass:
-			return self.metaClass.instanceMethod(methodName)
+	def __str__(self):
+		if self.superClass:
+			middle = " : " + self.superClass.name
 		else:
-			return None
+			middle = ""
+		suffix = [" {\n"]
+		suffix.extend("\t{}\n".format(iv) for iv in self.ivars)
+		suffix.append('}')
+		return self.stringify('@interface ', middle, ''.join(suffix))
 		
-	
+
+class RemoteClass(ClassLike):
+	"""A structure representing an external class."""
+	pass
