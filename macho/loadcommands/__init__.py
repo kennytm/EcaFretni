@@ -15,4 +15,4 @@
 #	You should have received a copy of the GNU General Public License
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-__all__ = ['loadcommand', 'segment', 'dylib', 'encryption_info', 'symtab']
+__all__ = ['loadcommand', 'segment', 'dylib', 'encryption_info', 'symtab', 'dyld_info']
