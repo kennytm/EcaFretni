@@ -24,7 +24,7 @@ Members
 -------
 '''
 
-from symbolic.py2compat import Counter
+from py2compat import Counter
 from sorted_list import SortedList
 from copy import deepcopy
 

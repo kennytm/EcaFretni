@@ -16,7 +16,7 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-from symbolic.py2compat import Counter
+from py2compat import Counter
 
 def performIf(counter, predicate, action):
 	"""Filter the *counter* collection by a *predicate* and perform some

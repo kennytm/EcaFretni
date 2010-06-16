@@ -23,9 +23,11 @@ complain.
 '''
 
 try:
-	from collections import Counter
+	from collections import Counter, OrderedDict
 except ImportError:
 	class Counter(object):
+		pass
+	class OrderedDict(object):
 		pass
 
 if not hasattr(Counter, 'subtract'):
