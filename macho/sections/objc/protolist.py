@@ -16,21 +16,18 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from macho.sections.section import Section
-import macho.sections.objc._reader_abi2
+from ._abi2reader import readProtocolList
 
 class ObjCProtoListSection(Section):
 	def _analyze1(self, machO):
-		pass
+		assert False, "Analyzing ABI 1.0 for the __OBJC,__protocol section is not implemented yet."
 
 	def _analyze2(self, machO):
 		# In ABI 2.0, the __DATA,__objc_protolist contains a list of file offsets
 		# in native width and endian. These offsets will point to a protocol_t
 		# structure as described in objc-runtime-new.h.
-		 
-		ptrStruct = machO.makeStruct('^')
-		addressMaps = self.peekStructs(ptrStruct, machO)
-		addresses = (l for _, (l, ) in addressMaps)
-		self.protocols = macho.sections.objc._reader_abi2.readProtocols(addresses, machO)
+		addresses = self.asPrimitives('^', machO)
+		self.protocols = readProtocolList(machO, addresses)
 
 	def analyze(self, segment, machO):
 		if self.sectname == '__protocol':

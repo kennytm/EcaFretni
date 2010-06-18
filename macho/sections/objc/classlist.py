@@ -16,14 +16,28 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from macho.sections.section import Section
+from ._abi2reader import readClassList
+from .protolist import ObjCProtoListSection
 
 class ObjCClassListSection(Section):
 	def _analyze1(self, machO):
+		assert False, "Analyzing ABI 1.0 for the __OBJC,__class section is not implemented yet."
 
 	def _analyze2(self, machO):
-		# In ABI 2.0, the __DATA,__objc_classlist contains a list of VM addresses
-		# to a class_t structure as described in objc-runtime-new.h. These only
-		# include classes, not metaclasses.
+		# Make sure the protocol section is ready if exists.
+		
+		protoSect = machO.anySection(ObjCProtoListSection)
+		if protoSect:
+			if hasattr(protoSect, 'protocols'):
+				protoRefsMap = protoSect.protocols
+			else:
+				return True
+		else:
+			protoRefsMap = {}
+		
+		addresses = self.asPrimitives('^', machO)
+		self.classes = readClassList(machO, addresses, protoRefsMap)
+		
 
 	def analyze(self, segment, machO):
 		if self.sectname == '__class':
@@ -32,52 +46,4 @@ class ObjCClassListSection(Section):
 			return self._analyze2(machO)
 
 
-Section.registerFactory('__objc_classlist', CStringSection)
-
-# In 1.0 ABI (__OBJC,__class section),
-#
-#	struct old_class {
-#		struct old_class *isa;
-#		struct old_class *super_class;
-#		const char *name;
-#		long version;
-#		long info;
-#		long instance_size;
-#		struct old_ivar_list *ivars;
-#		struct old_method_list **methodLists;
-#		Cache cache;
-#		struct old_protocol_list *protocols;
-#		// CLS_EXT only
-#		const char *ivar_layout;
-#		struct old_class_ext *ext;
-#	};
-#
-# In 2.0 ABI (__DATA,__objc_classlist section),
-#
-#	typedef struct class_t {
-#		struct class_t *isa;
-#		struct class_t *superclass;
-#		Cache cache;
-#		IMP *vtable;
-#		class_ro_t *data;
-#	} class_t;
-#
-#	typedef struct class_ro_t {
-#		uint32_t flags;
-#		uint32_t instanceStart;
-#		uint32_t instanceSize;
-#	#ifdef __LP64__
-#		uint32_t reserved;
-#	#endif
-#
-#		const uint8_t * ivarLayout;
-#		
-#		const char * name;
-#		const method_list_t * baseMethods;
-#		const protocol_list_t * baseProtocols;
-#		const ivar_list_t * ivars;
-#
-#		const uint8_t * weakIvarLayout;
-#		const struct objc_property_list *baseProperties;
-#	} class_ro_t;
-#
+Section.registerFactory('__objc_classlist', ObjCClassListSection)
