@@ -48,11 +48,11 @@ from .macho import MachO
 class Symbol(object):
 	"""A symbol in Mach-O file.
 	
-	.. attribute:: string
+	.. attribute:: name
 	
 		The name of the symbol.
 	
-	.. attribute:: value
+	.. attribute:: addr
 	
 		The address of the symbol
 	
@@ -68,15 +68,16 @@ class Symbol(object):
 	
 	"""
 	
-	def __init__(self, string, value, library=None, extern=False):
-		(self.string, self.value, self.library, self.extern) = (string, value, library, extern)
+	def __init__(self, name, addr, library=None, extern=False):
+#		assert addr != 0
+		(self.name, self.addr, self.library, self.extern) = (name, addr, library, extern)
 	
 	
 	def __str__(self):
-		return "<Symbol {!r}:0x{:x}>".format(self.string, self.value)
+		return "<Symbol {!r}:0x{:x}>".format(self.name, self.addr)
 		
 	def __repr__(self):
-		args = [repr(self.string), '0x{:x}'.format(self.value)]
+		args = [repr(self.name), '0x{:x}'.format(self.addr)]
 		if self.library is not None:
 			args.append('library={!r}'.format(self.library))
 		if self.extern:
@@ -95,8 +96,8 @@ def _macho_addSymbols(self, symbols, fromSymtab=False):
 	if fromSymtab:
 		self._symbols.extend(symbols)
 	
-	self._symvals.update((sym.value, sym) for sym in symbols)
-	self._symstrs.update((sym.string, sym) for sym in symbols)
+	self._symvals.update((sym.addr, sym) for sym in symbols)
+	self._symstrs.update((sym.name, sym) for sym in symbols)
 
 def _macho_symbols(self):
 	"""Get the list of symbols with ordinals."""
