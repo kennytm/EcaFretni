@@ -15,7 +15,8 @@
 #	You should have received a copy of the GNU General Public License
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from collections import OrderedDict
+from py2compat import OrderedDict
+
 
 class ClassLike(object):
 	"""This structure represents all class-like objects. A class-like object can
@@ -32,21 +33,21 @@ class ClassLike(object):
 		
 	.. attribute:: methods
 	
-		An ordered dictionary of :class:`objc.method.Method`\ s as instance
+		An ordered dictionary of :class:`~objc.method.Method`\ s as instance
 		methods, keyed by the method name.
 	
 	.. attribute:: classMethods
 	
-		An ordered dictionary of :class:`objc.method.Method`\ s as class
+		An ordered dictionary of :class:`~objc.method.Method`\ s as class
 		methods, keyed by the method name.
 	
 	.. attribute:: protocols
 	
-		A set of :class:`objc.protocol.Protocol`\ s adopted by this object.
+		A set of :class:`~objc.protocol.Protocol`\ s adopted by this object.
 	
 	.. attribute:: properties
 	
-		A list of :class:`objc.property.Property`\ s.
+		A list of :class:`~objc.property.Property`\ s.
 	
 	"""
 	
@@ -66,7 +67,14 @@ class ClassLike(object):
 		self.classMethods.update((m.name, m) for m in classMethods)
 		
 	def addProperties(self, properties):
-		"""Add a sequence of *properties* to this class-like object."""
+		"""Add a sequence of *properties* to this class-like object.
+		
+		.. note::
+		
+			Make sure the corresponding getters and setters of the properties
+			exist in this class-like object before calling this method.
+		
+		"""
 		
 		# By default properties do not have the sense of optionality. However, 
 		# when a property is declared optional, its getter and setter will be

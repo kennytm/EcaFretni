@@ -16,7 +16,27 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 class Ivar(object):
-	"""A structure representing an Objective-C ivar."""
+	"""A structure representing an Objective-C ivar.
+	
+	.. attribute:: name
+	
+		The name of this ivar.
+	
+	.. attribute:: offset
+	
+		Offset of this ivar in the instance.
+		
+	.. attribute:: encoding
+	
+		Type encoding of this ivar.
+	
+	.. attribute:: isPrivate
+	
+		Whether this ivar is a private one.
+		
+		If an ivar is private, its symbol will not be exported.
+	
+	"""
 
 	def __init__(self, name, encoding, offset, isPrivate=False):
 		self.name = name

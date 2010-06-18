@@ -16,14 +16,27 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from .classlike import ClassLike
+from py2compat import OrderedDict
 
 class Class(ClassLike):
-	"""A structure representing an Objective-C class."""
+	"""A structure representing an Objective-C class.
+	
+	.. attribute:: superClass
+	
+		The :class:`Class` object for this class's super class. If this clas is
+		the root class, its value is ``None``.
+	
+	.. attribute:: ivars
+	
+		An ordered dictionary of :class:`~objc.ivar.Ivar`\ s, keyed by the ivar
+		name.
+	
+	"""
 
 	def __init__(self, name, flags):
 		super().__init__(name)
 		self.superClass = None
-		self.ivars = []
+		self.ivars = OrderedDict()
 		self.parseFlags(flags)
 	
 	def parseFlags(self, flag):
@@ -33,6 +46,10 @@ class Class(ClassLike):
 		self.hasStructors = flag & 4
 		self.hidden = flag & 16
 		self.exception = flag & 32
+	
+	def addIvars(self, ivars):
+		"""Add an iterable of *ivars* into this class."""
+		self.ivars.update((v.name, v) for v in ivars)
 	
 	def __str__(self):
 		if self.superClass:

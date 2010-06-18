@@ -18,7 +18,72 @@
 from balanced_substring import balancedSubstring
 
 class Property(object):
-	"""A structure representing an Objective-C property."""
+	"""A structure representing an Objective-C property.
+	
+	.. attribute:: name
+	
+		The name of this property.
+
+	.. attribute:: encoding
+	
+		The type encoding of this property.
+
+	.. attribute:: optional
+	
+		Whether this property is optional.
+
+		There was no notion of optional properties in the Objective-C runtime.
+		However, the compiler will mark the getter and setter of a property in
+		the ``@optional`` region as optional. From this information, we can
+		deduce whether a property is optional or not.
+
+	.. attribute:: attributes
+	
+		The raw attributes of this property. The format can be found in the
+		`Objective-C Runtime Programming Guide <http://developer.apple.com/mac/library/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtPropertyIntrospection.html#//apple_ref/doc/uid/TP40008048-CH101-SW6>`_
+		from Apple.
+		
+	.. attribute:: getter
+	
+		The name of the getter. By default it is ``name``.
+	
+	.. attribute:: setter
+	
+		The name of the setter. By default it is ``setName:``.
+	
+	.. attribute:: hasGetter
+	
+		Whether this property has a custom getter.
+	
+	.. attribute:: hasSetter
+	
+		Whether this property has a custom setter.
+	
+	.. attribute:: atomic
+	
+		Whether this property is atomic or not. By default it is ``True``.
+	
+	.. attribute:: accessMethod
+	
+		How this property is accessed. It can be one of ``'assign'``,
+		``'retain'`` or ``'copy'``. By default it is ``'assign'``.
+		
+	.. attribute:: readOnly
+	
+		Whether this property is read-only. By default it is ``False``. 
+	
+	.. attribute:: synthesizedIvar
+	
+		If this attribute is an empty string, this property is dynamic.
+		Otherwise, the name of the ivar it is synthesized from is recorded here.
+	
+	.. attribute:: gcStrength
+	
+		The garbage collection "strength". It can be one of ``'__strong'``
+		(eligible for GC), ``'__weak'`` (weak reference) or an empty string
+		(default).
+	
+	"""
 
 	def _parseAttributes(self):
 		index = 0

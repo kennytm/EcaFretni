@@ -18,7 +18,13 @@
 from .classlike import ClassLike
 
 class Category(ClassLike):
-	"""A structure representing an Objective-C class."""
+	"""A structure representing an Objective-C class.
+	
+	.. attribute:: class_
+	
+		The :class:`~objc.class_.Class` this category is overloading.
+	
+	"""
 
 	def __init__(self, name, class_):
 		super().__init__(name)
