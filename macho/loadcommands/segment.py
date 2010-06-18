@@ -72,17 +72,30 @@ Patches
 	If the segment with *segname* does not exist, returns ``None``. If the
 	segment exists but the section not, raises a :exc:`KeyError` exception.
 
+.. method:: macho.macho.MachO.allSections(sectid)
+
+	Returns an iterable of all :class:`macho.sections.section.Section`\ s having
+	the specified section identifier. It can be a section name like
+	``__cstring``, or a class object like
+	:class:`macho.sections.cstring.CStringSection`.
+
+.. method:: macho.macho.MachO.anySection(sectid):
+
+	Get any :class:`macho.sections.section.Section` having the specified section
+	identifier. Returns ``None`` if no such section exists.
+
 Members
 -------
 
 '''
 
 from macho.loadcommands.loadcommand import LoadCommand
-from macho.utilities import fromStringz, peekStructs, peekString, readStruct
+from macho.utilities import fromStringz, peekStructs, peekString, readStruct, peekStruct
 from macho.macho import MachO
 from factory import factory
 from macho.sections.section import Section
 import macho.loadcommands.encryption_info	# ensures macho.macho.encrypted is defined.
+import struct
 
 class SegmentCommand(LoadCommand):
 	'''The segment load command. This can represent the 32-bit ``SEGMENT``
@@ -172,6 +185,8 @@ class SegmentCommand(LoadCommand):
 		of range.
 		'''
 		
+		assert isinstance(stru, struct.Struct)
+		
 		fileoff = self.fromVM(vmaddr)
 		if fileoff < 0:
 			return None
@@ -232,7 +247,20 @@ def _macho_derefString(self, vmaddr, encoding='utf_8', returnLength=False):
 	res = peekString(self.file, encoding=encoding, returnLength=returnLength)
 	self.seek(cur)
 	return res
+	
+def _macho_allSections(self, sectid):
+	allSegs = self.allLoadCommands('SegmentCommand')
+	if isinstance(sectid, type):
+		return (sect for seg in allSegs for sect in seg._sections.values() if isinstance(sect, sectid))
+	else:
+		return (seg._sections[sectid] for seg in allSegs if sectid in seg._sections)
 
+def _macho_anySection(self, sectid):
+	try:
+		return next(self.allSections(sectid))
+	except StopIteration:
+		return None
+		
 
 MachO.fromVM = _macho_forEachSegment(SegmentCommand.fromVM)
 MachO.toVM = _macho_forEachSegment(SegmentCommand.toVM)
@@ -241,3 +269,5 @@ MachO.derefString = _macho_derefString
 MachO.segment = _macho_segment
 MachO.hasSection = _macho_withSegment(SegmentCommand.hasSection, False)
 MachO.section = _macho_withSegment(SegmentCommand.section, None)
+MachO.allSections = _macho_allSections
+MachO.anySection = _macho_anySection
