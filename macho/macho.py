@@ -177,7 +177,8 @@ class MachO(object):
 		The *cls* can be:
 		
 		* The name of the load command class, e.g. ``'EncryptionInfoCommand'``.
-		* The class object itself, e.g. :class:`EncryptionInfoCommand`.
+		* The class object itself, e.g.
+		  :class:`macho.loadcommands.encryption_info.EncryptionInfoCommand`.
 		
 		* The actual name of the load command, e.g. ``'ENCRYPTION_INFO'``.
 		
