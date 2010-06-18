@@ -31,7 +31,7 @@ class CFStringSection(Section):
 		machO_file = machO.file
 		
 		cfstrStruct = machO.makeStruct('4^')
-		addressesAndLengths = self.peekStructs(cfstrStruct, machO)
+		addressesAndLengths = self.asStructs(cfstrStruct, machO, includeAddresses=True)
 		
 		for addr, (_, _, strAddr, strLen) in addressesAndLengths:
 			machO_seek(machO_fromVM(strAddr))
