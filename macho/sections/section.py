@@ -26,8 +26,9 @@ Members
 '''
 
 from factory import factory
-from macho.utilities import fromStringz, peekStructs
-from array import array
+from macho.utilities import fromStringz, peekStructs, peekPrimitives, decodeStructFormat
+from struct import calcsize
+from hexdump import hexdump
 
 @factory
 class Section(object):
@@ -93,20 +94,43 @@ class Section(object):
 #		from hexdump import hexdump
 #		hexdump(self._read(o, length), location=self.addr, visualizer=visualizer)
 #	
-	def peekStructs(self, stru, machO):
-		"""Read the whole section as structs.
+	def asStructs(self, stru, machO, includeAddresses=False):
+		"""Read the whole section as structs, and return an iterable of these.
 		
-		Return an iterator of (address, struct_content) tuples.
-		
+		If *includeAddresses* is set to ``True``, return an iterable of
+		(address, struct_content) tuples.
 		"""
 		
 		machO.seek(self.offset)
 		count = self.size // stru.size
 		structs = peekStructs(machO.file, stru, count=count)
-		addrs = range(self.addr, self.addr + self.size, stru.size)
 		
-		return zip(addrs, structs)
+		if includeAddresses:		
+			addrs = range(self.addr, self.addr + self.size, stru.size)	
+			return zip(addrs, structs)
+		else:
+			return structs
 	
+	def asPrimitives(self, fmt, machO, includeAddresses=False):
+		"""Read the whole section as primitives, and return an iterable of these.
 		
+		If *includeAddresses* is set to ``True``, return an iterable of
+		(address, primitive) tuples.
+		"""
+		
+		machO.seek(self.offset)
+		endian = machO.endian
+		is64bit = machO.is64bit
+		ssize = calcsize(decodeStructFormat(fmt, endian, is64bit))
+		count = self.size // ssize
+		prims = peekPrimitives(machO.file, fmt, count, endian, is64bit)
+		
+		if includeAddresses:
+			addrs = range(self.addr, self.addr + self.size, ssize)
+			return zip(addrs, prims)
+		else:
+			return prims
+
+
 	
 		

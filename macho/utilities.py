@@ -136,9 +136,6 @@ def readSLeb128(f):
 	return res
 
 
-def _formatFmt(fmt, endian, is64bit):
-	return endian + fmt.translate({94: 'Q', 0x7e: '4x'} if is64bit else {94: 'L', 0x7e: ''})
-
 def makeStruct(fmt, endian, is64bit):
 	"""Make a :class:`struct.Struct` object.
 	
@@ -163,7 +160,13 @@ def makeStruct(fmt, endian, is64bit):
 	
 	"""
 	
-	return Struct(_formatFmt(fmt, endian, is64bit))
+	return Struct(decodeStructFormat(fmt, endian, is64bit))
+
+
+def decodeStructFormat(fmt, endian, is64bit):
+	"""Converts the nonstandard symbols ``'^'`` and ``'~'`` into standard struct
+	format characters."""
+	return endian + fmt.translate({94: 'Q', 0x7e: '4x'} if is64bit else {94: 'L', 0x7e: ''})
 
 
 def peekStructs(f, stru, count, position=-1):
@@ -188,12 +191,15 @@ def peekPrimitives(f, fmt, count, endian, is64bit, position=-1):
 	"""Returns an iteratable which unpacks the subsequent bytes of the 
 	:class:`mmap.mmap` object *f* into *count* copies of primitives, given by
 	the format *fmt*. 
+	
+	.. note:: ``'~'`` is not a primitive.
+	
 	"""
 	
 	if position < 0:
 		position = f.tell()
 	
-	newFmt = _formatFmt(str(count) + fmt, endian, is64bit)
+	newFmt = decodeStructFormat(str(count) + fmt, endian, is64bit)
 	return unpack_from(newFmt, f, offset=position)
 
 
