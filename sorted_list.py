@@ -38,36 +38,36 @@ Members
 '''
 
 from bisect import bisect_right
+from collections import Sequence, Sized
 
-class SortedList(object):
+class SortedList(Sequence, Sized):
 	"""A list of items sorted automatically by usage frequency.
 	
 	.. note:: This container does not implement the ``list`` interface. The
 	          only way you could access its content is by iterating it.
-	
 	"""
 
 	def __init__(self):
-		self.items = []
-		self.useCount = []
+		self._items = []
+		self._useCount = []
 	
 	def append(self, obj):
 		"""Append an object with usage frequency of 0."""
-		self.items.append(obj)
-		self.useCount.append(0)
+		self._items.append(obj)
+		self._useCount.append(0)
 	
-	def __iter__(self):
-		return iter(self.items)
+	def __getitem__(self, i):
+		return self._items[i]
+	
+	def __len__(self):
+		return len(self._items)
 	
 	def use(self, obj, hint=0):
 		'''
-		
 		Increase the usage frequency of *obj* by 1.
 		
 		If *hint* is given, it will be assumed the *obj* is at that rank. 
-		
 		'''
-		
 		# Two cases where there's no need to change place.
 		#  1. Already the most popular item.
 		#  2. Even after increasing the use count, the next item is still more 
@@ -77,25 +77,34 @@ class SortedList(object):
 		# with bisect.
 		#
 		
-		index = hint
-		if self.items[index] != obj:
-			# The hint isn't right! Find again.
-			index = self.items.index(obj)
+		self_items = self._items
+		self_useCount = self._useCount
 		
-		if index == 0 or self.useCount[index-1] < self.useCount[index]:
-			self.useCount[index] -= 1
+		index = hint
+		if self_items[index] != obj:
+			# The hint isn't right! Find again.
+			index = self_items.index(obj)
+		
+		if index == 0 or self_useCount[index-1] < self_useCount[index]:
+			self_useCount[index] -= 1
 		
 		else:
 			# This case happens only when a[i-1] == a[i]
-			target = self.useCount[index] - 1
-			j = bisect_right(self.useCount, target, 0, index)
+			target = self_useCount[index] - 1
+			j = bisect_right(self_useCount, target, 0, index)
 			
 			# rotate everything in [j, index] to the right by 1 step.
-			self.useCount[j+1:index+1] = self.useCount[j:index]
-			self.useCount[j] = target
+			# e.g.         [a:-4, b:-3, c:-3, d:-3, e:-2]
+			#     use d -> [a:-4, b:-3, c:-3, d:-4, e:-2]
+			#    rotate -> [a:-4, d:-4, b:-3, c:-3, e:-2]
+			#                     ^-- j       ^-- index
+			self_useCount[j+1:index+1] = self_useCount[j:index]
+			self_useCount[j] = target
 			
-			self.items[j+1:index+1] = self.items[j:index]
-			self.items[j] = obj
+			self_items[j+1:index+1] = self_items[j:index]
+			self_items[j] = obj
+		
+		
 		
 if __name__ == '__main__':
 	p = SortedList()
@@ -103,42 +112,45 @@ if __name__ == '__main__':
 	p.append('foo')
 	p.append('bar')
 	p.append('baz')
-	assert p.items == ['foo', 'bar', 'baz']
-	assert p.useCount == [0, 0, 0]
+	assert p._items == ['foo', 'bar', 'baz']
+	assert p._useCount == [0, 0, 0]
 	
 	p.use('foo')
 	p.use('foo')
-	assert p.items == ['foo', 'bar', 'baz']
-	assert p.useCount == [-2, 0, 0]	
+	assert p._items == ['foo', 'bar', 'baz']
+	assert p._useCount == [-2, 0, 0]	
 	
 	p.use('bar')
-	assert p.items == ['foo', 'bar', 'baz']
-	assert p.useCount == [-2, -1, 0]
+	assert p._items == ['foo', 'bar', 'baz']
+	assert p._useCount == [-2, -1, 0]
 	
 	p.use('bar')
-	assert p.items == ['foo', 'bar', 'baz']
-	assert p.useCount == [-2, -2, 0]
+	assert p._items == ['foo', 'bar', 'baz']
+	assert p._useCount == [-2, -2, 0]
 	
 	p.use('bar')
-	assert p.items == ['bar', 'foo', 'baz']
-	assert p.useCount == [-3, -2, 0]
+	assert p._items == ['bar', 'foo', 'baz']
+	assert p._useCount == [-3, -2, 0]
 	
 	p.use('baz')
 	p.use('baz')
-	assert p.items == ['bar', 'foo', 'baz']
-	assert p.useCount == [-3, -2, -2]
+	assert p._items == ['bar', 'foo', 'baz']
+	assert p._useCount == [-3, -2, -2]
 	
 	p.use('baz')
-	assert p.items == ['bar', 'baz', 'foo']
-	assert p.useCount == [-3, -3, -2]
+	assert p._items == ['bar', 'baz', 'foo']
+	assert p._useCount == [-3, -3, -2]
 	
 	p.use('foo')
-	assert p.items == ['bar', 'baz', 'foo']
-	assert p.useCount == [-3, -3, -3]
+	assert p._items == ['bar', 'baz', 'foo']
+	assert p._useCount == [-3, -3, -3]
 	
 	p.use('foo')
-	assert p.items == ['foo', 'bar', 'baz']
-	assert p.useCount == [-4, -3, -3]
+	assert p._items == ['foo', 'bar', 'baz']
+	assert p._useCount == [-4, -3, -3]
 	
-	
+	assert p[0] == 'foo'
+	assert len(p) == 3
+	assert p.index('bar') == 1
+	assert 'baz' in p
 			
