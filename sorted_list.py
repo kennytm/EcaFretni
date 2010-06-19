@@ -16,35 +16,23 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-'''
-
-This module provides a simplistic :class:`SortedList` container, which can sort
-a list automatically based on usage frequency::
-
-	sl = SortedList()
-	sl.append('foo')
-	sl.append('bar')
-	
-	print (list(sl))
-	# ['foo', 'bar']
-	
-	sl.use('bar')
-	print (list(sl))
-	# ['bar', 'foo']
-
-Members
--------
-
-'''
-
 from bisect import bisect_right
 from collections import Sequence, Sized
 
 class SortedList(Sequence, Sized):
-	"""A list of items sorted automatically by usage frequency.
+	"""A simplistic sequence container, which is sorted automatically based on
+	usage frequency::
 	
-	.. note:: This container does not implement the ``list`` interface. The
-	          only way you could access its content is by iterating it.
+		sl = SortedList()
+		sl.append('foo')
+		sl.append('bar')
+		
+		print (list(sl))
+		# ['foo', 'bar']
+		
+		sl.use('bar')
+		print (list(sl))
+		# ['bar', 'foo']
 	"""
 
 	def __init__(self):
@@ -153,4 +141,5 @@ if __name__ == '__main__':
 	assert len(p) == 3
 	assert p.index('bar') == 1
 	assert 'baz' in p
+	assert list(p) == ['foo', 'bar', 'baz']
 			
