@@ -14,72 +14,7 @@
 #	
 #	You should have received a copy of the GNU General Public License
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#	
-
-'''
-
-This module provides the :class:`SegmentCommand` representing the a segment load
-command. A segment consists of many sections, which contain actual code and
-data.
-
-.. note::
-
-	Sections falling in the encrypted region will not be analyzed. See
-	:mod:`macho.loadcommands.encryption_info` for detail.
-
-This module also provides virtual memory (VM) address-related methods to
-:class:`macho.macho.MachO` as they are meaningful only to segments.
-
-Patches
--------
-
-.. method:: macho.macho.MachO.fromVM(vmaddr)
-
-	Convert a VM address to file offset. Returns -1 if the address does not
-	exist.
-
-.. method:: macho.macho.MachO.toVM(fileoff)
-
-	Convert a file offset to VM address. Returns -1 if the address does not
-	exist.
-	
-.. method:: macho.macho.MachO.deref(vmaddr, stru)
-
-	Dereference a structure at VM address *vmaddr*. The structure is defined by
-	the :class:`struct.Struct` instance *stru*. Returns ``None`` if the address
-	does not exist.
-
-.. method:: macho.macho.MachO.derefString(vmaddr)
-
-	Read a null-terminated string at VM address *vmaddr*. Returns ``None`` if
-	the address does not exist.
-
-.. attribute:: macho.macho.MachO.segments
-
-	Get a dictionary of :class:`Segment`\\s keyed by segment name, for example
-	
-	>>> m.segments['__TEXT']
-
-.. method:: macho.macho.MachO.allSections(idtype, sectid)
-
-	Returns an iterable of all :class:`~macho.sections.section.Section`\\s
-	having the specified section identifier.
-	
-	If *idtype* is ``'sectname'``, then the *sectid* should be a section name,
-	e.g. ``'__cstring'``.
-	
-	If *idtype* is ``'className'``, then the *sectid* should be the class name 
-	of the section to find, e.g. ``'CStringSection'``.
-
-.. method:: macho.macho.MachO.anySection(idtype, sectid):
-
-	Get any :class:`~macho.sections.section.Section` having the specified
-	section identifier. Returns ``None`` if no such section exists.
-
-Members
--------
-
-'''
+#
 
 from macho.loadcommands.loadcommand import LoadCommand
 from macho.utilities import fromStringz, peekStructs, peekString, readStruct, peekStruct
@@ -87,11 +22,20 @@ from macho.macho import MachO
 from factory import factory
 from macho.sections.section import Section
 from data_table import DataTable
+from monkey_patching import patch
 import struct
 
 class SegmentCommand(LoadCommand):
 	'''The segment load command. This can represent the 32-bit ``SEGMENT``
 	command (``0x01``) or the 64-bit ``SEGMENT_64`` command  (``0x19``).
+	
+	A segment consists of many sections, which contain actual code and data.
+
+	.. note::
+
+		Sections falling in the encrypted region will not be analyzed if the
+		:mod:`macho.loadcommands.encryption_info` module is imported.
+		
 	
 	.. attribute:: segname
 	
@@ -195,58 +139,77 @@ LoadCommand.registerFactory('SEGMENT', SegmentCommand)
 LoadCommand.registerFactory('SEGMENT_64', SegmentCommand)
 
 
-def _macho_forEachSegment(func):
-	def f(self, vmaddr):
-		allAddrs = (func(lc, vmaddr) for lc in self.loadCommands.all('className', 'SegmentCommand'))
-		try:
-			return next(addr for addr in allAddrs if addr >= 0)
-		except StopIteration:
-			return -1
-	return f
+@patch
+class MachO_SegmentCommandPatches(MachO):
+	"""This patch to the :class:`~macho.macho.MachO` class defines several
+	methods that operate over all segments."""
 
-def _macho_deref(self, vmaddr, stru):
-	"""Dereference a struct at vmaddr."""
-	allDerefs = (lc.deref(vmaddr, stru) for lc in self.loadCommands.all('className', 'SegmentCommand'))
-	try:
-		return next(val for val in allDerefs if val is not None)
-	except StopIteration:
+	def segment(self, segname):
+		"""Find a :class:`SegmentCommand` with the specified *segname*."""
+		for segment in self.loadCommands.all('className', 'SegmentCommand'):
+			if segment.segname == segname:
+				return segment
 		return None
 
-def _macho_segment(self, segname):
-	"""Get the segment given its name"""
-	try:
-		return next(lc for lc in self.loadCommands.all('className', 'SegmentCommand') if lc.segname == segname)
-	except StopIteration:
-		return None
+	def fromVM(self, vmaddr):
+		"""Convert a VM address to file offset. Returns -1 if the address does
+		not exist."""
+		for segment in self.loadCommands.all('className', 'SegmentCommand'):
+			fileoff = segment.fromVM(vmaddr)
+			if fileoff >= 0:
+				return fileoff
+		return -1
 
-def _macho_derefString(self, vmaddr, encoding='utf_8', returnLength=False):
-	"""Dereference a string."""
-	offset = self.fromVM(vmaddr)
-	if offset < 0:
+	def toVM(self, fileoff):
+		"""Convert a file offset to VM address. Returns -1 if the address does
+		not exist."""
+		for segment in self.loadCommands.all('className', 'SegmentCommand'):
+			vmaddr = segment.toVM(fileoff)
+			if vmaddr >= 0:
+				return vmaddr
+		return -1
+
+	def deref(self, vmaddr, stru):
+		'''Dereference a structure at VM address *vmaddr*. The structure is
+		defined by the :class:`~struct.Struct` instance *stru*. Returns ``None``
+		if the address does not exist.'''
+		for segment in self.loadCommands.all('className', 'SegmentCommand'):
+			result = segment.deref(vmaddr, stru)
+			if result:
+				return result
 		return None
-	cur = self.tell()
-	self.seek(offset)
-	res = peekString(self.file, encoding=encoding, returnLength=returnLength)
-	self.seek(cur)
-	return res
 	
-def _macho_allSections(self, idtype, sectid):
-	allSegs = self.loadCommands.all('className', 'SegmentCommand')
-	for seg in allSegs:
-		for sect in seg.sections.all(idtype, sectid):
-			yield sect
+	def derefString(self, vmaddr, encoding='utf_8', returnLength=False):
+		'''Read a null-terminated string at VM address *vmaddr*. Returns
+		``None`` if the address does not exist. See also
+		:func:`macho.utilities.peekString` for meaning of other parameters.'''
+		offset = self.fromVM(vmaddr)
+		if offset < 0:
+			return None
+		cur = self.tell()
+		self.seek(offset)
+		res = peekString(self.file, encoding=encoding, returnLength=returnLength)
+		self.seek(cur)
+		return res
+		
+	def allSections(self, idtype, sectid):
+		'''Returns an iterable of all :class:`~macho.sections.section.Section`\\s
+		having the specified section identifier.
+	
+		If *idtype* is ``'sectname'``, then the *sectid* should be a section
+		name, e.g. ``'__cstring'``.
+	
+		If *idtype* is ``'className'``, then the *sectid* should be the class
+		name of the section to find, e.g. ``'CStringSection'``.'''
+		
+		for seg in self.loadCommands.all('className', 'SegmentCommand'):
+			for sect in seg.sections.all(idtype, sectid):
+				yield sect
 
-def _macho_anySection(self, idtype, sectid):
-	try:
-		return next(self.allSections(idtype, sectid))
-	except StopIteration:
+	def anySection(self, idtype, sectid):
+		'''Get any :class:`~macho.sections.section.Section` having the specified
+		section identifier. Returns ``None`` if no such section exists.'''
+		for sect in self.allSections(idtype, sectid):
+			return sect
 		return None
 		
-
-MachO.fromVM = _macho_forEachSegment(SegmentCommand.fromVM)
-MachO.toVM = _macho_forEachSegment(SegmentCommand.toVM)
-MachO.deref = _macho_deref
-MachO.derefString = _macho_derefString
-MachO.segment = _macho_segment
-MachO.allSections = _macho_allSections
-MachO.anySection = _macho_anySection

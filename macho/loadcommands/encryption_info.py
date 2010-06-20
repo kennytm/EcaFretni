@@ -16,33 +16,16 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-'''
-
-This module provides the :class:`EncryptionInfoCommand` representing the an
-encryption info load command. This load command marks a range of file offset as
-encrypted. 
-
-An encrypted region cannot be used (the decryption procedure is in the kernel).
-Users may first check if a file offset is encrypted.
-
-Patches
--------
-
-.. method:: macho.macho.MachO.encrypted(fileoff)
-
-	Checks if the file offset is in any encrypted region.
-
-Members
--------
-
-'''
-
-
 from macho.loadcommands.loadcommand import LoadCommand
 from macho.macho import MachO
+from monkey_patching import patch
 
 class EncryptionInfoCommand(LoadCommand):
-	"""The encryption info load command.
+	"""The encryption info load command. This load command marks a range of file
+	offset as encrypted. 
+	
+	An encrypted region cannot be used (the decryption procedure is in the
+	kernel). Users may first check if a file offset is encrypted.
 	
 	.. attribute:: cryptoff
 	
@@ -70,11 +53,14 @@ class EncryptionInfoCommand(LoadCommand):
 
 
 LoadCommand.registerFactory('ENCRYPTION_INFO', EncryptionInfoCommand)
-		
-def _macho_encrypted(self, offset):
-	"""Checks if the offset is encrypted."""
-	encCmds = self.loadCommands.all('className', 'EncryptionInfoCommand')
-	return any(lc.encrypted(offset) for lc in encCmds)
 
-MachO.encrypted = _macho_encrypted
+@patch
+class MachO_EncryptionPatches(MachO):
+	"""This patch defines a single convenient function :meth:`encrypted` which
+	can check if a file offset is encrypted."""
+
+	def encrypted(self, fileoff):
+		"""Checks if the file offset is in any encrypted region."""
+		encCmds = self.loadCommands.all('className', 'EncryptionInfoCommand')
+		return any(lc.encrypted(fileoff) for lc in encCmds)
 
