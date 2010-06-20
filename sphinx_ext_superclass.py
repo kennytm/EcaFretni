@@ -55,9 +55,14 @@ def process_base_for_classes(app, what, name, obj, options, docstring):
 		bases = [(u':class:`%s.%s`' % (x.__module__, x.__name__) if x.__module__ != '__builtin__' else x.__name__)
 				 for x in obj.__bases__ if x is not object]
 		if bases:
-			prefix = 'Patching: ' if hasattr(obj, 'sphinx_monkeyPatched') else ('Superclasses: ' if len(bases) > 1 else 'Superclass: ')
+			if hasattr(obj, 'sphinx_monkeyPatched'):
+				prefix = u'Patching: '
+			elif len(bases) > 1:
+				prefix = u'Superclasses: '
+			else:
+				prefix = u'Superclass: '
 			docstring.insert(0, '')
-			docstring.insert(0, u'.. efflushright:: ' + prefix + u', '.join(bases))
+			docstring.insert(0, u'.. efflushright:: %s%s' % (prefix, u', '.join(bases)))
 			
 
 def setup(app):
