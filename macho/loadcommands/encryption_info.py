@@ -73,7 +73,7 @@ LoadCommand.registerFactory('ENCRYPTION_INFO', EncryptionInfoCommand)
 		
 def _macho_encrypted(self, offset):
 	"""Checks if the offset is encrypted."""
-	encCmds = self.allLoadCommands('EncryptionInfoCommand')
+	encCmds = self.loadCommands.all('className', 'EncryptionInfoCommand')
 	return any(lc.encrypted(offset) for lc in encCmds)
 
 MachO.encrypted = _macho_encrypted

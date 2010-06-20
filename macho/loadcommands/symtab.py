@@ -26,11 +26,9 @@ def _getLibraryOrdinal(desc):
 
 class SymtabCommand(LoadCommand):
 	"""
-	
 	The ``SYMTAB`` (symbol table) load command. When analyzed, the symbols will
 	be added back to the Mach-O object. See the :mod:`macho.symbol` module for
 	how to access these symbols.
-	
 	"""
 		
 	def analyze(self, machO):
@@ -45,8 +43,8 @@ class SymtabCommand(LoadCommand):
 		
 		# Now analyze the nlist structs
 		symbols = []
-		allDylibs = machO.allLoadCommands('DylibCommand')
-		for (idx, typ, sect, desc, value) in nlists:
+		allDylibs = machO.loadCommands.all('className', 'DylibCommand')
+		for (ordinal, (idx, typ, sect, desc, value)) in enumerate(nlists):
 			machO.seek(stroff+idx)
 			string = peekString(machO.file)
 			library = None
@@ -55,10 +53,10 @@ class SymtabCommand(LoadCommand):
 				library = allDylibs[_getLibraryOrdinal(desc)]
 			if desc & 8:	# N_ARM_THUMB_DEF
 				value &= ~1
-			symbols.append(Symbol(string, value, library, extern))
+			symbols.append(Symbol(string, value, ordinal, library, extern))
 		
 		# add those symbols back into the Mach-O.
-		machO.addSymbols(symbols, fromSymtab=True)
+		machO.addSymbols(symbols)
 
 LoadCommand.registerFactory('SYMTAB', SymtabCommand)
 

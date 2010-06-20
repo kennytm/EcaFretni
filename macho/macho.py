@@ -36,6 +36,7 @@ from .utilities import readStruct, makeStruct
 from struct import Struct
 from .loadcommands.loadcommand import LoadCommand
 from mmap import mmap, ACCESS_READ
+from data_table import DataTable
 import os
 
 class MachOError(Exception):
@@ -74,7 +75,7 @@ class MachO(object):
 		self._fileno = -1
 		self._file = None
 		
-		self._loadCommands = []
+		self._loadCommands = DataTable('className', 'cmd')
 		self._is64bit = False
 		self._endian = '<'
 		
@@ -121,9 +122,7 @@ class MachO(object):
 		
 		Use the :meth:`seek` and :meth:`tell` methods to transparently use a file
 		offset without checking the :attr:`origin`.
-		
 		"""
-		
 		return self._origin
 	
 	def open(self):
@@ -158,51 +157,18 @@ class MachO(object):
 			os.close(self._fileno)
 			self._fileno = -1
 
-	def _allLoadCommands(self, cls):
-		# get all load command which is not found in _loadCommandClasses.
-		if isinstance(cls, int):
-			cls = LoadCommand.cmdname(cls)
-		if isinstance(cls, str):
-			f = LoadCommand.getFactory(cls)
-			# LoadCommand is returned only if the command is undefined.
-			if f != LoadCommand:
-				cls = f.__name__
-			else:
-				return []
-		return self._loadCommandClasses.get(cls, [])
-
-	def allLoadCommands(self, cls):
-		"""Get all load commands with the specified class.
+	@property
+	def loadCommands(self):
+		'''Get a (read-only) :class:`~data_table.DataTable` of
+		:class:`~macho.loadcommand.LoadCommands`\\s, with the following column
+		names: ``'className'`` and ``'cmd'``.
 		
-		The *cls* can be:
+		The column ``'className'`` is the class name of the LoadCommand, e.g. 
+		``'EncryptionInfoCommand'``.
 		
-		* The name of the load command class, e.g. ``'EncryptionInfoCommand'``.
-		* The class object itself, e.g.
-		  :class:`macho.loadcommands.encryption_info.EncryptionInfoCommand`.
-		
-		* The actual name of the load command, e.g. ``'ENCRYPTION_INFO'``.
-		
-		The load commands are chosen by the class, not the command value. For
-		instance, with *cls* being ``'LOAD_DYLIB'``, all load commands matching
-		the 6 variants of :class:`DylibCommand` will also be returned.
-		
-		"""
-		if cls in self._loadCommandClasses:
-			return self._loadCommandClasses[cls]
-		else:
-			return self._allLoadCommands(cls)
-	
-	def anyLoadCommand(self, cls):
-		"""Get the first load command with the specified class.
-		
-		Returns ``None`` if no such command is found.
-		
-		"""
-		arr = self.allLoadCommands(cls)
-		if len(arr) > 0:
-			return arr[0]
-		else:
-			return None
+		The column ``'cmd'`` is the command name, e.g. ``'ENCRYPTION_INFO'``.
+		'''
+		return self._loadCommands
 
 	def seek(self, offset):
 		"""Jump the cursor to the specific file offset, factoring out the
@@ -271,6 +237,12 @@ class MachO(object):
 	def __readHeader(self):
 		headerStruct = self.makeStruct('6L~')
 		cmdStruct = self.makeStruct('2L')
+		
+		self_loadCommands_append = self._loadCommands.append
+		self_file_seek = self._file.seek
+		self_tell = self.tell
+		LoadCommand_create = LoadCommand.create
+		LoadCommand_cmdname = LoadCommand.cmdname
 	
 		# Read the header.
 		(cputype, cpusubtype, _, ncmds, _, _) = readStruct(self._file, headerStruct)
@@ -284,24 +256,15 @@ class MachO(object):
 		# Read all load commands.
 		for i in range(ncmds):
 			(cmd, cmdsize) = readStruct(self._file, cmdStruct)
-			offset = self.tell()
-			cmdname = LoadCommand.cmdname(cmd)
+			offset = self_tell()
+			cmdname = LoadCommand_cmdname(cmd)
 			if cmdname is None:
 				raise MachOError('Unrecognized load command 0x{:x}.'.format(cmd))
-			self._loadCommands.append(LoadCommand.create(cmdname, cmdsize, offset))
-			self._file.seek(cmdsize - 8, os.SEEK_CUR)
+			lc = LoadCommand_create(cmdname, cmdsize, offset)
+			self_loadCommands_append(lc, cmd=cmdname, className=type(lc).__name__)
+			self_file_seek(cmdsize - 8, os.SEEK_CUR)
 		
 	def __analyzeLoadCommands(self):
-		# Classify the load commands 
-		loadCommandClasses = {}
-		for lc in self._loadCommands:
-			clsname = type(lc).__name__
-			if clsname in loadCommandClasses:
-				loadCommandClasses[clsname].append(lc)
-			else:
-				loadCommandClasses[clsname] = [lc]
-		self._loadCommandClasses = loadCommandClasses
-		
 		# Analyze all load commands.
 		requiresAnalysis = [True]*len(self._loadCommands)
 		while any(requiresAnalysis):

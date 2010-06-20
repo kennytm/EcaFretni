@@ -145,7 +145,7 @@ class SegmentCommand(LoadCommand):
 #			if not hasattr(symtab, 'symbols'):
 
 		# make sure all segments are ready
-		allSegments = machO.allLoadCommands(type(self).__name__)
+		allSegments = machO.loadCommands.all('className', type(self).__name__)
 		if any(not hasattr(seg, '_vmaddr') for seg in allSegments):
 			return True
 		
@@ -206,7 +206,7 @@ LoadCommand.registerFactory('SEGMENT_64', SegmentCommand)
 
 def _macho_forEachSegment(func):
 	def f(self, vmaddr):
-		allAddrs = (func(lc, vmaddr) for lc in self.allLoadCommands('SegmentCommand'))
+		allAddrs = (func(lc, vmaddr) for lc in self.loadCommands.all('className', 'SegmentCommand'))
 		try:
 			return next(addr for addr in allAddrs if addr >= 0)
 		except StopIteration:
@@ -215,7 +215,7 @@ def _macho_forEachSegment(func):
 
 def _macho_deref(self, vmaddr, stru):
 	"""Dereference a struct at vmaddr."""
-	allDerefs = (lc.deref(vmaddr, stru) for lc in self.allLoadCommands('SegmentCommand'))
+	allDerefs = (lc.deref(vmaddr, stru) for lc in self.loadCommands.all('className', 'SegmentCommand'))
 	try:
 		return next(val for val in allDerefs if val is not None)
 	except StopIteration:
@@ -224,7 +224,7 @@ def _macho_deref(self, vmaddr, stru):
 def _macho_segment(self, segname):
 	"""Get the segment given its name"""
 	try:
-		return next(lc for lc in self.allLoadCommands('SegmentCommand') if lc.segname == segname)
+		return next(lc for lc in self.loadCommands.all('className', 'SegmentCommand') if lc.segname == segname)
 	except StopIteration:
 		return None
 
@@ -249,7 +249,7 @@ def _macho_derefString(self, vmaddr, encoding='utf_8', returnLength=False):
 	return res
 	
 def _macho_allSections(self, sectid):
-	allSegs = self.allLoadCommands('SegmentCommand')
+	allSegs = self.loadCommands.all('className', 'SegmentCommand')
 	if isinstance(sectid, type):
 		return (sect for seg in allSegs for sect in seg._sections.values() if isinstance(sect, sectid))
 	else:

@@ -18,30 +18,29 @@
 
 '''
 
-This module defines the :class:`Symbol` class representing a symbol in the Mach-O
-format. It also adds 3 methods to the :class:`macho.macho.MachO` class for
-symbol processing.
+This module defines the :class:`Symbol` class representing a symbol in the
+Mach-O format. It also adds 3 methods to the :class:`~macho.macho.MachO` class
+for symbol processing.
 
 Patches
 -------
 
 .. method:: macho.macho.MachO.addSymbols(symbols, fromSymtab=False)
 
-	Add a list of :class:`Symbol`\\s to the Mach-O file.
+	Add an iterable of :class:`Symbol`\\s to the Mach-O file.
 
 .. attribute:: macho.macho.MachO.symbols
 
-	Returns a list of :class:`Symbol`\\s sorted by insertion order.
-
-.. method:: macho.macho.MachO.getSymbol(val)
-
-	Returns a symbol which has address or name same being *val*.
+	Returns a :class:`~data_table.DataTable` of :class:`Symbol`\\s ordered by
+	insertion order, with the following column names: ``'name'``, ``'addr'`` and
+	``'ordinal'``.
 
 Classes
 -------
 
 '''
 
+from data_table import DataTable
 from .macho import MachO
 
 
@@ -56,10 +55,14 @@ class Symbol(object):
 	
 		The address of the symbol
 	
+	.. attribute:: ordinal
+	
+		Index of this symbol in the local symbol table.
+	
 	.. attribute:: library
 	
-		The :class:`macho.loadcommands.dylib.DylibCommand` object associated with
-		this symbol.
+		The :class:`~macho.loadcommands.dylib.DylibCommand` object associated
+		with this symbol.
 	
 	.. attribute:: extern
 	
@@ -68,9 +71,12 @@ class Symbol(object):
 	
 	"""
 	
-	def __init__(self, name, addr, library=None, extern=False):
-#		assert addr != 0
-		(self.name, self.addr, self.library, self.extern) = (name, addr, library, extern)
+	def __init__(self, name, addr, ordinal=-1, library=None, extern=False):
+		self.name = name
+		self.addr = addr
+		self.ordinal = ordinal
+		self.library = library
+		self.extern = extern
 	
 	
 	def __str__(self):
@@ -78,6 +84,8 @@ class Symbol(object):
 		
 	def __repr__(self):
 		args = [repr(self.name), '0x{:x}'.format(self.addr)]
+		if self.ordinal >= 0:
+			args.append('ordinal={!r}'.format(self.ordinal))
 		if self.library is not None:
 			args.append('library={!r}'.format(self.library))
 		if self.extern:
@@ -85,31 +93,21 @@ class Symbol(object):
 		return 'Symbol({})'.format(', '.join(args))
 
 
-def _macho_addSymbols(self, symbols, fromSymtab=False):
-	"""Add a list of symbols into MachO."""
+def _macho_addSymbols(self, symbols):
+	"""Add an iterable of symbols into this Mach-O object."""
 	
 	if not hasattr(self, '_symbols'):
-		self._symbols = []
-		self._symvals = {}
-		self._symstrs = {}
+		self._symbols = DataTable('name', 'addr', 'ordinal')
 	
-	if fromSymtab:
-		self._symbols.extend(symbols)
+	self_symbols_append = self._symbols.append
+	for sym in symbols:
+		self_symbols_append(sym, name=sym.name, addr=sym.addr, ordinal=sym.ordinal)
 	
-	self._symvals.update((sym.addr, sym) for sym in symbols)
-	self._symstrs.update((sym.name, sym) for sym in symbols)
-
+	
 def _macho_symbols(self):
-	"""Get the list of symbols with ordinals."""
+	"""Get the DataTable of symbols."""
 	return self._symbols
-	
-def _macho_getSymbol(self, val):
-	"""Get a symbol by string or value (address)."""
-	if isinstance(val, str):
-		return self._symstrs.get(val, None)
-	else:
-		return self._symvals.get(val, None)
 	
 MachO.addSymbols = _macho_addSymbols
 MachO.symbols = property(_macho_symbols)
-MachO.getSymbol = _macho_getSymbol
+

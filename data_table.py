@@ -82,7 +82,9 @@ class DataTable(Sequence, Sized):
 		return self._columns.keys()
 	
 	def all(self, columnName, key):
-		'''Return a list of values with the given *key* in the specified column.'''
+		'''Return a list of values with the given *key* in the specified column,
+		in insertion order.'''
+		
 		col = self._columns[columnName]
 		if key in col:
 			return col[key]
@@ -92,6 +94,7 @@ class DataTable(Sequence, Sized):
 	def any(self, columnName, key, default=None):
 		'''Return any value with the given *key* in the specified column. If no
 		such key exists, a *default* value will be returned.'''
+		
 		col = self._columns[columnName]
 		lst = []
 		if key in col:

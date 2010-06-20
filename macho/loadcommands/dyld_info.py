@@ -26,8 +26,10 @@ def _bind(machO, size, symbols):
 	
 	end = machO.tell() + size
 		
-	allDylibs = machO.allLoadCommands('DylibCommand')
-	allSegs = machO.allLoadCommands('SegmentCommand')
+	lcs_all = machO.loadCommands.all
+	
+	allDylibs = lcs_all('className', 'DylibCommand')
+	allSegs = lcs_all('className', 'SegmentCommand')
 	
 	while machO.tell() < end:
 		c = machO.getc()
