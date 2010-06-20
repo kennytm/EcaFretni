@@ -16,32 +16,9 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-'''
-
-This module defines the :class:`Symbol` class representing a symbol in the
-Mach-O format. It also adds 3 methods to the :class:`~macho.macho.MachO` class
-for symbol processing.
-
-Patches
--------
-
-.. method:: macho.macho.MachO.addSymbols(symbols, fromSymtab=False)
-
-	Add an iterable of :class:`Symbol`\\s to the Mach-O file.
-
-.. attribute:: macho.macho.MachO.symbols
-
-	Returns a :class:`~data_table.DataTable` of :class:`Symbol`\\s ordered by
-	insertion order, with the following column names: ``'name'``, ``'addr'`` and
-	``'ordinal'``.
-
-Classes
--------
-
-'''
-
 from data_table import DataTable
 from .macho import MachO
+from monkey_patching import patch
 
 
 class Symbol(object):
@@ -93,21 +70,27 @@ class Symbol(object):
 		return 'Symbol({})'.format(', '.join(args))
 
 
-def _macho_addSymbols(self, symbols):
-	"""Add an iterable of symbols into this Mach-O object."""
+@patch
+class MachO_SymbolPatches(MachO):
+	'''
+	This patch adds method to the :class:`~macho.macho.MachO` class for symbol
+	processing.
 	
-	if not hasattr(self, '_symbols'):
-		self._symbols = DataTable('name', 'addr', 'ordinal')
+	.. attribute:: symbols
 	
-	self_symbols_append = self._symbols.append
-	for sym in symbols:
-		self_symbols_append(sym, name=sym.name, addr=sym.addr, ordinal=sym.ordinal)
-	
-	
-def _macho_symbols(self):
-	"""Get the DataTable of symbols."""
-	return self._symbols
-	
-MachO.addSymbols = _macho_addSymbols
-MachO.symbols = property(_macho_symbols)
+		Returns a :class:`~data_table.DataTable` of :class:`Symbol`\\s ordered
+		by insertion order, with the following column names: ``'name'``,
+		``'addr'`` and ``'ordinal'``.
+		
+	'''
 
+	def addSymbols(self, symbols):
+		'''Add an iterable of :class:`Symbol`\\s to this Mach-O object.'''
+	
+		if not hasattr(self, 'symbols'):
+			self.symbols = DataTable('name', 'addr', 'ordinal')
+		
+		self_symbols_append = self.symbols.append
+		for sym in symbols:
+			self_symbols_append(sym, name=sym.name, addr=sym.addr, ordinal=sym.ordinal)
+		

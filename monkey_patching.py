@@ -16,6 +16,8 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
+import sys
+
 class MonkeyPatchingError(Exception):
 	def __init__(self, message): self._msg = message
 	def __str__(self): return self._msg
@@ -37,46 +39,54 @@ class MultipleInheritanceError(MonkeyPatchingError):
 		super().__init__("The subclass '{}' has multiple superclasses.".format(subclassName))
 
 
-def patch(cls):
-	'''This class decorator turns a subclass into monkey-patching class::
-	
-		class Foo(object):
-		    pass
+if 'sphinx-build' in sys.argv[0]:
+	def patch(cls):
+		'''This class decorator turns a subclass into a
+		`monkey-patching <http://en.wikipedia.org/wiki/Monkey_patch>`_ group::
 		
-		@patch
-		class FooPrinter(Foo):
-		    def show(self):
-		        print('{}.show'.format(type(self)))
-		
-		f = Foo
-		f.show()
-		# prints "<class '__main__.Foo'>.show"
-	
-	To monkey-patch a class X, the subclass should inherit X. All public methods
-	will be dynamically added to class X. The method should not already exists,
-	otherwise a :exc:`DuplicatedMethodError` will be raised.
-	
-	.. note::
-	
-		Private methods (``_foo``) and special methods (``__foo__``) are *not*
-		added to the base class.
-	
-	Applying this decorator will make the it a synonym of the patched class.
-	'''
-	
-	if len(cls.__bases__) != 1:
-		raise MultipleInheritanceError(cls.__name__)
-	
-	the_base = cls.__bases__[0]
-	for name, method in cls.__dict__.items():
-		# Do not import private methods.
-		if name[0] != '_':
-			if hasattr(the_base, name):
-				raise DuplicatedMethodError(the_base.__name__, cls.__name__, name)
-			setattr(the_base, name, method)
+			class Foo(object):
+				pass
 			
-	return the_base
-	
+			@patch
+			class FooPrinter(Foo):
+				def show(self):
+					print('{}.show'.format(type(self)))
+			
+			f = Foo()
+			f.show()
+			# prints "<class '__main__.Foo'>.show"
+		
+		To monkey-patch a class X, the subclass should inherit X. All public
+		methods will be dynamically added to class X. The method should not
+		already exists, otherwise a :exc:`DuplicatedMethodError` will be raised.
+		
+		.. note::
+		
+			Private methods (``_foo``) and special methods (``__foo__``) are
+			*not* added to the base class.
+		
+		Applying this decorator will make the it a synonym of the patched class.
+		'''
+		
+		cls.sphinx_monkeyPatched = True
+		return cls
+
+else:
+	def patch(cls):
+		'''This class decorator turns a subclass into a monkey-patching group.'''
+		if len(cls.__bases__) != 1:
+			raise MultipleInheritanceError(cls.__name__)
+		
+		the_base = cls.__bases__[0]
+		for name, method in cls.__dict__.items():
+			# Do not import private methods.
+			if name[0] != '_':
+				if hasattr(the_base, name):
+					raise DuplicatedMethodError(the_base.__name__, cls.__name__, name)
+				setattr(the_base, name, method)
+				
+		return the_base
+		
 
 if __name__ == '__main__':
 	class A(object):
@@ -145,5 +155,4 @@ if __name__ == '__main__':
 	except DuplicatedMethodError:
 		exceptionRaised = True
 	assert exceptionRaised
-	
 	

@@ -1,0 +1,7 @@
+@import url("default.css");
+
+div.body p.flushRight {
+	padding-left: 1em;
+	font-size: 0.66em;
+	font-style: oblique;
+}
