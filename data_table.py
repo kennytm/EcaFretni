@@ -104,6 +104,10 @@ class DataTable(Sequence, Sized):
 		else:
 			return default
 	
+	def contains(self, columnName, key):
+		'''Checks if *key* exists in *columnName*.'''
+		return key in self._columns[columnName]
+	
 	
 if __name__ == '__main__':
 	dt = DataTable('sides', 'color')
