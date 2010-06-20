@@ -26,7 +26,7 @@ class ObjCClassListSection(Section):
 	def _analyze2(self, machO):
 		# Make sure the protocol section is ready if exists.
 		
-		protoSect = machO.anySection(ObjCProtoListSection)
+		protoSect = machO.anySection('className', 'ObjCProtoListSection')
 		if protoSect:
 			if hasattr(protoSect, 'protocols'):
 				protoRefsMap = protoSect.protocols

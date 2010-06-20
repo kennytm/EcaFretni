@@ -54,35 +54,27 @@ Patches
 	Read a null-terminated string at VM address *vmaddr*. Returns ``None`` if
 	the address does not exist.
 
-.. method:: macho.macho.MachO.segment(segname)
+.. attribute:: macho.macho.MachO.segments
 
-	Get a :class:`SegmentCommand` with segment name equals to *segname*, for
-	example,
+	Get a dictionary of :class:`Segment`\\s keyed by segment name, for example
 	
-	>>> m.segment('__TEXT')
+	>>> m.segments['__TEXT']
 
-.. method:: macho.macho.MachO.hasSection(segname, sectname)
+.. method:: macho.macho.MachO.allSections(idtype, sectid)
 
-	Checks if a section exists.
+	Returns an iterable of all :class:`~macho.sections.section.Section`\\s
+	having the specified section identifier.
 	
-.. method:: macho.macho.MachO.section(segname, sectname)
-
-	Returns a :class:`macho.sections.section.Section`. 
+	If *idtype* is ``'sectname'``, then the *sectid* should be a section name,
+	e.g. ``'__cstring'``.
 	
-	If the segment with *segname* does not exist, returns ``None``. If the
-	segment exists but the section not, raises a :exc:`KeyError` exception.
+	If *idtype* is ``'className'``, then the *sectid* should be the class name 
+	of the section to find, e.g. ``'CStringSection'``.
 
-.. method:: macho.macho.MachO.allSections(sectid)
+.. method:: macho.macho.MachO.anySection(idtype, sectid):
 
-	Returns an iterable of all :class:`macho.sections.section.Section`\ s having
-	the specified section identifier. It can be a section name like
-	``__cstring``, or a class object like
-	:class:`macho.sections.cstring.CStringSection`.
-
-.. method:: macho.macho.MachO.anySection(sectid):
-
-	Get any :class:`macho.sections.section.Section` having the specified section
-	identifier. Returns ``None`` if no such section exists.
+	Get any :class:`~macho.sections.section.Section` having the specified
+	section identifier. Returns ``None`` if no such section exists.
 
 Members
 -------
@@ -94,87 +86,86 @@ from macho.utilities import fromStringz, peekStructs, peekString, readStruct, pe
 from macho.macho import MachO
 from factory import factory
 from macho.sections.section import Section
-import macho.loadcommands.encryption_info	# ensures macho.macho.encrypted is defined.
+from data_table import DataTable
 import struct
 
 class SegmentCommand(LoadCommand):
 	'''The segment load command. This can represent the 32-bit ``SEGMENT``
-	command (``0x01``) or the 64-bit ``SEGMENT_64`` command  (``0x19``).'''
-
-	@property
-	def segname(self):
-		"""Get the segment name."""
-		return self._segname
-
-	@property
-	def vmaddr(self):
-		"""Get the base VM address of this segment."""
-		return self._vmaddr
+	command (``0x01``) or the 64-bit ``SEGMENT_64`` command  (``0x19``).
+	
+	.. attribute:: segname
+	
+		Get the segment name.
+	
+	.. attribute:: vmaddr
+	
+		Get the base VM address of this segment.
+	
+	.. attribute:: sections
+	
+		A :class:`~data_table.DataTable` of all
+		`~macho.sections.section.Section`\\s within this segment. This table 
+		contains two columns: ``'className'`` and ``'sectname'``.
+	
+	'''
 
 	def _loadSections(self, machO):
 		segStruct = machO.makeStruct('16s4^2i2L')
 		sectStruct = machO.makeStruct(Section.STRUCT_FORMAT)
-		(segname, self._vmaddr, self._vmsize, self._fileoff, self._filesize, _, _, nsects, _) = readStruct(machO.file, segStruct)
+		(segname, self.vmaddr, self._vmsize, self._fileoff, self._filesize, _, _, nsects, _) = readStruct(machO.file, segStruct)
 		
-		self._segname = fromStringz(segname)
+		self.segname = fromStringz(segname)
 		self._o = machO
 		
 		sectVals = peekStructs(machO.file, sectStruct, count=nsects)	# get all section headers
 		sectionsList = (Section.createSection(i) for i in sectVals)	# convert all headers into Section objects
-		self._sections = dict((s.sectname, s) for s in sectionsList)	# take the sectname and create a dict.
+		sections = DataTable('className', 'sectname')
+		for s in sectionsList:
+			sections.append(s, className=type(s).__name__, sectname=s.sectname)
+		self.sections = sections
 		self._hasAnalyzedSections = False
 
 
 	def _analyzeSections(self, machO):
 		# we need to make sure the section is not encrypted.
-		requiresAnalysis = dict((n, not machO.encrypted(s.offset)) for n, s in self._sections.items())
-		while any(requiresAnalysis.values()):
-			for k, s in self._sections.items():
+		self_sections = self.sections
+		machO_encrypted = getattr(machO, 'encrypted', lambda x: False)
+		machO_seek = machO.seek
+		
+		requiresAnalysis = [not machO_encrypted(s.offset) for s in self_sections]
+		while any(requiresAnalysis):
+			for k, s in enumerate(self_sections):
 				if requiresAnalysis[k]:
-					machO.seek(s.offset)
+					machO_seek(s.offset)
 					requiresAnalysis[k] = s.analyze(self, machO)
 		self._hasAnalyzedSections = True
 		
 
 	def analyze(self, machO):
-		if not hasattr(self, '_sections'):
+		if not hasattr(self, 'sections'):
 			self._loadSections(machO)
 		
-#		symtab = self.o.anyLoadCommand('SYMTAB')
-#		if symtab is not None:
-#			if not hasattr(symtab, 'symbols'):
-
+		
 		# make sure all segments are ready
 		allSegments = machO.loadCommands.all('className', type(self).__name__)
-		if any(not hasattr(seg, '_vmaddr') for seg in allSegments):
+		if any(not hasattr(seg, 'vmaddr') for seg in allSegments):
 			return True
 		
 		if not self._hasAnalyzedSections:
 			self._analyzeSections(machO)
-
-
-	def section(self, sectName):
-		"""Get the section given the name. Raises a :exc:`KeyError` exception
-		if the section does not exist."""
-		return self._sections[sectName]
-
-		
-	def hasSection(self, sectName):
-		"""Checks whether the specified section exists."""
-		return sectName in self._sections
 	
 	
 	def fromVM(self, vmaddr):
 		"""Convert VM address to file offset. Returns -1 if out of range."""
-		if vmaddr > 0 and self._vmaddr <= vmaddr < self._vmaddr + self._vmsize:
-			return vmaddr + self._fileoff - self._vmaddr
+		if vmaddr > 0 and self.vmaddr <= vmaddr < self.vmaddr + self._vmsize:
+			return vmaddr + self._fileoff - self.vmaddr
 		else:
 			return -1
 	
 	def toVM(self, fileoff):
 		"""Convert file offset to VM address. Returns -1 if out of range."""
 		if self._fileoff <= fileoff < self._fileoff + self._filesize:
-			return fileoff + self._vmaddr - self._fileoff
+			return fileoff + self.vmaddr - self._fileoff
 		else:
 			return -1
 	
@@ -197,7 +188,7 @@ class SegmentCommand(LoadCommand):
 		return val
 	
 	def __str__(self):
-		return "<Segment: {} [{}]>".format(self._segname, ', '.join(map(str, self._sections.values())))
+		return "<Segment: {} [{}]>".format(self.segname, ', '.join(map(str, self._sections.values())))
 
 
 LoadCommand.registerFactory('SEGMENT', SegmentCommand)
@@ -228,15 +219,6 @@ def _macho_segment(self, segname):
 	except StopIteration:
 		return None
 
-def _macho_withSegment(func, defVal):
-	def f(self, segname, sectname):
-		seg = self.segment(segname)
-		if seg is None:
-			return defVal
-		else:
-			return func(seg, sectname)
-	return f
-
 def _macho_derefString(self, vmaddr, encoding='utf_8', returnLength=False):
 	"""Dereference a string."""
 	offset = self.fromVM(vmaddr)
@@ -248,16 +230,15 @@ def _macho_derefString(self, vmaddr, encoding='utf_8', returnLength=False):
 	self.seek(cur)
 	return res
 	
-def _macho_allSections(self, sectid):
+def _macho_allSections(self, idtype, sectid):
 	allSegs = self.loadCommands.all('className', 'SegmentCommand')
-	if isinstance(sectid, type):
-		return (sect for seg in allSegs for sect in seg._sections.values() if isinstance(sect, sectid))
-	else:
-		return (seg._sections[sectid] for seg in allSegs if sectid in seg._sections)
+	for seg in allSegs:
+		for sect in seg.sections.all(idtype, sectid):
+			yield sect
 
-def _macho_anySection(self, sectid):
+def _macho_anySection(self, idtype, sectid):
 	try:
-		return next(self.allSections(sectid))
+		return next(self.allSections(idtype, sectid))
 	except StopIteration:
 		return None
 		
@@ -267,7 +248,5 @@ MachO.toVM = _macho_forEachSegment(SegmentCommand.toVM)
 MachO.deref = _macho_deref
 MachO.derefString = _macho_derefString
 MachO.segment = _macho_segment
-MachO.hasSection = _macho_withSegment(SegmentCommand.hasSection, False)
-MachO.section = _macho_withSegment(SegmentCommand.section, None)
 MachO.allSections = _macho_allSections
 MachO.anySection = _macho_anySection
