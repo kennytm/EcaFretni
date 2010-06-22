@@ -57,7 +57,7 @@ class Class(ClassLike):
 		else:
 			middle = ""
 		suffix = [" {\n"]
-		suffix.extend("\t{}\n".format(iv) for iv in self.ivars)
+		suffix.extend("\t" + str(iv) + "\n" for iv in self.ivars.values())
 		suffix.append('}')
 		return self.stringify('@interface ', middle, ''.join(suffix))
 		
