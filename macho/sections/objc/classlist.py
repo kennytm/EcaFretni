@@ -24,14 +24,13 @@ class ObjCClassListSection(Section):
 		assert False, "Analyzing ABI 1.0 for the __OBJC,__class section is not implemented yet."
 
 	def _analyze2(self, machO):
-		# Make sure the protocol section is ready if exists.
-		
+		# Make sure the protocol sections is ready if exists.
 		protoSect = machO.anySection('className', 'ObjCProtoListSection')
 		if protoSect:
-			if hasattr(protoSect, 'protocols'):
-				protoRefsMap = protoSect.protocols
-			else:
+			if not protoSect.isAnalyzed:
 				return True
+			else:
+				protoRefsMap = protoSect.protocols
 		else:
 			protoRefsMap = {}
 		

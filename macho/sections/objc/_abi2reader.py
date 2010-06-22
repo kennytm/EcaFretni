@@ -227,8 +227,10 @@ def readClass(machO, vmaddr, protoRefsMap):
 	#		IMP *vtable;
 	#		class_rw_t *data;
 	#	} class_t;
-		
-	machO.seek(machO.fromVM(vmaddr))
+	
+	vmaddr = machO.fromVM(vmaddr)
+	
+	machO.seek(vmaddr)
 	classT = machO.makeStruct('5^')
 	
 	(metaPtr, superPtr, _, _, classRo) = peekStruct(machO.file, classT)
@@ -241,6 +243,14 @@ def readClass(machO, vmaddr, protoRefsMap):
 	machO.seek(machO.fromVM(metaClassRo))
 	cls = _readClassRO(machO, cls, protoRefsMap)
 	
+	# if the superclass is 0 but the class is not a root class, it is possible
+	# that the superclass is an external class.
+	if not superPtr and not cls.isRoot:
+		superPtrPtr = vmaddr + machO.pointerWidth
+		sym = machO.symbols.any('addr', superPtrPtr)
+		if sym is not None:
+			superPtr = sym.name[14:]	# 14 == len('_OBJC_CLASS_$_')
+	
 	return (cls, superPtr)
 
 
@@ -252,10 +262,10 @@ def readClassList(machO, addresses, protoRefsMap):
 	classPairs = OrderedDict((vmaddr, readClass(machO, vmaddr, protoRefsMap)) for vmaddr in addresses)
 	
 	for cls, superPtr in classPairs.values():
-		if superPtr in classPairs:
+		if isinstance(superPtr, int):
 			cls.superClass = classPairs[superPtr][0]
 		else:
-			cls.superClass = RemoteClass(str(superPtr))
+			cls.superClass = RemoteClass(superPtr)
 
 	return OrderedDict((vmaddr, cls) for vmaddr, (cls, _) in classPairs.items())
 		
