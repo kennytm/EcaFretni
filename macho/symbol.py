@@ -55,6 +55,19 @@ class Symbol(object):
 		self.library = library
 		self.extern = extern
 	
+	def copy(self):
+		'''Create a copy of this symbol.'''
+		return type(self)(self.name, self.addr, self.ordinal, self.library, self.extern)
+	
+	def _toTuple(self):
+		return (self.name, self.addr, self.ordinal, self.library.offset if self.library else 0, self.extern)
+
+	def __eq__(self, other):
+		return self._toTuple() == other._toTuple()
+	
+	def __hash__(self):
+		return hash(self._toTuple())
+		
 	
 	def __str__(self):
 		return "<Symbol {!r}:0x{:x}>".format(self.name, self.addr)
