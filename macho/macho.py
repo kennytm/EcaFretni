@@ -58,6 +58,54 @@ class MachO(object):
 	The optional *arch* argument is used if the Mach-O file is fat. The best
 	architecture matching *arch* will be chosen on :meth:`open`.
 	
+	.. attribute:: file
+	
+		The :class:`~mmap.mmap` object of this Mach-O object.
+	
+	.. attribute:: filename
+	
+		File name of this Mach-O object.
+	
+	.. attribute:: endian
+	
+		Return the endianness of this Mach-O file.
+		
+		+--------------+------------+
+		| Return value | Endianness |
+		+==============+============+
+		| ``'>'``      | Big        |
+		+--------------+------------+
+		| ``'<'``      | Little     |
+		+--------------+------------+
+		
+	.. attribute:: is64bit
+	
+		Return if this Mach-O file is using a 64-bit ABI.
+
+	.. attribute:: origin
+	
+		Return the origin of the current architecture.
+		
+		This is zero in normal Mach-O files. But in fat Mach-O files, which is
+		composed of several normal Mach-O files and a fat header, the origin
+		will be nonzero. When reading data given a file offset, the location
+		will be shifted by this value.
+		
+		Use the :meth:`seek` and :meth:`tell` methods to transparently use a
+		file offset without checking the :attr:`origin`.
+	
+	.. attribute:: loadCommands
+	
+		Get a (read-only) :class:`~data_table.DataTable` of
+		:class:`~macho.loadcommand.LoadCommand`\\s, with the following column
+		names: ``'className'`` and ``'cmd'``.
+		
+		The column ``'className'`` is the class name of the LoadCommand, e.g. 
+		``'EncryptionInfoCommand'``.
+		
+		The column ``'cmd'`` is the command index, e.g.
+		:const:`~macho.loadcommands.loadcommand.LC_ENCRYPTION_INFO` (``0x21``).
+	
 	'''
 	
 	def __enter__(self):
@@ -68,62 +116,23 @@ class MachO(object):
 		return self.close(exc_type, exc_value, traceback)
 
 	def __init__(self, filename, arch="armv6", lenientArchMatching=False):
-		self._filename = filename
+		self.filename = filename
 		self._arch = Arch(arch)
 		self._lenientArchMatching = lenientArchMatching
 		
-		self._fileno = -1
-		self._file = None
+		self.fileno = -1
+		self.file = None
 		
-		self._loadCommands = DataTable('className', 'cmd')
-		self._is64bit = False
-		self._endian = '<'
+		self.loadCommands = DataTable('className', 'cmd')
+		self.is64bit = False
+		self.endian = '<'
 		
 		self._structCache = {}
-	
-	@property
-	def file(self):
-		"""Return the :class:`mmap.mmap` object of this Mach-O file."""
-		return self._file
-	
-	@property
-	def endian(self):
-		"""Return the endianness of this Mach-O file.
 		
-		+--------------+------------+
-		| Return value | Endianness |
-		+==============+============+
-		| ``'>'``      | Big        |
-		+--------------+------------+
-		| ``'<'``      | Little     |
-		+--------------+------------+
-		
-		"""
-		return self._endian
-	
-	@property
-	def is64bit(self):
-		"""Return if this Mach-O file is using a 64-bit ABI."""
-		return self._is64bit
-	
 	@property
 	def pointerWidth(self):
 		"""Return the width of pointer in the current ABI."""
-		return 8 if self._is64bit else 4
-	
-	@property
-	def origin(self):
-		"""Return the origin of the current architecture.
-		
-		This is zero in normal Mach-O files. But in fat Mach-O files, which is
-		composed of several normal Mach-O files and a fat header, the origin will
-		be nonzero. When reading data given a file offset, the location will be
-		shifted by this value.
-		
-		Use the :meth:`seek` and :meth:`tell` methods to transparently use a file
-		offset without checking the :attr:`origin`.
-		"""
-		return self._origin
+		return 8 if self.is64bit else 4
 	
 	def open(self):
 		"""Open the Mach-O file object for access.
@@ -133,13 +142,13 @@ class MachO(object):
 		
 		"""
 		
-		if self._file is None:
+		if self.file is None:
 			flag = os.O_RDONLY | getattr(os, 'O_BINARY', 0)
-			fileno = os.open(self._filename, flag)
-			self._fileno = fileno
-			self._file = mmap(fileno, 0, access=ACCESS_READ)
+			fileno = os.open(self.filename, flag)
+			self.fileno = fileno
+			self.file = mmap(fileno, 0, access=ACCESS_READ)
 		else:
-			self._file.seek(0)
+			self.file.seek(0)
 		self.__analyze()
 	
 	def close(self, exc_type=None, exc_value=None, traceback=None):
@@ -150,41 +159,28 @@ class MachO(object):
 		
 		"""
 	
-		if self._file is not None:
-			self._file.close()
-			self._file = None
-		if self._fileno >= 0:
-			os.close(self._fileno)
-			self._fileno = -1
-
-	@property
-	def loadCommands(self):
-		'''Get a (read-only) :class:`~data_table.DataTable` of
-		:class:`~macho.loadcommand.LoadCommands`\\s, with the following column
-		names: ``'className'`` and ``'cmd'``.
-		
-		The column ``'className'`` is the class name of the LoadCommand, e.g. 
-		``'EncryptionInfoCommand'``.
-		
-		The column ``'cmd'`` is the command name, e.g. ``'ENCRYPTION_INFO'``.
-		'''
-		return self._loadCommands
+		if self.file is not None:
+			self.file.close()
+			self.file = None
+		if self.fileno >= 0:
+			os.close(self.fileno)
+			self.fileno = -1
 
 	def seek(self, offset):
 		"""Jump the cursor to the specific file offset, factoring out the
 		:attr:`origin`."""
-		self._file.seek(offset + self._origin)
+		self.file.seek(offset + self.origin)
 
 	def tell(self):
 		"""Get the current file offset, factoring out the :attr:`origin`."""
-		return self._file.tell() - self._origin
+		return self.file.tell() - self.origin
 
 	def makeStruct(self, fmt):
-		"""Create a :class:`struct.Struct` object. See
+		"""Create a :class:`~struct.Struct` object. See
 		:func:`macho.utilities.makeStruct` for detail."""
 		sc = self._structCache
 		if fmt not in sc:
-			sc[fmt] = makeStruct(fmt, endian=self._endian, is64bit=self._is64bit)
+			sc[fmt] = makeStruct(fmt, endian=self.endian, is64bit=self.is64bit)
 		return sc[fmt]
 		
 	def __analyze(self):
@@ -194,17 +190,17 @@ class MachO(object):
 		self.__analyzeLoadCommands()
 		
 	def __pickArchFromFatFile(self):
-		(magic, nfat_arch) = readStruct(self._file, Struct('>2L'))
+		(magic, nfat_arch) = readStruct(self.file, Struct('>2L'))
 		
 		# Reset and return if not a fat file.
 		if magic != 0xcafebabe:
-			self._file.seek(0)
+			self.file.seek(0)
 			return
 		
 		# Get all the possible fat archs.
 		offsets = {}
 		for i in range(nfat_arch):
-			(cputype, cpusubtype, offset, _, _) = readStruct(self._file, Struct('>5L'))
+			(cputype, cpusubtype, offset, _, _) = readStruct(self.file, Struct('>5L'))
 			offsets[Arch((cputype, cpusubtype))] = offset
 		
 		# Find the best match.
@@ -216,21 +212,21 @@ class MachO(object):
 			raise MachOError('Cannot find an arch matching "{}". Available archs are: {}'.format(self._arch, ', '.join(map(str, offsets.keys())) ))
 		
 		# Jump to offset if best match is found.
-		self._file.seek(offsets[bestMatch])
+		self.file.seek(offsets[bestMatch])
 		
 	def __readMagic(self):
-		self._origin = self._file.tell()
-		(magic, ) = readStruct(self._file, Struct('<L'))
+		self.origin = self.file.tell()
+		(magic, ) = readStruct(self.file, Struct('<L'))
 		if magic == 0xfeedface:
-			self._endian = '<'
+			self.endian = '<'
 		elif magic == 0xcefaedfe:
-			self._endian = '>'
+			self.endian = '>'
 		elif magic == 0xfeedfacf:
-			self._endian = '<'
-			self._is64bit = True
+			self.endian = '<'
+			self.is64bit = True
 		elif magic == 0xcffaedfe:
-			self._endian = '>'
-			self._is64bit = True
+			self.endian = '>'
+			self.is64bit = True
 		else:
 			raise MachOError('Invalid magic "0x{:08x}".'.format(magic))
 	
@@ -238,14 +234,14 @@ class MachO(object):
 		headerStruct = self.makeStruct('6L~')
 		cmdStruct = self.makeStruct('2L')
 		
-		self_loadCommands_append = self._loadCommands.append
-		self_file_seek = self._file.seek
+		self_loadCommands_append = self.loadCommands.append
+		self_file_seek = self.file.seek
 		self_tell = self.tell
 		LoadCommand_create = LoadCommand.create
 		LoadCommand_cmdname = LoadCommand.cmdname
 	
 		# Read the header.
-		(cputype, cpusubtype, _, ncmds, _, _) = readStruct(self._file, headerStruct)
+		(cputype, cpusubtype, _, ncmds, _, _) = readStruct(self.file, headerStruct)
 		arch = Arch((cputype, cpusubtype))
 		
 		# Make sure the CPU type matches.
@@ -255,20 +251,16 @@ class MachO(object):
 		
 		# Read all load commands.
 		for i in range(ncmds):
-			(cmd, cmdsize) = readStruct(self._file, cmdStruct)
+			(cmd, cmdsize) = readStruct(self.file, cmdStruct)
 			offset = self_tell()
-			cmdname = LoadCommand_cmdname(cmd)
-			if cmdname is None:
-				raise MachOError('Unrecognized load command 0x{:x}.'.format(cmd))
-			lc = LoadCommand_create(cmdname, cmdsize, offset)
-			self_loadCommands_append(lc, cmd=cmdname, className=type(lc).__name__)
+			lc = LoadCommand_create(cmd & ~0x80000000, cmdsize, offset)
+			self_loadCommands_append(lc, cmd=cmd, className=type(lc).__name__)
 			self_file_seek(cmdsize - 8, os.SEEK_CUR)
 		
 	def __analyzeLoadCommands(self):
 		# Analyze all load commands.
-		requiresAnalysis = [True]*len(self._loadCommands)
-		while any(requiresAnalysis):
-			for i, lc in enumerate(self._loadCommands):
-				if requiresAnalysis[i]:
+		while not all(lc.isAnalyzed for lc in self.loadCommands):
+			for lc in self.loadCommands:
+				if not lc.isAnalyzed:
 					self.seek(lc.offset)
-					requiresAnalysis[i] = lc.analyze(self)
+					lc.isAnalyzed = not lc.analyze(self)
