@@ -16,7 +16,7 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-from macho.loadcommands.loadcommand import LoadCommand
+from macho.loadcommands.loadcommand import LoadCommand, LC_SYMTAB
 from macho.symbol import Symbol
 from macho.utilities import peekStruct, peekStructs, peekString
 
@@ -26,9 +26,9 @@ def _getLibraryOrdinal(desc):
 
 class SymtabCommand(LoadCommand):
 	"""
-	The ``SYMTAB`` (symbol table) load command. When analyzed, the symbols will
-	be added back to the Mach-O object. See the :mod:`macho.symbol` module for
-	how to access these symbols.
+	The :const:`~macho.loadcommands.loadcommand.LC_SYMTAB` load command. When
+	analyzed, the symbols will be added back to the Mach-O object. See the
+	:mod:`macho.symbol` module for how to access these symbols.
 	"""
 		
 	def analyze(self, machO):
@@ -58,7 +58,7 @@ class SymtabCommand(LoadCommand):
 		# add those symbols back into the Mach-O.
 		machO.addSymbols(symbols)
 
-LoadCommand.registerFactory('SYMTAB', SymtabCommand)
+LoadCommand.registerFactory(LC_SYMTAB, SymtabCommand)
 
 
 

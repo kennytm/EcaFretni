@@ -16,27 +16,20 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-from macho.loadcommands.loadcommand import LoadCommand
+from macho.loadcommands.loadcommand import LoadCommand, LC_LOAD_DYLIB, LC_ID_DYLIB, LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB, LC_LAZY_LOAD_DYLIB, LC_LOAD_UPWARD_DYLIB
 from macho.utilities import peekString, peekStruct
 
 class DylibCommand(LoadCommand):
 	"""A dylib load command. This can represent any of these commands:
 	
-	+-----------------------+----------+
-	| Command name          | Value    |
-	+=======================+==========+
-	| ``LOAD_DYLIB``        | ``0x0c`` |
-	+-----------------------+----------+
-	| ``ID_DYLIB``          | ``0x0d`` |
-	+-----------------------+----------+
-	| ``LOAD_WEAK_DYLIB``   | ``0x18`` |
-	+-----------------------+----------+
-	| ``REEXPORT_DYLIB``    | ``0x1f`` |
-	+-----------------------+----------+
-	| ``LAZY_LOAD_DYLIB``   | ``0x20`` |
-	+-----------------------+----------+
-	| ``LOAD_UPWARD_DYLIB`` | ``0x23`` |
-	+-----------------------+----------+
+	.. hlist::
+	
+		* :const:`~macho.loadcommands.loadcommand.LC_LOAD_DYLIB` (``0x0c``)
+		* :const:`~macho.loadcommands.loadcommand.LC_ID_DYLIB` (``0x0d``)
+		* :const:`~macho.loadcommands.loadcommand.LC_LOAD_WEAK_DYLIB` (``0x18``)
+		* :const:`~macho.loadcommands.loadcommand.LC_REEXPORT_DYLIB` (``0x1f``)
+		* :const:`~macho.loadcommands.loadcommand.LC_LAZY_LOAD_DYLIB` (``0x20``)
+		* :const:`~macho.loadcommands.loadcommand.LC_LOAD_UPWARD_DYLIB` (``0x23``)
 	
 	.. attribute:: name
 	
@@ -58,10 +51,10 @@ class DylibCommand(LoadCommand):
 
 	def analyze(self, machO):
 		(offset, self.timestamp, self.version, self.minVersion) = peekStruct(machO.file, machO.makeStruct('4L'))
-		self.name = peekString(machO.file, position=offset + self._offset - 8)
+		self.name = peekString(machO.file, position=offset + self.offset - 8)
 			
 	def __str__(self):
 		return "<Dylib {!r}>".format(self.name)
 
-for i in ['LOAD_DYLIB', 'ID_DYLIB', 'LOAD_WEAK_DYLIB', 'REEXPORT_DYLIB', 'LAZY_LOAD_DYLIB', 'LOAD_UPWARD_DYLIB']:
+for i in (LC_LOAD_DYLIB, LC_ID_DYLIB, LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB, LC_LAZY_LOAD_DYLIB, LC_LOAD_UPWARD_DYLIB):
 	LoadCommand.registerFactory(i, DylibCommand)

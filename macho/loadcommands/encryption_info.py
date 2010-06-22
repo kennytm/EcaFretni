@@ -16,7 +16,7 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-from macho.loadcommands.loadcommand import LoadCommand
+from macho.loadcommands.loadcommand import LoadCommand, LC_ENCRYPTION_INFO
 from macho.macho import MachO
 from monkey_patching import patch
 
@@ -52,7 +52,7 @@ class EncryptionInfoCommand(LoadCommand):
 		return self.cryptid != 0 and self.cryptoff <= offset < self.cryptoff + self.cryptsize
 
 
-LoadCommand.registerFactory('ENCRYPTION_INFO', EncryptionInfoCommand)
+LoadCommand.registerFactory(LC_ENCRYPTION_INFO, EncryptionInfoCommand)
 
 @patch
 class MachO_EncryptionPatches(MachO):
