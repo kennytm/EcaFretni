@@ -5,6 +5,5 @@ This package contains analysis modules directly related to the Mach-O format.
 
 .. toctree::
 	:glob:
-	:maxdepth: 2
 	
 	macho/*

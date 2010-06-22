@@ -1,5 +1,3 @@
-:tocdepth: 1
-
 :mod:`macho.loadcommands.encryption_info` --- Encryption info
 =============================================================
 

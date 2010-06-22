@@ -10,6 +10,5 @@ etc. will not be present.
 
 .. toctree::
 	:glob:
-	:maxdepth: 2
 	
 	symbolic/*

@@ -6,6 +6,5 @@ run time system, e.g. classes, methods, protocols etc.
 
 .. toctree::
 	:glob:
-	:maxdepth: 2
 	
 	objc/*
