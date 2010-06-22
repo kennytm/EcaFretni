@@ -16,7 +16,7 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from macho.sections.section import Section
+from macho.sections.section import Section, S_CSTRING_LITERALS
 from macho.utilities import readString
 
 class CStringSection(Section):
@@ -42,5 +42,6 @@ class CStringSection(Section):
 		
 		return self._strings.get(address, None)
 
-Section.registerFactory('__cstring', CStringSection)
+Section.registerFactoryFType(S_CSTRING_LITERALS, CStringSection.byFType)
+
 

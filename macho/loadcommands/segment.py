@@ -16,7 +16,7 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from macho.loadcommands.loadcommand import LoadCommand
+from macho.loadcommands.loadcommand import LoadCommand, LC_SEGMENT, LC_SEGMENT_64
 from macho.utilities import fromStringz, peekStructs, peekString, readStruct, peekStruct
 from macho.macho import MachO
 from factory import factory
@@ -26,8 +26,10 @@ from monkey_patching import patch
 import struct
 
 class SegmentCommand(LoadCommand):
-	'''The segment load command. This can represent the 32-bit ``SEGMENT``
-	command (``0x01``) or the 64-bit ``SEGMENT_64`` command  (``0x19``).
+	'''The segment load command. This can represent the 32-bit
+	:const:`~macho.loadcommands.loadcommand.LC_SEGMENT` command (``0x01``) or
+	the 64-bit :const:`~macho.loadcommands.loadcommand.LC_SEGMENT_64` command
+	(``0x19``).
 	
 	A segment consists of many sections, which contain actual code and data.
 
@@ -48,8 +50,8 @@ class SegmentCommand(LoadCommand):
 	.. attribute:: sections
 	
 		A :class:`~data_table.DataTable` of all
-		`~macho.sections.section.Section`\\s within this segment. This table 
-		contains two columns: ``'className'`` and ``'sectname'``.
+		:class:`~macho.sections.section.Section`\\s within this segment. This
+		table contains two columns: ``'className'`` and ``'sectname'``.
 	
 	'''
 
@@ -59,13 +61,12 @@ class SegmentCommand(LoadCommand):
 		(segname, self.vmaddr, self._vmsize, self._fileoff, self._filesize, _, _, nsects, _) = readStruct(machO.file, segStruct)
 		
 		self.segname = fromStringz(segname)
-		self._o = machO
 		
 		sectVals = peekStructs(machO.file, sectStruct, count=nsects)	# get all section headers
 		sectionsList = (Section.createSection(i) for i in sectVals)	# convert all headers into Section objects
-		sections = DataTable('className', 'sectname')
+		sections = DataTable('className', 'sectname', 'ftype')
 		for s in sectionsList:
-			sections.append(s, className=type(s).__name__, sectname=s.sectname)
+			sections.append(s, className=type(s).__name__, sectname=s.sectname, ftype=s.ftype)
 		self.sections = sections
 		self._hasAnalyzedSections = False
 
@@ -76,25 +77,34 @@ class SegmentCommand(LoadCommand):
 		machO_encrypted = getattr(machO, 'encrypted', lambda x: False)
 		machO_seek = machO.seek
 		
-		requiresAnalysis = [not machO_encrypted(s.offset) for s in self_sections]
-		while any(requiresAnalysis):
-			for k, s in enumerate(self_sections):
-				if requiresAnalysis[k]:
-					machO_seek(s.offset)
-					requiresAnalysis[k] = s.analyze(self, machO)
+		while not all(s.isAnalyzed for s in self_sections):
+			for s in self_sections:
+				if not s.isAnalyzed:
+					offset = s.offset
+					if machO_encrypted(offset):
+						s.isAnalyzed = True
+					else:
+						machO_seek(offset)
+						s.isAnalyzed = not s.analyze(self, machO)
+		
 		self._hasAnalyzedSections = True
 		
 
 	def analyze(self, machO):
+		# make sure all encryption_info commands are ready if they exist.
+		if not all(lc.isAnalyzed for lc in machO.loadCommands.all('className', 'EncryptionInfoCommand')):
+			return True
+	
+		# load sections if they aren't loaded yet.
 		if not hasattr(self, 'sections'):
 			self._loadSections(machO)
 		
-		
 		# make sure all segments are ready
 		allSegments = machO.loadCommands.all('className', type(self).__name__)
-		if any(not hasattr(seg, 'vmaddr') for seg in allSegments):
+		if not all(hasattr(seg, 'vmaddr') for seg in allSegments):
 			return True
 		
+		# now analyze the sections.
 		if not self._hasAnalyzedSections:
 			self._analyzeSections(machO)
 	
@@ -113,7 +123,7 @@ class SegmentCommand(LoadCommand):
 		else:
 			return -1
 	
-	def deref(self, vmaddr, stru):
+	def deref(self, vmaddr, stru, machO):
 		'''
 		Dereference a structure at VM address *vmaddr*. The structure is defined
 		by the :class:`struct.Struct` instance *stru*. Returns ``None`` if out
@@ -125,18 +135,18 @@ class SegmentCommand(LoadCommand):
 		fileoff = self.fromVM(vmaddr)
 		if fileoff < 0:
 			return None
-		cur = self._o.tell()
-		self._o.seek(fileoff)
-		val = peekStruct(self._o.file, stru)
-		self._o.seek(cur)
+		cur = machO.tell()
+		machO.seek(fileoff)
+		val = peekStruct(machO.file, stru)
+		machO.seek(cur)
 		return val
 	
 	def __str__(self):
 		return "<Segment: {} [{}]>".format(self.segname, ', '.join(map(str, self._sections.values())))
 
 
-LoadCommand.registerFactory('SEGMENT', SegmentCommand)
-LoadCommand.registerFactory('SEGMENT_64', SegmentCommand)
+LoadCommand.registerFactory(LC_SEGMENT, SegmentCommand)
+LoadCommand.registerFactory(LC_SEGMENT_64, SegmentCommand)
 
 
 @patch
@@ -174,7 +184,7 @@ class MachO_SegmentCommandPatches(MachO):
 		defined by the :class:`~struct.Struct` instance *stru*. Returns ``None``
 		if the address does not exist.'''
 		for segment in self.loadCommands.all('className', 'SegmentCommand'):
-			result = segment.deref(vmaddr, stru)
+			result = segment.deref(vmaddr, stru, self)
 			if result:
 				return result
 		return None
@@ -194,13 +204,21 @@ class MachO_SegmentCommandPatches(MachO):
 		
 	def allSections(self, idtype, sectid):
 		'''Returns an iterable of all :class:`~macho.sections.section.Section`\\s
-		having the specified section identifier.
-	
-		If *idtype* is ``'sectname'``, then the *sectid* should be a section
-		name, e.g. ``'__cstring'``.
-	
-		If *idtype* is ``'className'``, then the *sectid* should be the class
-		name of the section to find, e.g. ``'CStringSection'``.'''
+		having the specified section identifier. One of the following
+		combinations of *idtype* and *sectid* may be used:
+		
+		+-----------------+------------------------------------------------------+
+		| *idtype*        | *sectid*                                             |
+		+=================+======================================================+
+		| ``'sectname'``  | Section name, e.g. ``'__cstring'``.                  |
+		+-----------------+------------------------------------------------------+
+		| ``'className'`` | Class name of the section, e.g.                      |
+		|                 | ``'CStringSection'``.                                |
+		+-----------------+------------------------------------------------------+
+		| ``'ftype'``     | Numerical value for the section type, e.g.           |
+		|                 | :const:`~macho.sections.section.S_CSTRING_LITERALS`. |
+		+-----------------+------------------------------------------------------+
+		'''
 		
 		for seg in self.loadCommands.all('className', 'SegmentCommand'):
 			for sect in seg.sections.all(idtype, sectid):

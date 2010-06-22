@@ -16,26 +16,92 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-'''
-
-This module provides the base class :class:`Section` for all sections.
-
-Members
--------
-
-'''
-
-from factory import factory
+from factory import factory, factorySuffix
 from macho.utilities import fromStringz, peekStructs, peekPrimitives, decodeStructFormat
 from struct import calcsize
 from hexdump import hexdump
 
+(
+	S_REGULAR,          # 0, regular section
+	S_ZEROFILL,         # 1, zero fill on demand section
+	S_CSTRING_LITERALS, # 2, section with only literal C strings
+	S_4BYTE_LITERALS,   # 3, section with only 4 byte literals
+	S_8BYTE_LITERALS,   # 4, section with only 8 byte literals
+	S_LITERAL_POINTERS, # 5, section with only pointers to literals
+	
+	S_NON_LAZY_SYMBOL_POINTERS,   # 6, section with only non-lazy symbol pointers
+	S_LAZY_SYMBOL_POINTERS,       # 7, section with only lazy symbol pointers
+	S_SYMBOL_STUBS,               # 8, section with only symbol stubs, byte size of stub in the reserved2 field
+	S_MOD_INIT_FUNC_POINTERS,     # 9, section with only function pointers for initialization
+	S_MOD_TERM_FUNC_POINTERS,     # 10, section with only function pointers for termination
+	S_COALESCED,                  # 11, section contains symbols that are to be coalesced
+	S_GB_ZEROFILL,                # 12, zero fill on demand section (that can be larger than 4 gigabytes)
+	S_INTERPOSING,                # 13, section with only pairs of function pointers for interposing
+	S_16BYTE_LITERALS,            # 14, section with only 16 byte literals
+	S_DTRACE_DOF,                 # 15, section contains DTrace Object Format
+	S_LAZY_DYLIB_SYMBOL_POINTERS, # 16, section with only lazy symbol pointers to lazy loaded dylibs
+	
+	S_THREAD_LOCAL_REGULAR,                # 17, template of initial values for TLVs
+	S_THREAD_LOCAL_ZEROFILL,               # 18, template of initial values for TLVs
+	S_THREAD_LOCAL_VARIABLES,              # 19, TLV descriptors
+	S_THREAD_LOCAL_VARIABLE_POINTERS,      # 20, pointers to TLV descriptors
+	S_THREAD_LOCAL_INIT_FUNCTION_POINTERS, # 21, functions to call to initialize TLV values
+	
+) = range(22)
+
+@factorySuffix(suffix='FType', defaultConstructor='byFType')
 @factory
 class Section(object):
 	"""An abstract section.
 	
-	This class adopts the :func:`factory.factory` decorator. Subclasses should
-	override the :meth:`analyze` method to collect data from the Mach-O file.
+	This class adopts the :func:`~factory.factory` class decorator. Subclasses
+	should override the :meth:`analyze` method to collect data from the Mach-O
+	file.
+	
+	.. attribute:: sectname
+	
+		Section name (e.g. ``'__cstring'``)
+	
+	.. attribute:: segname
+	
+		Segment name (e.g. ``'__TEXT'``)
+	
+	.. attribute:: addr
+	
+		The base VM address of this section.
+	
+	.. attribute:: size
+	
+		Size of this section.
+	
+	.. attribute:: offset
+	
+		File offset of this section.
+	
+	.. attribute:: align
+	
+		Alignment of this section.
+	
+	.. attribute:: reloff
+		nreloc
+		
+		Relocation information.
+	
+	.. attribute:: ftype
+	
+		Section type, e.g. :const:`S_CSTRING_LITERALS`.
+	
+	.. attribute:: attrib
+	
+		Attributes of this section.
+	
+	.. attribute:: reserved
+	
+		A tuple of reserved information.
+		
+	.. attribute:: isAnalyzed
+	
+		Whether this section has been completely analyzed.
 	
 	"""
 	
@@ -43,10 +109,8 @@ class Section(object):
 	
 	@classmethod
 	def createSection(cls, val):
-		'''
-		Creates a section given be section header. *val* should be a tuple
-		ordered as the C ``section`` structure.
-		'''
+		'''Creates a section given be section header. *val* should be a tuple
+		ordered as the C ``section`` structure.'''
 	
 		(sectname, segname, addr, size,
 			offset, align, reloff, nreloc, flags, rs1, rs2) = val
@@ -57,15 +121,36 @@ class Section(object):
 		
 		ftype = flags & 0xff
 		attrib = flags >> 8
+			
+		# we pass ftype twice to ensure __init__ and createSectionType won't be
+		# mixed (as they have different number of arguments.)
+		return cls.createFType(ftype, sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved)
+	
+	@classmethod
+	def byFType(cls, ftype_kw, sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved):
+		'''Create a section based on the section type. If a section is
+		differentiated not just by sectname, the subclass should register the
+		factory using::
 		
-		return cls.create(sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved)
-	
+			Section.registerFactoryFType(S_FOO, FooSection.byFType)
+		'''
+		cons = cls.create if cls is Section else cls
+		return cons(sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved)
+		
 	def __init__(self, sectname, segname, addr, size, offset, align, reloff, nreloc, ftype, attrib, reserved):
-		(self.sectname, self.segname, self.addr, self.size, self.offset,
-			self.align, self.reloff, self.nreloc, self.ftype, self.attrib,
-			self.reserved) = (sectname, segname, addr, size, offset, align,
-				reloff, nreloc, ftype, attrib, reserved)
-	
+		self.ftype = ftype
+		self.sectname = sectname
+		self.segname = segname
+		self.addr = addr
+		self.size = size
+		self.offset = offset
+		self.align = align
+		self.reloff = reloff
+		self.nreloc = nreloc
+		self.attrib = attrib
+		self.reserved = reserved
+		self.isAnalyzed = False
+				
 	def analyze(self, segment, machO):
 		"""Analyze the section.
 		
