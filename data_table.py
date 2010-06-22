@@ -40,13 +40,13 @@ class DataTable(Sequence, Sized):
 	def __len__(self): return len(self._values)
 
 	def append(self, value, **columns):
-		'''Append a value to the end of the table, and associate it with some
+		'''Append a *value* to the end of the table, and associate it with some
 		column names, e.g.::
 		
 			dt.append(red_triangle, sides=3, color="red")
 			dt.append(green_triangle, sides=3, color="green")
 			dt.append(blue_square, sides=4, color="blue")
-		
+
 		'''
 		self._values.append(value)
 		self_columns = self._columns
@@ -57,7 +57,20 @@ class DataTable(Sequence, Sized):
 				col[key].append(value)
 			else:
 				col[key] = [value]
-				
+	
+	def removeMany(self, values):
+		'''Remove a large set (preferred) or sequence of *values* from the data
+		table.
+		
+		Note that this is a slow method (O(N)) if the data table is large.
+		'''
+		if not values:
+			return
+		self._values = [v for v in self._values if v not in values]
+		for keys in self._columns.values():
+			for key in keys.keys():
+				keys[key] = [v for v in keys[key] if v not in values]
+	
 	def column(self, columnName):
 		'''
 		Return an iterable of key-value pairs provided by a column, e.g.::
@@ -123,6 +136,8 @@ if __name__ == '__main__':
 	assert list(dt) == ['r3', 'g3', 'b4', 'r5', 'r4']
 	assert dt[3] == 'r5'
 	assert 'b4' in dt
+	assert 'r3' in dt
+	assert 'r7' not in dt
 	
 	assert set(dt.column('sides')) == set([(3, 'r3'), (3, 'g3'), (4, 'b4'), (5, 'r5'), (4, 'r4')])
 	assert set(dt.column('color')) == set([('red', 'r3'), ('green', 'g3'), ('blue', 'b4'), ('red', 'r5'), ('red', 'r4')])
@@ -135,3 +150,25 @@ if __name__ == '__main__':
 	assert dt.any('sides', 6) is None
 	assert dt.any('sides', 8, default='x') == 'x'
 	
+	dt.removeMany(['r3', 'r5', 'r7'])
+	
+	assert dt.values == ['g3', 'b4', 'r4']
+	assert set(dt.columnNames) == set(['sides', 'color'])
+	assert len(dt) == 3
+	assert list(dt) == ['g3', 'b4', 'r4']
+	assert dt[2] == 'r4'
+	assert 'b4' in dt
+	assert 'r3' not in dt
+	assert 'r7' not in dt
+	
+	assert set(dt.column('sides')) == set([(3, 'g3'), (4, 'b4'), (4, 'r4')])
+	assert set(dt.column('color')) == set([('green', 'g3'), ('blue', 'b4'), ('red', 'r4')])
+	
+	assert dt.all('sides', 3) == ['g3']
+	assert dt.all('sides', 5) == []
+	assert dt.all('sides', 7) == []
+	assert dt.any('sides', 4) in ['b4', 'r4']
+	assert dt.any('sides', 5) is None
+	assert dt.any('sides', 6) is None
+	assert dt.any('sides', 8, default='x') == 'x'
+
