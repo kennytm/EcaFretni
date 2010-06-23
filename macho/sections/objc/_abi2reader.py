@@ -246,11 +246,8 @@ def readClass(machO, vmaddr, protoRefsMap):
 	# if the superclass is 0 but the class is not a root class, it is possible
 	# that the superclass is an external class.
 	if not superPtr and not cls.isRoot:
-		superPtrPtr = vmaddr + machO.pointerWidth
-		sym = machO.symbols.any('addr', superPtrPtr)
-		if sym is not None:
-			superPtr = sym.name[14:]	# 14 == len('_OBJC_CLASS_$_')
-	
+		superPtr = vmaddr + machO.pointerWidth
+		
 	return (cls, superPtr)
 
 
@@ -260,12 +257,15 @@ def readClassList(machO, addresses, protoRefsMap):
 	
 	# read classes from the Mach-O binary.
 	classPairs = OrderedDict((vmaddr, readClass(machO, vmaddr, protoRefsMap)) for vmaddr in addresses)
+	machO_symbols_any = machO.symbols.any
 	
 	for cls, superPtr in classPairs.values():
-		if isinstance(superPtr, int):
-			cls.superClass = classPairs[superPtr][0]
-		else:
-			cls.superClass = RemoteClass(superPtr)
+		if not cls.isRoot:
+			if superPtr in classPairs:
+				cls.superClass = classPairs[superPtr][0]
+			else:
+				sym = machO_symbols_any('addr', superPtr)
+				cls.superClass = RemoteClass(sym)
 
 	return OrderedDict((vmaddr, cls) for vmaddr, (cls, _) in classPairs.items())
 		

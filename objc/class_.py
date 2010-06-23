@@ -64,4 +64,6 @@ class Class(ClassLike):
 
 class RemoteClass(ClassLike):
 	"""A structure representing an external class."""
-	pass
+	def __init__(self, symbol):
+		super().__init__(symbol.name[14:])
+		self.symbol = symbol
