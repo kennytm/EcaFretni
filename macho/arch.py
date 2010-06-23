@@ -137,6 +137,10 @@ class Arch(object):
 		"""Create a copy of the :class:`Arch`."""
 		return Arch(self)
 	
+	def __eq__(self, other):
+		if not isinstance(other, Arch):
+			other = Arch(other)
+		return self.cputype == other.cputype and self.cpusubtype == other.cpusubtype and self.capability == other.capability
 	
 	@property
 	def is64bit(self):
@@ -145,45 +149,99 @@ class Arch(object):
 	
 	
 	def match(self, other):
-		"""Compute the "match score" between two :class:`Arch`\\s. The score is
-		defined as:
+		"""Compute the "match score" with another :class:`Arch`. The lower the
+		score, the better. The score is defined as:
 		
-		+-------------+--------------------------------------------------------+
-		| Score       | Meaning                                                |
-		+=============+========================================================+
-		| 0           | Totally match.                                         |
-		+-------------+--------------------------------------------------------+
-		| 1           | Matched against a generic subtype.                     |
-		+-------------+--------------------------------------------------------+
-		| 1000--1999  | Matched against a compatible subtype, lower is better. |
-		+-------------+--------------------------------------------------------+
-		| 2000        | Matched against an incompatible subtype.               |
-		+-------------+--------------------------------------------------------+
-		| 5000        | Matched against a generic type.                        |
-		+-------------+--------------------------------------------------------+
-		| 10000       | No match.                                              |
-		+-------------+--------------------------------------------------------+
-				
+		+--------------+--------------------------+----------------------------+
+		| Score        | Example                  | Meaning                    |
+		+==============+==========================+============================+
+		|            0 | ``armv6`` runs ``armv6`` | Totally match              |
+		+--------------+--------------------------+----------------------------+
+		|            1 | ``arm`` runs ``armv6``   | Generic target sub-type    |
+		| --  0xffffff |                          |                            |
+		+--------------+--------------------------+----------------------------+
+		|    0x1000000 | ``armv6`` runs ``arm``   | Generic source sub-type    |
+		| -- 0x1ffffff |                          |                            |
+		+--------------+--------------------------+----------------------------+
+		|    0x2000000 | ``armv6`` runs ``armv4t``| Compatible sub-type        |
+		| -- 0x2ffffff |                          |                            |
+		+--------------+--------------------------+----------------------------+
+		|    0x3000000 | ``any`` runs ``armv6``   | Generic target type        |
+		|              |                          | with specific source type  |
+		+--------------+--------------------------+----------------------------+
+		|    0x3000001 | ``any`` runs ``any``     | Generic types              |
+		+--------------+--------------------------+----------------------------+
+		|    0x3000002 | ``big`` runs ``big``     | Restricted endians         |
+		+--------------+--------------------------+----------------------------+
+		|    0x3000003 | ``any`` runs ``big``     | Generic target type,       |
+		|              |                          | restricted source endian   |
+		+--------------+--------------------------+----------------------------+
+		|    0x3000004 | ``armv6`` runs ``any``   | Generic source type        |
+		+--------------+--------------------------+----------------------------+
+		|    0x3000005 | ``big`` runs ``any``     | Generic source type,       |
+		|              |                          | restricted target endian   |
+		+--------------+--------------------------+----------------------------+
+		|    0x4000000 | ``armv6`` runs ``armv7`` | Incompatible sub-type      |
+		| -- 0x4ffffff |                          |                            |
+		+--------------+--------------------------+----------------------------+
+		|    0x5000001 | ``armv6`` runs ``big``   | Generic source type,       |
+		|              |                          | restricted endian          |
+		+--------------+--------------------------+----------------------------+
+		|    0x5000002 | ``big`` runs ``armv6``   | Restricted target endian,  |
+		|              |                          | specific source type       |
+		+--------------+--------------------------+----------------------------+
+		|   0xFFFFFFFF | ``armv6`` runs ``i386``  | Does not match             |
+		+--------------+--------------------------+----------------------------+
+												
+		This should be used such that, *self* is the user requested arch, and
+		*other* the binary is compiled to. In the other words, we want to run an
+		app compiled to *other* arch, on a CPU with the *self* arch.
 		"""
+		
+		# score = areaOf(self - other) + big_value * areaOf(1 - self * other)
 		
 		if not isinstance(other, Arch):
 			other = Arch(other)
 		
-		if self.cputype == other.cputype:
-			if self.cpusubtype == other.cpusubtype:
+		if self.cputype >= 0 and other.cputype >= 0:
+			if self.cputype != other.cputype:
+				return 0xffffffff
+			elif self.cpusubtype == other.cpusubtype:	# armv6 runs armv6
 				return 0
-			elif other.cpusubtype <= 0:
-				return 1
-			elif self.cpusubtype > other.cpusubtype:
-				return self.cpusubtype - other.cpusubtype + 1000
+			elif self.cpusubtype <= 0:					# arm runs armv6
+				return 0x1000000 - other.cpusubtype
+			elif other.cpusubtype <= 0:					# armv6 runs arm
+				return 0x1000000 + self.cpusubtype
+			elif self.cpusubtype > other.cpusubtype:	# armv6 runs armv4t
+				return 0x2000000 + self.cpusubtype - other.cpusubtype
+			else:										# armv6 runs armv7
+				return 0x4000000 + other.cpusubtype - self.cpusubtype
+		
+		elif self.cputype < 0:
+			if self.cpusubtype not in (0, 1):
+				if other.cputype >= 0:				# any runs armv6
+					return 0x3000000
+				elif other.cpusubtype in (0, 1):	# any runs big
+					return 0x3000003
+				else:								# any runs any
+					return 0x3000001
 			else:
-				return 2000
-		elif other.cputype <= 0:
-			return 5000
-		else:
-			return 10000
-	
-	def bestMatch(self, others, minLevel=10000):
+				if other.cputype >= 0:					# big runs armv6 
+					return 0x5000002
+				if other.cpusubtype == self.cpusubtype:	# big runs big
+					return 0x3000002
+				elif other.cpusubtype in (0, 1):		# big runs little
+					return 0xffffffff
+				else:									# big runs any
+					return 0x3000005
+		
+		elif other.cputype < 0:
+			if other.cpusubtype in (0, 1):	# armv6 runs big
+				return 0x5000001
+			else:							# armv6 runs any
+				return 0x3000004
+		
+	def bestMatch(self, others, minLevel=0xffffffff):
 		'''Find the best match among a list of other architectures.
 		
 		>>> Arch('armv7').bestMatch(['i386', 'x86_64', 'ppc64', 'armv6'])
@@ -206,17 +264,20 @@ class Arch(object):
 			This may cause confusion when comparing the match score among them,
 			e.g. 
 			
-			>>> Arch('armv7').bestMatch(['armv6', 'armv5'])
-			'armv5'
+			>>> Arch('armv5').bestMatch(['armv6', 'armv7'])
+			'armv7'
 
-		
 		'''
-		best = min(others, key=self.match)
-		if self.match(best) >= minLevel:
-			return None
-		else:
-			return best
-		
+		self_match = self.match
+		bestScore = minLevel
+		best = None
+		for other in others:
+			score = self_match(other)
+			if score < bestScore:
+				bestScore = score
+				best = other
+		return best
+			
 			
 if __name__ == "__main__":
 	a = Arch("x86_64")
@@ -229,25 +290,33 @@ if __name__ == "__main__":
 	assert b.match(a) == 0
 	assert b.is64bit
 	
-	c = Arch("armv7")
-	d = Arch("armv6")
-	assert a.match(c) == 10000
-	assert c.match(a) == 10000
-	assert 1000 <= c.match("armv6") < 2000
-	assert c.match("arm") == 1
-	assert d.match(c) == 2000
-	assert d.match("any") == 5000
-	assert not c.is64bit
-	assert not d.is64bit
+	xarmv6 = Arch('armv6')
+	xarm = Arch('arm')
+	xany = Arch('any')
+	xarmv4t = Arch('armv4t')
+	xbig = Arch('big')
+	assert xarmv6.match(xarmv6) == 0
+	assert xarm.match(xarm) == 0
+	assert 0 < xarm.match(xarmv6) < 0x1000000
+	assert 0x1000000 <= xarmv6.match(xarm) < 0x2000000
+	assert 0x2000000 <= xarmv6.match(xarmv4t) < 0x3000000
+	assert xany.match(xarmv6) == 0x3000000
+	assert xany.match(xarm) == 0x3000000
+	assert xany.match(xany) == 0x3000001
+	assert xbig.match(xbig) == 0x3000002
+	assert xany.match(xbig) == 0x3000003
+	assert xarmv6.match(xany) == 0x3000004
+	assert xarm.match(xany) == 0x3000004
+	assert xbig.match(xany) == 0x3000005
+	assert 0x4000000 <= xarmv6.match('armv7') < 0x5000000
+	assert xarmv6.match(xbig) == 0x5000001
+	assert xbig.match(xarmv6) == 0x5000002
+	assert xarmv6.match('i386') == 0xffffffff
 	
-	assert str(c.bestMatch([a, b, c, d])) == "armv7"
-	assert str(c.bestMatch([a, b, d])) == "armv6"
-	assert str(c.bestMatch([a, b, "any", "arm"])) == "arm"
-	assert str(c.bestMatch([a, b, "any"])) == "any"
-	assert c.bestMatch([a, b]) is None
+	assert xarmv6.bestMatch(['i386', 'x86_64', 'ppc7400']) is None
+	assert xarmv6.bestMatch(['i386', 'armv6', 'ppc7400']) == xarmv6
+	assert xany.bestMatch(['i386', 'armv6', 'x86_64']) is not None
+	assert Arch('armv7').bestMatch(['i386', 'armv6', 'x86_64']) == xarmv6
+	assert xarmv6.bestMatch(['i386', 'armv7', 'x86_64']) == Arch('armv7')
+	assert xarmv6.bestMatch(['i386', 'armv7', 'x86_64'], minLevel=0x4000000) is None
 	
-	assert str(c.bestMatch([a, b, c, d], 1000)) == "armv7"
-	assert c.bestMatch([a, b, d], 1000) is None
-	assert str(c.bestMatch([a, b, "any", "arm"], 1000)) == "arm"
-	assert c.bestMatch([a, b, "any"], 1000) is None
-

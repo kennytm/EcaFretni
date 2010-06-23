@@ -204,7 +204,7 @@ class MachO(object):
 			offsets[Arch((cputype, cpusubtype))] = offset
 		
 		# Find the best match.
-		scoreLimit = 1000 if not self._lenientArchMatching else 2000
+		scoreLimit = 0x4000000 if not self._lenientArchMatching else 0x6000000
 		bestMatch = self._arch.bestMatch(offsets.keys(), scoreLimit)
 		
 		# Cannot find best match, raise an error. 
@@ -245,7 +245,7 @@ class MachO(object):
 		arch = Arch((cputype, cpusubtype))
 		
 		# Make sure the CPU type matches.
-		scoreLimit = 1000 if not self._lenientArchMatching else 2000
+		scoreLimit = 0x4000000 if not self._lenientArchMatching else 0x6000000
 		if self._arch.match(arch) >= scoreLimit:
 			raise MachOError('Cannot find an arch matching "{}". Available arch is: {}'.format(self._arch, arch))
 		
