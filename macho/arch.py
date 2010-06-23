@@ -16,16 +16,6 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #	
 
-'''
-
-This module defines the :class:`Arch` class, which carries the CPU architecture
-info used in the Mach-O format. 
-
-Members
--------
-
-'''
-
 import re
 
 
@@ -155,42 +145,42 @@ class Arch(object):
 		+--------------+--------------------------+----------------------------+
 		| Score        | Example                  | Meaning                    |
 		+==============+==========================+============================+
-		|            0 | ``armv6`` runs ``armv6`` | Totally match              |
+		| 0            | ``armv6`` runs ``armv6`` | Totally match              |
 		+--------------+--------------------------+----------------------------+
-		|            1 | ``arm`` runs ``armv6``   | Generic target sub-type    |
-		| --  0xffffff |                          |                            |
+		| 1 --         | ``arm`` runs ``armv6``   | Generic target sub-type    |
+		| 0xffffff     |                          |                            |
 		+--------------+--------------------------+----------------------------+
-		|    0x1000000 | ``armv6`` runs ``arm``   | Generic source sub-type    |
-		| -- 0x1ffffff |                          |                            |
+		| 0x1000000 -- | ``armv6`` runs ``arm``   | Generic source sub-type    |
+		| 0x1ffffff    |                          |                            |
 		+--------------+--------------------------+----------------------------+
-		|    0x2000000 | ``armv6`` runs ``armv4t``| Compatible sub-type        |
-		| -- 0x2ffffff |                          |                            |
+		| 0x2000000 -- | ``armv6`` runs ``armv4t``| Compatible sub-type        |
+		| 0x2ffffff    |                          |                            |
 		+--------------+--------------------------+----------------------------+
-		|    0x3000000 | ``any`` runs ``armv6``   | Generic target type        |
+		| 0x3000000    | ``any`` runs ``armv6``   | Generic target type        |
 		|              |                          | with specific source type  |
 		+--------------+--------------------------+----------------------------+
-		|    0x3000001 | ``any`` runs ``any``     | Generic types              |
+		| 0x3000001    | ``any`` runs ``any``     | Generic types              |
 		+--------------+--------------------------+----------------------------+
-		|    0x3000002 | ``big`` runs ``big``     | Restricted endians         |
+		| 0x3000002    | ``big`` runs ``big``     | Restricted endians         |
 		+--------------+--------------------------+----------------------------+
-		|    0x3000003 | ``any`` runs ``big``     | Generic target type,       |
+		| 0x3000003    | ``any`` runs ``big``     | Generic target type,       |
 		|              |                          | restricted source endian   |
 		+--------------+--------------------------+----------------------------+
-		|    0x3000004 | ``armv6`` runs ``any``   | Generic source type        |
+		| 0x3000004    | ``armv6`` runs ``any``   | Generic source type        |
 		+--------------+--------------------------+----------------------------+
-		|    0x3000005 | ``big`` runs ``any``     | Generic source type,       |
+		| 0x3000005    | ``big`` runs ``any``     | Generic source type,       |
 		|              |                          | restricted target endian   |
 		+--------------+--------------------------+----------------------------+
-		|    0x4000000 | ``armv6`` runs ``armv7`` | Incompatible sub-type      |
-		| -- 0x4ffffff |                          |                            |
+		| 0x4000000 -- | ``armv6`` runs ``armv7`` | Incompatible sub-type      |
+		| 0x4ffffff    |                          |                            |
 		+--------------+--------------------------+----------------------------+
-		|    0x5000001 | ``armv6`` runs ``big``   | Generic source type,       |
+		| 0x5000001    | ``armv6`` runs ``big``   | Generic source type,       |
 		|              |                          | restricted endian          |
 		+--------------+--------------------------+----------------------------+
-		|    0x5000002 | ``big`` runs ``armv6``   | Restricted target endian,  |
+		| 0x5000002    | ``big`` runs ``armv6``   | Restricted target endian,  |
 		|              |                          | specific source type       |
 		+--------------+--------------------------+----------------------------+
-		|   0xFFFFFFFF | ``armv6`` runs ``i386``  | Does not match             |
+		| 0xFFFFFFFF   | ``armv6`` runs ``i386``  | Does not match             |
 		+--------------+--------------------------+----------------------------+
 												
 		This should be used such that, *self* is the user requested arch, and

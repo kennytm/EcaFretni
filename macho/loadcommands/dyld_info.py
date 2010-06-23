@@ -113,9 +113,10 @@ class DyldInfoCommand(LoadCommand):
 	The dyld info (only) load command.
 	
 	This class performs decoding of the
-	:const:`~macho.loadcommands.loadcommand.LC_DYLD_INFO`` and
+	:const:`~macho.loadcommands.loadcommand.LC_DYLD_INFO` and
 	``LC_DYLD_INFO_ONLY`` load commands. These two commands are introduced in
-	Mac OS X 10.6 and iPhone OS 3.1 to supersede the ``DYSYMTAB`` command.
+	Mac OS X 10.6 and iPhone OS 3.1 to supersede the
+	:const:`~macho.loadcommands.loadcommand.LC_DYSYMTAB` command.
 	These, known as *compressed dyld info* to Apple, includes a domain-specific
 	assembly language to encode address binding, and a trie to store the export
 	symbols.

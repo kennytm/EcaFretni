@@ -24,9 +24,14 @@ from struct import Struct
 
 class DySymtabCommand(LoadCommand):
 	"""
-	The ``DYSYMTAB`` (dynamic symbol table) load command. When analyzed, the
-	external symbols will be added back to the Mach-O object. See the
-	:mod:`macho.symbol` module for how to access these symbols.
+	The :const:`~macho.loadcommands.loadcommand.LC_DYSYMTAB` (dynamic symbol
+	table) load command. When analyzed, the external symbols will be added back
+	to the Mach-O object. See the :mod:`macho.symbol` module for how to access
+	these symbols.
+	
+	This command also provides access to the indirect symbol table, which is
+	needed when the :class:`~macho.sections.symbol_ptr.SymbolPtrSection`
+	section is analyzed.
 	"""
 		
 	def _exrelIter(self, machO, extreloff, count):		

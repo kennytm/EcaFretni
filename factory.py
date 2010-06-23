@@ -109,7 +109,9 @@ class factorySuffix(object):
 		defcon = self.defcon
 	
 		if 'sphinx-build' in sys.argv[0]:
-			def nop(k, *args, **kwargs): pass
+			@classmethod
+			def nop(k, *args, **kwargs):
+				pass
 			rf = gf = cf = nop
 		
 		else:
