@@ -46,21 +46,9 @@ class SymbolPtrSection(Section):
 		symbols_append = symbols.append
 		
 		indirectSyms = dysymtab.indirectSymbols(self.reserved[0], self.size // stride, machO)
-		symRemoveSet = set()
-		symRemoveSet_add = symRemoveSet.add
+		addresses = range(self.addr, self.addr + count*stride, stride)
 		
-		for i, addr in zip(indirectSyms, range(self.addr, self.addr + count*stride, stride)):
-			syms = list(symbols.all('ordinal', i))
-			# make a copy to break the reference when we call symbols.append
-			for sym in list(syms):
-				theSymbol = sym.copy()
-				theSymbol.addr = addr
-				if not sym.addr:
-					symRemoveSet_add(sym)
-				symbols_append(theSymbol, ordinal=i, addr=addr, name=theSymbol.name)
-				
-		symbols.removeMany(symRemoveSet)
-
+		machO.provideAddresses(zip(indirectSyms, addresses))
 		
 		
 

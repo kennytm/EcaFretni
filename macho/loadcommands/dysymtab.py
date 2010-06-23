@@ -17,9 +17,10 @@
 #	
 
 from macho.loadcommands.loadcommand import LoadCommand, LC_DYSYMTAB
+from macho.macho import MachOError
 from macho.symbol import Symbol
-from macho.utilities import peekPrimitives, peekStruct
-
+from macho.utilities import peekPrimitives, peekStruct, peekStructs
+from struct import Struct
 
 class DySymtabCommand(LoadCommand):
 	"""
@@ -28,10 +29,39 @@ class DySymtabCommand(LoadCommand):
 	:mod:`macho.symbol` module for how to access these symbols.
 	"""
 		
-	def _readExtrel(self, machO, count):
-		pass
+	def _exrelIter(self, machO, extreloff, count):		
+		machO.seek(extreloff)
+		reloc_res = peekStructs(machO.file, machO.makeStruct('LL'), count)
+		isBigEndian = machO.endian == '>'
+		
+		symbols = machO.symbols
+		symbols_all = symbols.all
+		
+		for r_address, r_extra in reloc_res:
+			if r_address & 0x80000000:
+				# it's a scattered_relocation_info 
+				raise MachOError('Analyzing scattered_relocation_info not implemented yet.')
+			else:
+				if isBigEndian:
+					r_symbolnum = r_extra >> 8
+					r_extern = r_extra & 0x10
+				else:
+					r_symbolnum = r_extra & 0xFFFFFF
+					r_extern = r_extra & 0x8000000
+				
+				if not r_extern:
+					raise MachOError('Analyzing non-extern relocation not implemented yet.')
+				
+				yield (r_symbolnum, r_address)
+				
+		
+		
 	
 	def analyze(self, machO):
+		# Make sure the SYMTAB command is ready.
+		if not all(lc.isAnalyzed for lc in machO.loadCommands.all('className', 'SymtabCommand')):
+			return True
+	
 		(     ilocalsym,      nlocalsym,
 		      iextdefsym,     nextdefsym,
 		      iundefsym,      nundefsym,
@@ -41,6 +71,9 @@ class DySymtabCommand(LoadCommand):
 		 self.indirectsymoff, nindirectsyms,
 		      extreloff,      nextrel,
 		      locreloff,      nlocrel) = peekStruct(machO.file, machO.makeStruct('18L'))
+		
+		if nextrel:
+			machO.provideAddresses(self._exrelIter(machO, extreloff, nextrel))
 	
 	
 	def indirectSymbols(self, start, count, machO):

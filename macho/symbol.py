@@ -106,4 +106,38 @@ class MachO_SymbolPatches(MachO):
 		self_symbols_append = self.symbols.append
 		for sym in symbols:
 			self_symbols_append(sym, name=sym.name, addr=sym.addr, ordinal=sym.ordinal)
+	
+	def provideAddresses(self, ordinalsAndAddresses, columnName='ordinal'):
+		'''Provide extra addresses to the symbols. The *ordinalsAndAddresses*
+		parameter should be an iterable of (ordinal, address) tuple, e.g.::
 		
+			machO.provideAddresses([
+			    (3000, 0x8e004),
+			    (3001, 0x8e550),
+			    (3002, 0x8e218),
+			    ...
+			])
+		
+		If the symbol's original address is 0, it will be replaced.
+		'''
+		
+		symRemoveSet = set()
+		symRemoveSet_add = symRemoveSet.add
+		newSymbols = []
+		newSymbols_append = newSymbols.append
+		
+		self_symbols = self.symbols
+		self_symbols_all = self_symbols.all
+		
+		for i, addr in ordinalsAndAddresses:
+			for sym in self_symbols_all(columnName, i):
+				theSymbol = sym.copy()
+				theSymbol.addr = addr
+				if not sym.addr:
+					symRemoveSet_add(sym)
+				newSymbols_append(theSymbol)
+				
+		self_symbols.removeMany(symRemoveSet)
+		self.addSymbols(newSymbols)
+		
+	
