@@ -26,7 +26,7 @@ class CFStringSection(Section):
 	def analyze(self, segment, machO):
 		strings = {}
 		
-		machO_seek = machO.seek
+		origin = machO.origin
 		machO_fromVM = machO.fromVM
 		machO_file = machO.file
 		
@@ -34,8 +34,8 @@ class CFStringSection(Section):
 		addressesAndLengths = self.asStructs(cfstrStruct, machO, includeAddresses=True)
 		
 		for addr, (_, _, strAddr, strLen) in addressesAndLengths:
-			machO_seek(machO_fromVM(strAddr))
-			string = peekFixedLengthString(machO_file, strLen)
+			fileoff = machO_fromVM(strAddr)
+			string = peekFixedLengthString(machO_file, strLen, position=fileoff+origin)
 			strings[addr] = string
 			
 		self._strings = strings

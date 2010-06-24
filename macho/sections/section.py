@@ -186,9 +186,8 @@ class Section(object):
 		(address, struct_content) tuples.
 		"""
 		
-		machO.seek(self.offset)
 		count = self.size // stru.size
-		structs = peekStructs(machO.file, stru, count=count)
+		structs = peekStructs(machO.file, stru, count=count, position=self.offset+machO.origin)
 		
 		if includeAddresses:		
 			addrs = range(self.addr, self.addr + self.size, stru.size)	
@@ -203,12 +202,11 @@ class Section(object):
 		(address, primitive) tuples.
 		"""
 		
-		machO.seek(self.offset)
 		endian = machO.endian
 		is64bit = machO.is64bit
 		ssize = calcsize(decodeStructFormat(fmt, endian, is64bit))
 		count = self.size // ssize
-		prims = peekPrimitives(machO.file, fmt, count, endian, is64bit)
+		prims = peekPrimitives(machO.file, fmt, count, endian, is64bit, position=self.offset+machO.origin)
 		
 		if includeAddresses:
 			addrs = range(self.addr, self.addr + self.size, ssize)

@@ -38,15 +38,14 @@ class SymtabCommand(LoadCommand):
 		(symoff, nsyms, stroff, _) = peekStruct(machO.file, symtabStruct)
 		
 		# Get all nlist structs
-		machO.seek(symoff)
-		nlists = peekStructs(machO.file, nlistStruct, count=nsyms)
+		origin = machO.origin
+		nlists = peekStructs(machO.file, nlistStruct, count=nsyms, position=symoff+origin)
 		
 		# Now analyze the nlist structs
 		symbols = []
 		allDylibs = machO.loadCommands.all('className', 'DylibCommand')
 		for (ordinal, (idx, typ, sect, desc, value)) in enumerate(nlists):
-			machO.seek(stroff+idx)
-			string = peekString(machO.file)
+			string = peekString(machO.file, position=stroff+idx+origin)
 			library = None
 			extern = bool(typ & 1)	# N_EXT
 			if extern:

@@ -35,8 +35,7 @@ class DySymtabCommand(LoadCommand):
 	"""
 		
 	def _exrelIter(self, machO, extreloff, count):		
-		machO.seek(extreloff)
-		reloc_res = peekStructs(machO.file, machO.makeStruct('LL'), count)
+		reloc_res = peekStructs(machO.file, machO.makeStruct('LL'), count, position=extreloff+machO.origin)
 		isBigEndian = machO.endian == '>'
 		
 		symbols = machO.symbols
@@ -85,11 +84,8 @@ class DySymtabCommand(LoadCommand):
 		'''Get symbol indices from the indirect symbol table, given the *start*
 		index and the *count* of indices to retrieve.'''
 		
-		cur = machO.tell()
-		machO.seek(self.indirectsymoff + start * 4) 
-		retval = peekPrimitives(machO.file, 'L', count, machO.endian, machO.is64bit)
-		machO.seek(cur)
-		return retval
+		offset = self.indirectsymoff + start * 4 + machO.origin
+		return peekPrimitives(machO.file, 'L', count, machO.endian, machO.is64bit, position=offset)
 		
 
 LoadCommand.registerFactory(LC_DYSYMTAB, DySymtabCommand)

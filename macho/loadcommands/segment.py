@@ -135,11 +135,7 @@ class SegmentCommand(LoadCommand):
 		fileoff = self.fromVM(vmaddr)
 		if fileoff < 0:
 			return None
-		cur = machO.tell()
-		machO.seek(fileoff)
-		val = peekStruct(machO.file, stru)
-		machO.seek(cur)
-		return val
+		return peekStruct(machO.file, stru, position=fileoff+machO.origin)
 	
 	def __str__(self):
 		return "<Segment: {} [{}]>".format(self.segname, ', '.join(map(str, self._sections.values())))
@@ -196,11 +192,7 @@ class MachO_SegmentCommandPatches(MachO):
 		offset = self.fromVM(vmaddr)
 		if offset < 0:
 			return None
-		cur = self.tell()
-		self.seek(offset)
-		res = peekString(self.file, encoding=encoding, returnLength=returnLength)
-		self.seek(cur)
-		return res
+		return peekString(self.file, encoding=encoding, returnLength=returnLength, position=offset+self.origin)
 		
 	def allSections(self, idtype, sectid):
 		'''Returns an iterable of all :class:`~macho.sections.section.Section`\\s
