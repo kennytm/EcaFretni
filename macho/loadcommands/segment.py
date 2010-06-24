@@ -230,4 +230,17 @@ class MachO_SegmentCommandPatches(MachO):
 		for sect in self.allSections(idtype, sectid):
 			return sect
 		return None
+	
+	def anySectionProperty(self, idtype, sectid, prop, default=None):
+		"""Retrieve a the section, and returns its property *prop* if exists. 
 		
+		Returns an *default* if the section does not exist. Returns ``None`` if
+		the section is not analyzed.
+		"""
+		s = self.anySection(idtype, sectid)
+		if not s:
+			return default
+		elif not s.isAnalyzed:
+			return None
+		else:
+			return getattr(s, prop)

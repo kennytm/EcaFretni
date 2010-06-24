@@ -228,9 +228,9 @@ def readClass(machO, vmaddr, protoRefsMap):
 	#		class_rw_t *data;
 	#	} class_t;
 	
-	vmaddr = machO.fromVM(vmaddr)
+	fileoff = machO.fromVM(vmaddr)
 	
-	machO.seek(vmaddr)
+	machO.seek(fileoff)
 	classT = machO.makeStruct('5^')
 	
 	(metaPtr, superPtr, _, _, classRo) = peekStruct(machO.file, classT)
@@ -266,8 +266,53 @@ def readClassList(machO, addresses, protoRefsMap):
 			else:
 				sym = machO_symbols_any('addr', superPtr)
 				cls.superClass = RemoteClass(sym)
+				
+	res = OrderedDict((vmaddr, cls) for vmaddr, (cls, _) in classPairs.items())
+	return res
+	
 
-	return OrderedDict((vmaddr, cls) for vmaddr, (cls, _) in classPairs.items())
+def readCategory(machO, vmaddr, classes, protoRefsMap):
+	"""Read a ``category_t`` at *vmaddr*, and returns a tuple of 
+	:class:`~objc.class_.Category` and the :class:`~objc.class_.ClassLike` it is
+	patching."""
+
+	#	typedef struct category_t {
+	#		const char *name;
+	#		struct class_t *cls;
+	#		struct method_list_t *instanceMethods;
+	#		struct method_list_t *classMethods;
+	#		struct protocol_list_t *protocols;
+	#		struct objc_property_list *instanceProperties;
+	#	} category_t;
+	
+	machO.seek(machO.fromVM(vmaddr))
+	(namePtr, clsPtr, instMethodsPtr, classMethodsPtr, protosPtr, propsPtr) = peekStruct(machO.file, machO.makeStruct('6^'))
 		
+	name = machO.derefString(namePtr)
+	
+	if not clsPtr:
+		clsPtr = vmaddr + machO.pointerWidth
+		sym = machO.symbols.any('addr', clsPtr)
+		cls = RemoteClass(sym)
+	else:
+		cls = classes[clsPtr]
+	
+	cat = Category(name, cls)
+	cat.addClassMethods(readMethodListAt(machO, classMethodsPtr, optional=False))
+	cat.addMethods(readMethodListAt(machO, instMethodsPtr, optional=False))
+	cat.addProperties(readPropertyListAt(machO, propsPtr))
+	
+	protocolRefs = _readProtocolRefListAt(machO, protosPtr)
+	connectProtocol(cat, protocolRefs, protoRefsMap)
 
+	return cat
+
+
+def readCategoryList(machO, addresses, classes, protoRefsMap):
+	"""Read categories from an iterable of *addresses*, and return a list of
+	:class:`~objc.category.Category`\\s."""
+	
+	return [readCategory(machO, vmaddr, classes, protoRefsMap) for vmaddr in addresses]
+
+	
 	

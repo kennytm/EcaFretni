@@ -30,10 +30,11 @@ class ObjCProtoListSection(Section):
 		self.protocols = readProtocolList(machO, addresses)
 
 	def analyze(self, segment, machO):
-		if self.sectname == '__protocol':
+		if self.segname == '__OBJC':
 			return self._analyze1(machO)
 		else:
 			return self._analyze2(machO)
 
 
-Section.registerFactory('__objc_protolist', ObjCProtoListSection)
+Section.registerFactory('__objc_protolist', ObjCProtoListSection)	# __DATA,__objc_protolist
+Section.registerFactory('__protocol_list', ObjCProtoListSection)	# __OBJC2,__protocol_list
