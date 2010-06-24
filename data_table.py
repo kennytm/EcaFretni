@@ -29,11 +29,26 @@ class DataTable(Sequence, Sized):
 		for obj in dt.all('sides', 5):
 		    print('Pentagon object:', obj)
 	
+	If the column names start with an exclamation mark, it is considered a
+	column with unique items::
+	
+		dt = DataTable('!id', 'name')
+		dt.append(johnDoe, id=112, name='John')	# Note that the column name does not have the '!'.
+		dt.append(johnSmith, id=113, name='John')
+		dt.append(janeError, id=112, name='Jane')	# this overrides johnDoe when accessing id.
+		print(dt.all('id', 112))	# will only print [janeError].
+	
 	'''
 
 	def __init__(self, *columnNames):
 		self._values = []
-		self._columns = dict((n, {}) for n in columnNames)
+		columns = {}
+		for n in columnNames:
+			if n[0] == '!':
+				columns[n[1:]] = (True, {})
+			else:
+				columns[n] = (False, {})
+		self._columns = columns
 	
 	def __getitem__(self, i): return self._values[i]
 	def __iter__(self): return iter(self._values)
@@ -54,24 +69,26 @@ class DataTable(Sequence, Sized):
 		self_columns = self._columns
 		
 		for colName, key in columns.items():
-			col = self_columns[colName]
-			if key in col:
+			(isUnique, col) = self_columns[colName]
+			if isUnique:
+				col[key] = value
+			elif key in col:
 				list_append(col[key], value)
 			else:
 				col[key] = [value]
 	
-	def removeMany(self, values):
-		'''Remove a large set (preferred) or sequence of *values* from the data
-		table.
-		
-		Note that this is a slow method (O(N)) if the data table is large.
-		'''
-		if not values:
-			return
-		self._values = [v for v in self._values if v not in values]
-		for keys in self._columns.values():
-			for key in keys.keys():
-				keys[key] = [v for v in keys[key] if v not in values]
+#	def removeMany(self, values):
+#		'''Remove a large set (preferred) or sequence of *values* from the data
+#		table.
+#		
+#		Note that this is a slow method (O(N)) if the data table is large.
+#		'''
+#		if not values:
+#			return
+#		self._values = [v for v in self._values if v not in values]
+#		for keys in self._columns.values():
+#			for key in keys.keys():
+#				keys[key] = [v for v in keys[key] if v not in values]
 	
 	def column(self, columnName):
 		'''
@@ -82,10 +99,14 @@ class DataTable(Sequence, Sized):
 			    print('Associated object:', obj)
 		
 		'''
-		for key, lst in self._columns[columnName].items():
-			for value in lst:
-				yield (key, value)
+		(isUnique, col) = self._columns[columnName]
 		
+		if isUnique:
+			return col.items()
+		else:
+			return ((key, value) for key, lst in col.items() for value in lst)
+		
+				
 	@property
 	def values(self):
 		'''Return a list of values in this data table.'''
@@ -100,9 +121,12 @@ class DataTable(Sequence, Sized):
 		'''Return a list of values with the given *key* in the specified column,
 		in insertion order.'''
 		
-		col = self._columns[columnName]
+		(isUnique, col) = self._columns[columnName]
 		if key in col:
-			return col[key]
+			res = col[key]
+			if isUnique:
+				res = [res]
+			return res
 		else:
 			return []
 	
@@ -110,18 +134,20 @@ class DataTable(Sequence, Sized):
 		'''Return any value with the given *key* in the specified column. If no
 		such key exists, a *default* value will be returned.'''
 		
-		col = self._columns[columnName]
+		(isUnique, col) = self._columns[columnName]
 		lst = []
 		if key in col:
 			lst = col[key]
-		if len(lst):
+			if isUnique:
+				return lst
+		if lst:
 			return lst[0]
 		else:
 			return default
 	
 	def contains(self, columnName, key):
 		'''Checks if *key* exists in *columnName*.'''
-		return key in self._columns[columnName]
+		return key in self._columns[columnName][1]
 	
 	
 if __name__ == '__main__':
@@ -152,25 +178,37 @@ if __name__ == '__main__':
 	assert dt.any('sides', 6) is None
 	assert dt.any('sides', 8, default='x') == 'x'
 	
-	dt.removeMany(['r3', 'r5', 'r7'])
-	
-	assert dt.values == ['g3', 'b4', 'r4']
-	assert set(dt.columnNames) == set(['sides', 'color'])
-	assert len(dt) == 3
-	assert list(dt) == ['g3', 'b4', 'r4']
-	assert dt[2] == 'r4'
-	assert 'b4' in dt
-	assert 'r3' not in dt
-	assert 'r7' not in dt
-	
-	assert set(dt.column('sides')) == set([(3, 'g3'), (4, 'b4'), (4, 'r4')])
-	assert set(dt.column('color')) == set([('green', 'g3'), ('blue', 'b4'), ('red', 'r4')])
-	
-	assert dt.all('sides', 3) == ['g3']
-	assert dt.all('sides', 5) == []
-	assert dt.all('sides', 7) == []
-	assert dt.any('sides', 4) in ['b4', 'r4']
-	assert dt.any('sides', 5) is None
-	assert dt.any('sides', 6) is None
-	assert dt.any('sides', 8, default='x') == 'x'
+#	dt.removeMany(['r3', 'r5', 'r7'])
+#	
+#	assert dt.values == ['g3', 'b4', 'r4']
+#	assert set(dt.columnNames) == set(['sides', 'color'])
+#	assert len(dt) == 3
+#	assert list(dt) == ['g3', 'b4', 'r4']
+#	assert dt[2] == 'r4'
+#	assert 'b4' in dt
+#	assert 'r3' not in dt
+#	assert 'r7' not in dt
+#	
+#	assert set(dt.column('sides')) == set([(3, 'g3'), (4, 'b4'), (4, 'r4')])
+#	assert set(dt.column('color')) == set([('green', 'g3'), ('blue', 'b4'), ('red', 'r4')])
+#	
+#	assert dt.all('sides', 3) == ['g3']
+#	assert dt.all('sides', 5) == []
+#	assert dt.all('sides', 7) == []
+#	assert dt.any('sides', 4) in ['b4', 'r4']
+#	assert dt.any('sides', 5) is None
+#	assert dt.any('sides', 6) is None
+#	assert dt.any('sides', 8, default='x') == 'x'
 
+	dt2 = DataTable('!id', 'name')
+	dt2.append('John Doe', id=1, name='John')
+	dt2.append('John Smith', id=2, name='John')
+	dt2.append('Jane Doe', id=3, name='Jane')
+	
+	assert len(dt2) == 3
+	assert list(dt2) == ['John Doe', 'John Smith', 'Jane Doe']
+	assert set(dt2.columnNames) == set(['id', 'name'])
+	assert dt2.all('id', 1) == ['John Doe']
+	assert dt2.any('id', 3) == 'Jane Doe'
+	assert dt2.all('name', 'John') == ['John Doe', 'John Smith']
+	
