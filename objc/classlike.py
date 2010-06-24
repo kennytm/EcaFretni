@@ -80,8 +80,11 @@ class ClassLike(object):
 		# when a property is declared optional, its getter and setter will be
 		# optional as well. Thus, by checking the optionality of the getter and
 		# setter, the optionality of a property can be fixed.
+		self_methods = self.methods
 		for prop in properties:
-			prop.optional = self.methods[prop.getter].optional
+			getter = prop.getter
+			if getter in self_methods:
+				prop.optional = self_methods[getter].optional
 		self.properties.extend(properties)
 
 	def stringify(self, prefix, middle, suffix):
@@ -102,6 +105,7 @@ class ClassLike(object):
 			res.append(', '.join(p.name for p in self.protocols))
 			res.append('> ')
 		res.append(suffix)
+		res.extend("\n" + str(m) for m in self.properties)
 		res.extend("\n+" + str(m) for m in self.classMethods.values())
 		res.extend("\n-" + str(m) for m in self.methods.values())
 		res.append("\n@end\n")

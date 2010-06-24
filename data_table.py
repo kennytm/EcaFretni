@@ -48,13 +48,15 @@ class DataTable(Sequence, Sized):
 			dt.append(blue_square, sides=4, color="blue")
 
 		'''
-		self._values.append(value)
+		list_append = list.append
+		
+		list_append(self._values, value)
 		self_columns = self._columns
 		
 		for colName, key in columns.items():
 			col = self_columns[colName]
 			if key in col:
-				col[key].append(value)
+				list_append(col[key], value)
 			else:
 				col[key] = [value]
 	

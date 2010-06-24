@@ -149,8 +149,8 @@ def readProtocol(machO, vmaddr):
 	#		struct objc_property_list *instanceProperties;
 	#	} protocol_t;
 	
-	machO.seek(machO.fromVM(vmaddr))
-	(_, namePtr, protocolListPtr, instMethodsPtr, classMethodsPtr, optInstMethodsPtr, optClassMethodsPtr, propsPtr) = peekStruct(machO.file, machO.makeStruct('8^'))
+	pos = machO.fromVM(vmaddr) + machO.origin
+	(_, namePtr, protocolListPtr, instMethodsPtr, classMethodsPtr, optInstMethodsPtr, optClassMethodsPtr, propsPtr) = peekStruct(machO.file, machO.makeStruct('8^'), position=pos)
 	
 	name = machO.derefString(namePtr)
 	protocolRefs = _readProtocolRefListAt(machO, protocolListPtr)
@@ -190,8 +190,8 @@ def readProtocolList(machO, addresses):
 	return protoRefsMap
 
 
-def _readClassRO(machO, cls, protoRefsMap):
-	"""Read a ``class_ro_t`` at current position. If *cls* is ``None``, read the
+def _readClassRO(machO, cls, protoRefsMap, absfileoff):
+	"""Peek a ``class_ro_t`` at *absfileoff*. If *cls* is ``None``, read the
 	class as normal class. Otherwise, read as meta class and insert the class
 	methods.
 	"""
@@ -215,7 +215,7 @@ def _readClassRO(machO, cls, protoRefsMap):
 	#		const struct objc_property_list *baseProperties;
 	#	} class_ro_t;
 	
-	(flags, _, _, _, namePtr, methodsPtr, protosPtr, ivarsPtr, _, propsPtr) = peekStruct(machO.file, machO.makeStruct('3L~7^'))
+	(flags, _, _, _, namePtr, methodsPtr, protosPtr, ivarsPtr, _, propsPtr) = peekStruct(machO.file, machO.makeStruct('3L~7^'), position=absfileoff)
 	
 	methods = readMethodListAt(machO, methodsPtr, optional=False)
 	
@@ -253,20 +253,17 @@ def readClass(machO, vmaddr, protoRefsMap):
 	#		class_rw_t *data;
 	#	} class_t;
 	
-	fileoff = machO.fromVM(vmaddr)
+	origin = machO.origin
+	machO_fromVM = machO.fromVM
 	
-	machO.seek(fileoff)
 	classT = machO.makeStruct('5^')
 	
-	(metaPtr, superPtr, _, _, classRo) = peekStruct(machO.file, classT)
+	(metaPtr, superPtr, _, _, classRo) = peekStruct(machO.file, classT, position=machO_fromVM(vmaddr)+origin)
 	
-	machO.seek(machO.fromVM(classRo))
-	cls = _readClassRO(machO, None, protoRefsMap)
+	cls = _readClassRO(machO, None, protoRefsMap, machO_fromVM(classRo)+origin)
 	
-	machO.seek(machO.fromVM(metaPtr))
-	metaClassRo = peekStruct(machO.file, classT)[4]
-	machO.seek(machO.fromVM(metaClassRo))
-	cls = _readClassRO(machO, cls, protoRefsMap)
+	metaClassRo = peekStruct(machO.file, classT, position=machO_fromVM(metaPtr)+origin)[4]
+	cls = _readClassRO(machO, cls, protoRefsMap, machO_fromVM(metaClassRo)+origin)
 	
 	# if the superclass is 0 but the class is not a root class, it is possible
 	# that the superclass is an external class.
@@ -311,8 +308,8 @@ def readCategory(machO, vmaddr, classes, protoRefsMap):
 	#		struct objc_property_list *instanceProperties;
 	#	} category_t;
 	
-	machO.seek(machO.fromVM(vmaddr))
-	(namePtr, clsPtr, instMethodsPtr, classMethodsPtr, protosPtr, propsPtr) = peekStruct(machO.file, machO.makeStruct('6^'))
+	pos = machO.fromVM(vmaddr) + machO.origin
+	(namePtr, clsPtr, instMethodsPtr, classMethodsPtr, protosPtr, propsPtr) = peekStruct(machO.file, machO.makeStruct('6^'), position=pos)
 		
 	name = machO.derefString(namePtr)
 	

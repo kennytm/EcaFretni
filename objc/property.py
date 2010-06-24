@@ -162,7 +162,9 @@ class Property(object):
 		return ', '.join(attribList)
 	
 	def __str__(self):
-		res = '@property({}) {} {}[{}]'.format(self.attributeList(), self.name, self.gcStrength, self.encoding)
+		res = '@property({}) {} {}[{}]'.format(self.attributeList, self.name, self.gcStrength, self.encoding)
+		if self.optional:
+			res += ' @optional'
 		if self.synthesizedIvar:
 			res += ' = ' + self.synthesizedIvar
 		return res + ';'
