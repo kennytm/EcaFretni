@@ -145,6 +145,19 @@ class DataTable(Sequence, Sized):
 		else:
 			return default
 	
+	def any1(self, columnName, key):
+		'''Return any value with the given *key* in the specified column. If no
+		such key exists, a :exc:`KeyError` or :exc:`IndexError` will be raised.
+		
+		This should be more efficient than :meth:`any` as there are less error
+		checking.
+		'''
+		
+		(isUnique, col) = self._columns[columnName]
+		res = col[key]
+		return res if isUnique else res[0]
+
+	
 	def contains(self, columnName, key):
 		'''Checks if *key* exists in *columnName*.'''
 		return key in self._columns[columnName][1]
@@ -177,6 +190,15 @@ if __name__ == '__main__':
 	assert dt.any('sides', 5) == 'r5'
 	assert dt.any('sides', 6) is None
 	assert dt.any('sides', 8, default='x') == 'x'
+	
+	assert dt.any1('sides', 5) == 'r5'
+	errorRaised = False
+	try:
+		dt.any1('sides', 6)
+	except (KeyError, IndexError):
+		errorRaised = True
+	assert errorRaised
+	
 	
 #	dt.removeMany(['r3', 'r5', 'r7'])
 #	
@@ -211,4 +233,12 @@ if __name__ == '__main__':
 	assert dt2.all('id', 1) == ['John Doe']
 	assert dt2.any('id', 3) == 'Jane Doe'
 	assert dt2.all('name', 'John') == ['John Doe', 'John Smith']
+	assert dt2.any('id', 4) is None
+	assert dt2.any1('id', 1) == 'John Doe'
+	errorRaised = False
+	try:
+		dt2.any1('id', 4)
+	except (KeyError, IndexError):
+		errorRaised = True
+	assert errorRaised
 	
