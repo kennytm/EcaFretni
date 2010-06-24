@@ -316,8 +316,9 @@ def readCategory(machO, vmaddr, classes, protoRefsMap):
 		
 	name = machO.derefString(namePtr)
 	
-	if not clsPtr:
-		clsPtr = vmaddr + machO.pointerWidth
+	if clsPtr not in classes:
+		if not clsPtr:
+			clsPtr = vmaddr + machO.pointerWidth
 		sym = machO.symbols.any('addr', clsPtr)
 		cls = RemoteClass(sym)
 	else:
