@@ -15,7 +15,18 @@
 #	You should have received a copy of the GNU General Public License
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Auxiliary module for reading Objective-C ABI 2.0 info."""
+"""
+Auxiliary module for reading Objective-C ABI 2.0 info.
+
+.. seealso::
+
+	`objc-private.h <http://www.opensource.apple.com/source/objc4/objc4-437.1/runtime/objc-private.h>`_
+		Definition of some Objective-C related C structures.
+
+	`objc-runtime-new.h <http://www.opensource.apple.com/source/objc4/objc4-437.1/runtime/objc-runtime-new.h>`_
+		Definition of the Objective-C related C structures specific to ABI 2.0.
+
+"""
 
 from objc.class_ import Class, RemoteClass
 from objc.method import Method
@@ -24,13 +35,13 @@ from objc.property import Property
 from objc.protocol import Protocol
 from objc.category import Category
 from macho.utilities import readStruct, peekStruct, peekStructs, peekPrimitives
-from collections import OrderedDict
+from py2compat import OrderedDict
 import macho.loadcommands.segment	# to ensure macho.macho.MachO.[fromVM, derefString] are defined.
 
 
 
 def readMethod(machO, optional):
-	"""Read a ``method_t`` at current position to an :class:`objc.method.Method`."""
+	"""Read a ``method_t`` at current position to a :class:`~objc.method.Method`."""
 	#	typedef struct method_t {
 	#		SEL name;
 	#		const char *types;
@@ -43,7 +54,7 @@ def readMethod(machO, optional):
 
 
 def readIvar(machO):
-	"""Read an ``ivar_t`` at current position to an :class:`objc.ivar.Ivar`."""
+	"""Read an ``ivar_t`` at current position to an :class:`~objc.ivar.Ivar`."""
 	#	typedef struct ivar_t {
 	#		// *offset is 64-bit by accident even though other 
 	#		// fields restrict total instance size to 32-bit. 
@@ -61,7 +72,7 @@ def readIvar(machO):
 	return Ivar(name, encoding, offset)
 
 def readProperty(machO):
-	"""Read an ``objc_property`` at current position to a :class:`objc.property.Property`."""
+	"""Read an ``objc_property`` at current position to a :class:`~objc.property.Property`."""
 	#	struct objc_property {
 	#		const char *name;
 	#		const char *attributes;
@@ -73,11 +84,22 @@ def readProperty(machO):
 
 
 # Just read any fixed-length structure.
-def _readListAt(method):
+def readListAt(method):
 	"""
-	Read any continuous fixed-length structure at *vmaddr*, and analyze with 
-	them *method*. Returns a list in reversed order. If *vmaddr* is 0, an empty
-	list is returned.
+	Returns a function with signature::
+	
+		f(machO, vmaddr, *args, **kwargs)
+	
+	This function would read any continuous fixed-length structure at *vmaddr*,
+	and analyze them with *method*. Returns a list in **reversed order**. If
+	*vmaddr* is 0, an empty list is returned.
+	
+	This method has 3 specializations::
+	
+		readMethodListAt = readListAt(readMethod)
+		readIvarListAt = readListAt(readIvar)
+		readPropertyListAt = readListAt(readProperty)
+
 	"""
 	
 	def f(machO, vmaddr, *args, **kwargs):
@@ -92,9 +114,9 @@ def _readListAt(method):
 			
 	return f
 
-readMethodListAt = _readListAt(readMethod)
-readIvarListAt = _readListAt(readIvar)
-readPropertyListAt = _readListAt(readProperty)
+readMethodListAt = readListAt(readMethod)
+readIvarListAt = readListAt(readIvar)
+readPropertyListAt = readListAt(readProperty)
 
 def _readProtocolRefListAt(machO, vmaddr):
 	"""Read the an iterable of addresses to protocols from *vmaddr*."""
@@ -113,7 +135,8 @@ def _readProtocolRefListAt(machO, vmaddr):
 
 def readProtocol(machO, vmaddr):
 	"""Peek a ``protocol_t`` at *offset*. Returns a tuple of
-	:class:`objc.protocol.Protocol` and an iterable of protocol addresses."""
+	:class:`~objc.protocol.Protocol` and an iterable of protocol addresses it is
+	adopting."""
 
 	#	typedef struct protocol_t {
 	#		id isa;
@@ -149,8 +172,9 @@ def connectProtocol(obj, protocolRefs, protoRefsMap):
 	
 
 def readProtocolList(machO, addresses):
-	"""Read protocols from an iterable of *addresses*, and return an ordered
-	dictionary of protocols keyed by its offset."""
+	"""Read :class:`~objc.protocol.Protocol`\\s from an iterable of *addresses*,
+	and return an :class:`~collection.OrderedDict` of protocols keyed by its
+	address."""
 	
 	# read protocols from the Mach-O binary.
 	protoPairs = ((vmaddr, readProtocol(machO, vmaddr)) for vmaddr in addresses)
@@ -218,7 +242,8 @@ def _readClassRO(machO, cls, protoRefsMap):
 
 def readClass(machO, vmaddr, protoRefsMap):
 	"""Read a ``class_t`` at *vmaddr*, and returns a tuple of 
-	:class:`objc.class_.Class` and pointer to superclass (if any)."""
+	:class:`~objc.class_.Class` and pointer (possibly relocated) to superclass,
+	if any."""
 	
 	#	typedef struct class_t {
 	#		struct class_t *isa;
@@ -252,8 +277,9 @@ def readClass(machO, vmaddr, protoRefsMap):
 
 
 def readClassList(machO, addresses, protoRefsMap):
-	"""Read protocols from an iterable of *addresses*, and return an ordered
-	dictionary of classes keyed by its address."""
+	"""Read :class:`~objc.class_.Class`\\es from an iterable of *addresses*, and
+	return an :class:`~collections.OrderedDict` of classes keyed by its address.
+	"""
 	
 	# read classes from the Mach-O binary.
 	classPairs = OrderedDict((vmaddr, readClass(machO, vmaddr, protoRefsMap)) for vmaddr in addresses)
@@ -273,8 +299,8 @@ def readClassList(machO, addresses, protoRefsMap):
 
 def readCategory(machO, vmaddr, classes, protoRefsMap):
 	"""Read a ``category_t`` at *vmaddr*, and returns a tuple of 
-	:class:`~objc.class_.Category` and the :class:`~objc.class_.ClassLike` it is
-	patching."""
+	:class:`~objc.category.Category`, and the :class:`~objc.class_.Class` or
+	:class:`~objc.class_.RemoteClass` it is patching."""
 
 	#	typedef struct category_t {
 	#		const char *name;

@@ -16,9 +16,18 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from macho.sections.section import Section
-from ._abi2reader import readClassList, getSectionProperty
+from ._abi2reader import readClassList
 
 class ObjCClassListSection(Section):
+	"""The Objective-C class list section (``__DATA,__objc_classlist``, etc).
+	
+	.. attribute:: classes
+	
+		An :class:`~collections.OrderedDict` of :class:`~objc.class_.Class`\\es,
+		keyed by their address.
+	
+	"""
+
 	def _analyze1(self, machO, protoRefsMap):
 		assert False, "Analyzing ABI 1.0 for the __OBJC,__class section is not implemented yet."
 

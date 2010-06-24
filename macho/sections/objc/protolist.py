@@ -19,6 +19,15 @@ from macho.sections.section import Section
 from ._abi2reader import readProtocolList
 
 class ObjCProtoListSection(Section):
+	"""The Objective-C protocol list section (``__DATA,__objc_protolist``, etc).
+	
+	.. attribute:: protocols
+	
+		An :class:`~collections.OrderedDict` of
+		:class:`~objc.protocol.Protocol`\\s, keyed by their address.
+	
+	"""
+
 	def _analyze1(self, machO):
 		assert False, "Analyzing ABI 1.0 for the __OBJC,__protocol section is not implemented yet."
 

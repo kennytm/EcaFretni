@@ -16,9 +16,17 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from macho.sections.section import Section
-from ._abi2reader import readCategoryList, getSectionProperty
+from ._abi2reader import readCategoryList
 
 class ObjCCategoryListSection(Section):
+	"""The Objective-C category list section (``__DATA,__objc_catlist``, etc).
+	
+	.. attribute:: categories
+	
+		An list of :class:`~objc.category.Category`\\s.
+	
+	"""
+
 	def _analyze1(self, machO, classes, protoRefsMap):
 		assert False, "Analyzing ABI 1.0 for the __OBJC,__category section is not implemented yet."
 
