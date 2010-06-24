@@ -117,12 +117,8 @@ class MachO_SymbolPatches(MachO):
 			    (3002, 0x8e218),
 			    ...
 			])
-		
-		If the symbol's original address is 0, it will be replaced.
 		'''
 		
-		symRemoveSet = set()
-		symRemoveSet_add = symRemoveSet.add
 		newSymbols = []
 		newSymbols_append = newSymbols.append
 		
@@ -133,11 +129,8 @@ class MachO_SymbolPatches(MachO):
 			for sym in self_symbols_all(columnName, i):
 				theSymbol = sym.copy()
 				theSymbol.addr = addr
-				if not sym.addr:
-					symRemoveSet_add(sym)
 				newSymbols_append(theSymbol)
 				
-		self_symbols.removeMany(symRemoveSet)
 		self.addSymbols(newSymbols)
 		
 	
