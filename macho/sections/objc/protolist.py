@@ -17,19 +17,24 @@
 
 from macho.sections.section import Section
 from ._abi2reader import readProtocolList
+from ._abi1reader import analyzeProtocolList
 
 class ObjCProtoListSection(Section):
 	"""The Objective-C protocol list section (``__DATA,__objc_protolist``, etc).
 	
 	.. attribute:: protocols
 	
-		An :class:`~collections.OrderedDict` of
-		:class:`~objc.protocol.Protocol`\\s, keyed by their address.
-	
+		A :class:`~data_table.DataTable` of :class:`~objc.protocol.Protocol`\\s,
+		with the following columns:
+		
+		* ``'name'`` (string, the name of the protocol)
+		* ``'addr'`` (unique, integer, the VM address to the protocol)
+
 	"""
 
 	def _analyze1(self, machO):
-		assert False, "Analyzing ABI 1.0 for the __OBJC,__protocol section is not implemented yet."
+		protos = self.asStructs(machO.makeStruct('5^'), machO, includeAddresses=True)
+		self.protocols = analyzeProtocolList(machO, protos)
 
 	def _analyze2(self, machO):
 		# In ABI 2.0, the __DATA,__objc_protolist contains a list of file offsets
@@ -47,3 +52,5 @@ class ObjCProtoListSection(Section):
 
 Section.registerFactory('__objc_protolist', ObjCProtoListSection)	# __DATA,__objc_protolist
 Section.registerFactory('__protocol_list', ObjCProtoListSection)	# __OBJC2,__protocol_list
+Section.registerFactory('__protocol', ObjCProtoListSection)			# __OBJC,__protocols (ABI 1.0)
+

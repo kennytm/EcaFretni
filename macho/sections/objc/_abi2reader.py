@@ -35,7 +35,7 @@ from objc.property import Property
 from objc.protocol import Protocol
 from objc.category import Category
 from macho.utilities import readStruct, peekStruct, peekStructs, peekPrimitives
-from py2compat import OrderedDict
+from data_table import DataTable
 import macho.loadcommands.segment	# to ensure macho.macho.MachO.[fromVM, derefString] are defined.
 
 
@@ -119,7 +119,7 @@ readIvarListAt = readListAt(readIvar)
 readPropertyListAt = readListAt(readProperty)
 
 def _readProtocolRefListAt(machO, vmaddr):
-	"""Read the an iterable of addresses to protocols from *vmaddr*."""
+	"""Return the an iterable of addresses to protocols from *vmaddr*."""
 	#	typedef struct protocol_list_t {
 	#		// count is 64-bit by accident. 
 	#		uintptr_t count;
@@ -167,27 +167,33 @@ def readProtocol(machO, vmaddr):
 
 
 def connectProtocol(obj, protocolRefs, protoRefsMap):
-	"""Let *obj* adopts protocols referenced by *protocolRefs*, reading from *protoRefsMap*."""
-	obj.protocols.update(protoRefsMap[vmaddr] for vmaddr in protocolRefs)
+	"""Let *obj* adopts protocols referenced by the iterable *protocolRefs*,
+	reading from the :class:`~data_table.DataTable` *protoRefsMap*."""
+	obj.protocols.update(protoRefsMap.any1('addr', vmaddr) for vmaddr in protocolRefs)
 	
 
 def readProtocolList(machO, addresses):
-	"""Read :class:`~objc.protocol.Protocol`\\s from an iterable of *addresses*,
-	and return an :class:`~collection.OrderedDict` of protocols keyed by its
-	address."""
+	"""Read protocols from an iterable of *addresses*, and return a
+	:class:`~data_table.DataTable` of :class:`~objc.protocol.Protocol`\\s with
+	the following column names:
+	
+	* ``'name'`` (unique, string, the name of the protocol)
+	* ``'addr'`` (unique, integer, the VM address to the protocol)
+	"""
 	
 	# read protocols from the Mach-O binary.
-	protoPairs = ((vmaddr, readProtocol(machO, vmaddr)) for vmaddr in addresses)
+	protos = DataTable('!name', '!addr')
+	refs = []
+	for vmaddr in addresses:
+		(proto, protocolRefs) = readProtocol(machO, vmaddr)
+		protos.append(proto, name=proto.name, addr=vmaddr)
+		refs.append(protocolRefs)
 	
-	# rearrange items and construct the protoRefsMap.
-	(protos, protoRefsMap) = zip(*[((proto, protoRefs), (vmaddr, proto)) for vmaddr, (proto, protoRefs) in protoPairs])
-	protoRefsMap = OrderedDict(protoRefsMap)
-	
-	# dereference.
-	for proto, protoRefs in protos:
-		connectProtocol(proto, protoRefs, protoRefsMap)
-	
-	return protoRefsMap
+	# connect the protocols.
+	for proto, protocolRefs in zip(protos, refs):
+		connectProtocol(proto, protocolRefs, protos)
+		
+	return protos
 
 
 def _readClassRO(machO, cls, protoRefsMap, absfileoff):
@@ -273,25 +279,40 @@ def readClass(machO, vmaddr, protoRefsMap):
 	return (cls, superPtr)
 
 
+def classAt(machO, vmaddr, classes):
+	'''Given a :class:`~data_table.DataTable` of :class:`~objc.class_.Class`\\s,
+	get the :class:`~objc.class_.Class` or :class:`~objc.class_.RemoteClass` at
+	the given *vmaddr*.'''
+	
+	cls = classes.any('addr', vmaddr)
+	if not cls:
+		sym = machO.symbols.any1('addr', vmaddr)
+		cls = RemoteClass(sym)
+	return cls
+
+
+
 def readClassList(machO, addresses, protoRefsMap):
-	"""Read :class:`~objc.class_.Class`\\es from an iterable of *addresses*, and
-	return an :class:`~collections.OrderedDict` of classes keyed by its address.
+	"""Read classes from an iterable of *addresses*, and return a
+	:class:`~data_table.DataTable` of :class:`~objc.class_.Class`\\s with
+	the following column names:
+	
+	* ``'name'`` (unique, string, the name of the class)
+	* ``'addr'`` (unique, integer, the VM address to the protocol)
 	"""
+		
+	classes = DataTable('!name', '!addr')
+	supers = []
+	for vmaddr in addresses:
+		(cls, superPtr) = readClass(machO, vmaddr, protoRefsMap)
+		supers.append(superPtr)
+		classes.append(cls, name=cls.name, addr=vmaddr)
 	
-	# read classes from the Mach-O binary.
-	classPairs = OrderedDict((vmaddr, readClass(machO, vmaddr, protoRefsMap)) for vmaddr in addresses)
-	machO_symbols_any = machO.symbols.any
-	
-	for cls, superPtr in classPairs.values():
+	for cls, superPtr in zip(classes, supers):
 		if not cls.isRoot:
-			if superPtr in classPairs:
-				cls.superClass = classPairs[superPtr][0]
-			else:
-				sym = machO_symbols_any('addr', superPtr)
-				cls.superClass = RemoteClass(sym)
-				
-	res = OrderedDict((vmaddr, cls) for vmaddr, (cls, _) in classPairs.items())
-	return res
+			cls.superClass = classAt(machO, superPtr, classes)
+	
+	return classes
 	
 
 def readCategory(machO, vmaddr, classes, protoRefsMap):
@@ -313,13 +334,9 @@ def readCategory(machO, vmaddr, classes, protoRefsMap):
 		
 	name = machO.derefString(namePtr)
 	
-	if clsPtr not in classes:
-		if not clsPtr:
-			clsPtr = vmaddr + machO.pointerWidth
-		sym = machO.symbols.any('addr', clsPtr)
-		cls = RemoteClass(sym)
-	else:
-		cls = classes[clsPtr]
+	if not clsPtr:
+		clsPtr = vmaddr + machO.pointerWidth
+	cls = classAt(machO, clsPtr, classes)
 	
 	cat = Category(name, cls)
 	cat.addClassMethods(readMethodListAt(machO, classMethodsPtr, optional=False))
@@ -333,10 +350,20 @@ def readCategory(machO, vmaddr, classes, protoRefsMap):
 
 
 def readCategoryList(machO, addresses, classes, protoRefsMap):
-	"""Read categories from an iterable of *addresses*, and return a list of
-	:class:`~objc.category.Category`\\s."""
+	"""Read categories from an iterable of *addresses*, and return a
+	:class:`~data_table.DataTable` of :class:`~objc.category.Category`\\s with
+	the following column names:
 	
-	return [readCategory(machO, vmaddr, classes, protoRefsMap) for vmaddr in addresses]
+	* ``'name'`` (string, the name of the category)
+	* ``'base'`` (string, the name of the class the category is patching)
+	"""
+	
+	cats = DataTable('name', 'base')
+	for vmaddr in addresses:
+		cat = readCategory(machO, vmaddr, classes, protoRefsMap)
+		cats.append(cat, name=cat.name, base=cat.class_.name)
+	
+	return cats
 
 	
 	

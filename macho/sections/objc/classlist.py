@@ -29,6 +29,7 @@ class ObjCClassListSection(Section):
 	"""
 
 	def _analyze1(self, machO, protoRefsMap):
+		classTuples = self.asStructs(machO.makeStruct('12^'), machO, includeAddresses=True)
 		assert False, "Analyzing ABI 1.0 for the __OBJC,__class section is not implemented yet."
 
 	def _analyze2(self, machO, protoRefsMap):
