@@ -135,19 +135,15 @@ class DataTable(Sequence, Sized):
 		such key exists, a *default* value will be returned.'''
 		
 		(isUnique, col) = self._columns[columnName]
-		lst = []
 		if key in col:
 			lst = col[key]
-			if isUnique:
-				return lst
-		if lst:
-			return lst[0]
+			return lst if isUnique else lst[0]
 		else:
 			return default
 	
 	def any1(self, columnName, key):
 		'''Return any value with the given *key* in the specified column. If no
-		such key exists, a :exc:`KeyError` or :exc:`IndexError` will be raised.
+		such key exists, a :exc:`KeyError` will be raised.
 		
 		This should be more efficient than :meth:`any` as there are less error
 		checking.
@@ -156,6 +152,64 @@ class DataTable(Sequence, Sized):
 		(isUnique, col) = self._columns[columnName]
 		res = col[key]
 		return res if isUnique else res[0]
+
+
+	def isColumnUnique(self, columnName):
+		'''Checks if a column is unique.
+		
+		.. note::
+		
+			Whether a column is unique or not is transparent to the user if used
+			correctly. You should not change the code behavior based on this
+			return value.
+			
+		'''
+		return self._columns[columnName][0]
+
+	def setColumnUnique(self, columnName, isUnique):
+		'''Modify whether a column is unique. If you convert a non-unique column
+		to unique, some data may not be referable from that column.
+		'''
+		
+		res = self._columns[columnName]
+		if res[0] != isUnique:
+			res[0] = isUnique
+			if isUnique:
+				res[1] = dict((key, value[0]) for key, value in res[1].items())
+			else:
+				res[1] = dict((key, [value]) for key, value in res[1].items())
+		
+
+	def addColumn(self, columnName, keyGenerator, isUnique=False):
+		'''Add or replace a column in the table, and generate keys using the
+		function *keyGenerator*, for example::
+		
+			dt.addColumn('extangle', lambda shape: 360/shape.sides)
+			dt.all('extangle', 120)	# returns all triangles.
+		
+		The *keyGenerator* should accept a value, and returns the corresponding
+		key of that value. It should return ``None`` if the corresponding key
+		does not exist.
+		'''
+		
+		col = {}
+		
+		for val in self._values:
+			key = keyGenerator(val)
+			if key is not None:
+				if isUnique:
+					col[key] = val
+				elif key in col:
+					col[key].append(val)
+				else:
+					col[key] = [val]
+		
+		self._columns[columnName] = (isUnique, col)
+
+
+	def removeColumn(self, columnName):
+		'''Remove a column from the table.'''
+		del self._columns[columnName]
 
 	
 	def contains(self, columnName, key):
@@ -195,7 +249,7 @@ if __name__ == '__main__':
 	errorRaised = False
 	try:
 		dt.any1('sides', 6)
-	except (KeyError, IndexError):
+	except KeyError:
 		errorRaised = True
 	assert errorRaised
 	
@@ -229,6 +283,8 @@ if __name__ == '__main__':
 	
 	assert len(dt2) == 3
 	assert list(dt2) == ['John Doe', 'John Smith', 'Jane Doe']
+	assert dt2.isColumnUnique('id')
+	assert not dt2.isColumnUnique('name')
 	assert set(dt2.columnNames) == set(['id', 'name'])
 	assert dt2.all('id', 1) == ['John Doe']
 	assert dt2.any('id', 3) == 'Jane Doe'
@@ -238,7 +294,17 @@ if __name__ == '__main__':
 	errorRaised = False
 	try:
 		dt2.any1('id', 4)
-	except (KeyError, IndexError):
+	except KeyError:
 		errorRaised = True
 	assert errorRaised
 	
+	dt2.addColumn('surname', lambda s:s[5:])
+	assert set(dt2.columnNames) == set(['id', 'name', 'surname'])
+	assert dt2.all('surname', 'Doe') == ['John Doe', 'Jane Doe']
+	assert dt2.any1('surname', 'Smith') == 'John Smith'
+	assert dt2.any('surname', 'Peterson') is None
+	assert len(dt2) == 3
+	
+	dt2.removeColumn('id')
+	assert set(dt2.columnNames) == set(['surname', 'name'])
+	assert len(dt2) == 3
