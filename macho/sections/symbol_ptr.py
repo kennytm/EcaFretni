@@ -17,6 +17,8 @@
 #
 
 from macho.sections.section import Section, S_NON_LAZY_SYMBOL_POINTERS, S_LAZY_SYMBOL_POINTERS, S_SYMBOL_STUBS, S_LAZY_DYLIB_SYMBOL_POINTERS
+import macho.loadcommands.dysymtab
+import macho.loadcommands.symtab
 
 class SymbolPtrSection(Section):
 	"""The symbol pointer sections (for example ``__DATA,__nl_symbol_ptr``) and

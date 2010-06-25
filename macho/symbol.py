@@ -101,7 +101,7 @@ class MachO_SymbolPatches(MachO):
 		'''Add an iterable of :class:`Symbol`\\s to this Mach-O object.'''
 	
 		if not hasattr(self, 'symbols'):
-			self.symbols = DataTable('name', 'addr', 'ordinal')
+			self.symbols = DataTable('name', '!addr', 'ordinal')
 		
 		self_symbols_append = self.symbols.append
 		for sym in symbols:

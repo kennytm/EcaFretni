@@ -53,7 +53,7 @@ def readString(f, encoding='utf_8', returnLength=False):
 	else:
 		return string
 
-
+# This function is *very hot*. What to do?
 def peekString(f, encoding='utf_8', position=-1, returnLength=False):
 	"""Read a null-terminated string from a :class:`mmap.mmap` object without
 	moving the cursor. 
@@ -62,7 +62,6 @@ def peekString(f, encoding='utf_8', position=-1, returnLength=False):
 	of the current cursor location.
 	
 	"""
-	
 	if position < 0:
 		position = f.tell()
 	nextZero = f.find(b'\0', position)
