@@ -56,7 +56,7 @@ class DataTable(Sequence, Sized):
 
 	def append(self, value, **columns):
 		'''Append a *value* to the end of the table, and associate it with some
-		column names, e.g.::
+		keys, e.g.::
 		
 			dt.append(red_triangle, sides=3, color="red")
 			dt.append(green_triangle, sides=3, color="green")
@@ -76,6 +76,29 @@ class DataTable(Sequence, Sized):
 				list_append(col[key], value)
 			else:
 				col[key] = [value]
+	
+	def associate(self, value, colName, keys):
+		'''Associate *value* to multiple *keys*::
+		
+			dt.append(rainbow_square, sides=4)
+			dt.associate(rainbow_square, 'color', ['red', 'green', 'blue', ...])
+		
+		*value* will not be appended to the data table, so you need to ensure it
+		already exists. *key* can be any iterable.
+		'''
+		
+		(isUnique, col) = self._columns[colName]
+		if isUnique:
+			for key in keys:
+				col[key] = value
+		else:
+			list_append = list.append
+			for key in keys:
+				if key in col:
+					list_append(col[key], value)
+				else:
+					col[key] = [value]
+	
 	
 #	def removeMany(self, values):
 #		'''Remove a large set (preferred) or sequence of *values* from the data
@@ -218,6 +241,8 @@ class DataTable(Sequence, Sized):
 	
 	
 if __name__ == '__main__':
+	from operator import itemgetter
+
 	dt = DataTable('sides', 'color')
 	dt.append('r3', sides=3, color='red')
 	dt.append('g3', sides=3, color='green')
@@ -252,6 +277,19 @@ if __name__ == '__main__':
 	except KeyError:
 		errorRaised = True
 	assert errorRaised
+	
+	dt.append('w7', sides=7)
+	assert 'w7' in dt
+	assert dt.all('sides', 7) == ['w7']
+	assert 'w7' not in map(itemgetter(1), dt.column('color'))
+	dt.associate('w7', 'color', ['red', 'green', 'yellow'])
+	assert 'w7' in dt
+	assert dt.all('sides', 7) == ['w7']
+	assert 'w7' in map(itemgetter(1), dt.column('color'))
+	assert dt.all('color', 'red') == ['r3', 'r5', 'r4', 'w7']
+	assert dt.all('color', 'green') == ['g3', 'w7']
+	assert dt.all('color', 'yellow') == ['w7']
+	assert dt.all('color', 'blue') == ['b4']
 	
 	
 #	dt.removeMany(['r3', 'r5', 'r7'])
@@ -308,3 +346,4 @@ if __name__ == '__main__':
 	dt2.removeColumn('id')
 	assert set(dt2.columnNames) == set(['surname', 'name'])
 	assert len(dt2) == 3
+	
