@@ -101,7 +101,7 @@ class MachO_SymbolPatches(MachO):
 		'''Add an iterable of :class:`Symbol`\\s to this Mach-O object.'''
 	
 		if not hasattr(self, 'symbols'):
-			self.symbols = DataTable('name', '!addr', 'ordinal')
+			self.symbols = DataTable('name', 'addr', '!ordinal')
 		
 		self_symbols_append = self.symbols.append
 		for sym in symbols:
@@ -119,18 +119,13 @@ class MachO_SymbolPatches(MachO):
 			])
 		'''
 		
-		newSymbols = []
-		newSymbols_append = newSymbols.append
-		
 		self_symbols = self.symbols
-		self_symbols_all = self_symbols.all
+		self_symbols_any = self_symbols.any
+		self_symbols_associate = self_symbols.associate
 		
 		for i, addr in ordinalsAndAddresses:
-			for sym in self_symbols_all(columnName, i):
-				theSymbol = sym.copy()
-				theSymbol.addr = addr
-				newSymbols_append(theSymbol)
-				
-		self.addSymbols(newSymbols)
+			theSymbol = self_symbols_any(columnName, i)
+			if theSymbol:
+				self_symbols_associate(theSymbol, 'addr', [addr])
 		
 	
