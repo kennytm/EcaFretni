@@ -18,29 +18,21 @@
 
 from macho.sections.section import Section, S_CSTRING_LITERALS
 from macho.utilities import readString
+from macho.symbol import SYMTYPE_CSTRING, Symbol
+
+def _stringReader(file, curAddr, final):
+	while curAddr < final:
+		(string, length) = readString(file, returnLength=True)
+		if length:
+			yield Symbol(string, curAddr, SYMTYPE_CSTRING)
+		curAddr += length+1
 
 class CStringSection(Section):
 	"""The C string (``__TEXT,__cstring``) section."""
 	
 	def analyze(self, segment, machO):
-		final = self.addr + self.size
-		curAddr = self.addr
-		strings = {}
-		while curAddr < final:
-			(string, length) = readString(machO.file, returnLength=True)
-			if length:
-				strings[curAddr] = string
-			curAddr += length+1
-		self._strings = strings
+		machO.addSymbols(_stringReader(machO.file, self.addr, self.addr + self.size))
 	
-	def stringAt(self, address):
-		"""
-		Returns a string at specified VM address.
-		
-		Returns ``None`` if not found.
-		"""
-		
-		return self._strings.get(address, None)
 
 Section.registerFactoryFType(S_CSTRING_LITERALS, CStringSection.byFType)
 

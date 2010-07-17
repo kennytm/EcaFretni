@@ -26,6 +26,8 @@ SYMTYPE_CSTRING = 3
 SYMTYPE_CFSTRING = 4
 SYMTYPE_OBJC_SEL = 5
 
+_symtypeNames = dict((v, k) for k, v in globals().items() if k.startswith('SYMTYPE_'))
+
 # This class should be moved away from the 'macho' package, since it is also
 # meaningful for other executable file formats such as ELF and PE...
 class Symbol(object):
@@ -100,10 +102,10 @@ class Symbol(object):
 		
 	
 	def __str__(self):
-		return "<Symbol({}) '{}':0x{:x}>".format(self.symtype, self.name, self.addr)
+		return "<Symbol({}) '{}':0x{:x}>".format(_symtypeNames[self.symtype], self.name, self.addr)
 		
 	def __repr__(self):
-		args = [repr(self.name), '0x{:x}'.format(self.addr), repr(self.symtype)]
+		args = [repr(self.name), '0x{:x}'.format(self.addr), _symtypeNames[self.symtype]]
 		if self.ordinal >= 0:
 			args.append('ordinal={!r}'.format(self.ordinal))
 		if self.libord:

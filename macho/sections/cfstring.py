@@ -18,37 +18,27 @@
 
 from macho.sections.section import Section
 from macho.utilities import peekFixedLengthString
+from macho.symbol import Symbol, SYMTYPE_CFSTRING
 import macho.loadcommands.segment	# to ensure macho.macho.fromVM is defined.
+
+def _stringReader(machO, addressesAndLengths):
+	origin = machO.origin
+	machO_fromVM = machO.fromVM
+	machO_file = machO.file
+	for addr, (_, _, strAddr, strLen) in addressesAndLengths:
+		fileoff = machO_fromVM(strAddr)
+		string = peekFixedLengthString(machO_file, strLen, position=fileoff+origin)
+		yield Symbol(string, addr, SYMTYPE_CFSTRING)
+		
 
 class CFStringSection(Section):
 	"""The CoreFoundation string (``__DATA,__cfstring``) section."""
 	
 	def analyze(self, segment, machO):
-		strings = {}
-		
-		origin = machO.origin
-		machO_fromVM = machO.fromVM
-		machO_file = machO.file
-		
 		cfstrStruct = machO.makeStruct('4^')
 		addressesAndLengths = self.asStructs(cfstrStruct, machO, includeAddresses=True)
-		
-		for addr, (_, _, strAddr, strLen) in addressesAndLengths:
-			fileoff = machO_fromVM(strAddr)
-			string = peekFixedLengthString(machO_file, strLen, position=fileoff+origin)
-			strings[addr] = string
-			
-		self._strings = strings
+		machO.addSymbols(_stringReader(machO, addressesAndLengths))
 
-	
-	def stringAt(self, address):
-		"""
-		Returns a string at specified VM address.
-		
-		Returns ``None`` if not found.
-		"""
-		
-		return self._strings.get(address, None)
 
 Section.registerFactory('__cfstring', CFStringSection)
 
