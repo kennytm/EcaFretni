@@ -23,17 +23,33 @@ class Class(ClassLike):
 	
 	.. attribute:: superClass
 	
-		The :class:`Class` object for this class's super class. If this clas is
-		the root class, its value is ``None``.
+		The :class:`~objc.classlike.ClassLike` object for this class's super
+		class. If this class is the root class, its value is ``None``.
 	
 	.. attribute:: ivars
 	
-		An ordered dictionary of :class:`~objc.ivar.Ivar`\ s, keyed by the ivar
-		name.
+		An :class:`~collections.OrderedDict` of :class:`~objc.ivar.Ivar`\ s,
+		keyed by the ivar name.
+	
+	.. attribute:: isRoot
+	
+		Whether this class is a root class.
+	
+	.. attribute:: hasStructors
+	
+		Whether this class has C++ constructors or destructors.
+	
+	.. attribute:: hidden
+	
+		Whether this class has been declared ``__attribute__((hidden))``.
+	
+	.. attribute:: exception
+	
+		Whether this class is an exception.
 	
 	"""
 
-	def __init__(self, name, flags):
+	def __init__(self, name, flags=0):
 		super().__init__(name)
 		self.superClass = None
 		self.ivars = OrderedDict()
