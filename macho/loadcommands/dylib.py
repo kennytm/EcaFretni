@@ -18,6 +18,8 @@
 
 from macho.loadcommands.loadcommand import LoadCommand, LC_LOAD_DYLIB, LC_ID_DYLIB, LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB, LC_LAZY_LOAD_DYLIB, LC_LOAD_UPWARD_DYLIB
 from macho.utilities import peekString, peekStruct
+from monkey_patching import patch
+from macho.macho import MachO
 
 class DylibCommand(LoadCommand):
 	"""A dylib load command. This can represent any of these commands:
@@ -58,3 +60,29 @@ class DylibCommand(LoadCommand):
 
 for i in (LC_LOAD_DYLIB, LC_ID_DYLIB, LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB, LC_LAZY_LOAD_DYLIB, LC_LOAD_UPWARD_DYLIB):
 	LoadCommand.registerFactory(i, DylibCommand)
+
+@patch
+class MachO_FromLibord(MachO):
+	"""This patch defines a single convenient function :meth:`dylibFromLibord`
+	which can convert a library ordinal to a :class:`DylibCommand` object."""
+	
+	def dylibFromLibord(self, libord):
+		"""Converts library ordinal to a :class:`DylibCommand` object. Returns
+		``None`` if the input is invalid."""
+		
+		if libord < 0:
+			return None
+		
+		lcs = self.loadCommands
+		if not libord:
+			return lcs.any1('cmd', LC_ID_DYLIB)
+		
+		else:
+			for lc in lcs:
+				if lc.cmd in (LC_LOAD_DYLIB, LC_LOAD_WEAK_DYLIB, LC_LOAD_UPWARD_DYLIB):
+					libord -= 1
+				if not libord:
+					return lc
+			return None
+
+

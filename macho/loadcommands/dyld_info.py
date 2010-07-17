@@ -17,7 +17,7 @@
 #
 
 from .loadcommand import LoadCommand, LC_DYLD_INFO
-from macho.symbol import Symbol
+from macho.symbol import Symbol, SYMTYPE_UNDEFINED, SYMTYPE_GENERIC
 from macho.utilities import peekStruct, readULeb128, readSLeb128, readString
 
 def _bind(machO, size, symbols):
@@ -32,7 +32,6 @@ def _bind(machO, size, symbols):
 	lcs_all = machO.loadCommands.all
 	ptrwidth = machO.pointerWidth
 	
-	allDylibs = lcs_all('className', 'DylibCommand')
 	allSegs = lcs_all('className', 'SegmentCommand')
 	
 	while f.tell() < end:
@@ -68,22 +67,22 @@ def _bind(machO, size, symbols):
 			addr += readULeb128(f)
 			
 		elif opcode == 0x90:	# BIND_OPCODE_DO_BIND
-			symbols.append(Symbol(sym, addr, library=allDylibs[libord]))
+			symbols.append(Symbol(sym, addr, SYMTYPE_UNDEFINED, libord=libord))
 			addr += ptrwidth
 			
 		elif opcode == 0xa0:	# BIND_OPCODE_DO_BIND_ADD_ADDR_ULEB
-			symbols.append(Symbol(sym, addr, library=allDylibs[libord]))
+			symbols.append(Symbol(sym, addr, SYMTYPE_UNDEFINED, libord=libord))
 			addr += ptrwidth + readULeb128(f)
 			
 		elif opcode == 0xb0:	# BIND_OPCODE_DO_BIND_ADD_ADDR_IMM_SCALED
-			symbols.append(Symbol(sym, addr, library=allDylibs[libord]))
+			symbols.append(Symbol(sym, addr, SYMTYPE_UNDEFINED, libord=libord))
 			addr += (imm+1) * ptrwidth
 			
 		elif opcode == 0xc0:	# BIND_OPCODE_DO_BIND_ULEB_TIMES_SKIPPING_ULEB
 			count = readULeb128(f)
 			skip = readULeb128(f)
 			for i in range(count):
-				symbols.append(Symbol(sym, addr, library=allDylibs[libord]))
+				symbols.append(Symbol(sym, addr, SYMTYPE_UNDEFINED, libord=libord))
 				addr += skip + ptrwidth
 	
 
@@ -95,8 +94,7 @@ def _recursiveProcessExportTrieNode(f, start, cur, end, prefix, symbols):
 			sym = prefix
 			readULeb128(f)
 			addr = readULeb128(f)
-			symbols.append(Symbol(sym, addr, extern=True))
-		f.seek(cur + termSize)
+			symbols.append(Symbol(sym, addr, SYMTYPE_GENERIC, extern=True))
 		
 		childCount = f.read_byte()
 		for i in range(childCount):
@@ -105,7 +103,6 @@ def _recursiveProcessExportTrieNode(f, start, cur, end, prefix, symbols):
 			lastPos = f.tell()
 			_recursiveProcessExportTrieNode(f, start, start + offset, end, prefix + suffix, symbols)
 			f.seek(lastPos)
-
 
 
 class DyldInfoCommand(LoadCommand):
@@ -143,6 +140,7 @@ class DyldInfoCommand(LoadCommand):
 			_bind(machO, lazyBindSize, symbols)
 		
 		if exportSize:
+			exportOff += machO.origin
 			_recursiveProcessExportTrieNode(machO.file, exportOff, exportOff, exportOff + exportSize, "", symbols)
 		
 		machO.addSymbols(symbols)

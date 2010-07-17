@@ -22,6 +22,8 @@ from macho.symbol import Symbol
 from macho.utilities import peekPrimitives, peekStruct, peekStructs
 from struct import Struct
 
+import macho.loadcommands.symtab
+
 class DySymtabCommand(LoadCommand):
 	"""
 	The :const:`~macho.loadcommands.loadcommand.LC_DYSYMTAB` (dynamic symbol
@@ -37,9 +39,6 @@ class DySymtabCommand(LoadCommand):
 	def _exrelIter(self, machO, extreloff, count):		
 		reloc_res = peekStructs(machO.file, machO.makeStruct('LL'), count, position=extreloff+machO.origin)
 		isBigEndian = machO.endian == '>'
-		
-		symbols = machO.symbols
-		symbols_all = symbols.all
 		
 		for r_address, r_extra in reloc_res:
 			if r_address & 0x80000000:

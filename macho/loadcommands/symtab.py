@@ -17,11 +17,8 @@
 #	
 
 from macho.loadcommands.loadcommand import LoadCommand, LC_SYMTAB
-from macho.symbol import Symbol
+from macho.symbol import Symbol, SYMTYPE_UNDEFINED, SYMTYPE_GENERIC
 from macho.utilities import peekStruct, peekStructs, peekString
-
-def _getLibraryOrdinal(desc):
-	return (desc >> 8) & 0xff	
 
 
 class SymtabCommand(LoadCommand):
@@ -43,16 +40,15 @@ class SymtabCommand(LoadCommand):
 		
 		# Now analyze the nlist structs
 		symbols = []
-		allDylibs = machO.loadCommands.all('className', 'DylibCommand')
 		for (ordinal, (idx, typ, sect, desc, value)) in enumerate(nlists):
 			string = peekString(machO.file, position=stroff+idx+origin)
-			library = None
-			extern = bool(typ & 1)	# N_EXT
-			if extern:
-				library = allDylibs[_getLibraryOrdinal(desc)]
+			libord = (desc >> 8) & 0xff  # GET_LIBRARY_ORDINAL
+			extern = bool(typ & 1)       # N_EXT
+			symtype = SYMTYPE_GENERIC if (typ & 0xe) else SYMTYPE_UNDEFINED
 			if desc & 8:	# N_ARM_THUMB_DEF
 				value &= ~1
-			symbols.append(Symbol(string, value, ordinal, library, extern))
+			symbol = Symbol(string, value, symtype, ordinal, libord, extern)
+			symbols.append(symbol)
 		
 		# add those symbols back into the Mach-O.
 		machO.addSymbols(symbols)

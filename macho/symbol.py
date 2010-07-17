@@ -20,7 +20,14 @@ from data_table import DataTable
 from .macho import MachO
 from monkey_patching import patch
 
+SYMTYPE_UNDEFINED = -1
+SYMTYPE_GENERIC = 0
+SYMTYPE_CSTRING = 3
+SYMTYPE_CFSTRING = 4
+SYMTYPE_OBJC_SEL = 5
 
+# This class should be moved away from the 'macho' package, since it is also
+# meaningful for other executable file formats such as ELF and PE...
 class Symbol(object):
 	"""A symbol in Mach-O file.
 	
@@ -34,33 +41,56 @@ class Symbol(object):
 	
 	.. attribute:: ordinal
 	
-		Index of this symbol in the local symbol table.
+		Index of this symbol in the local symbol table. If it does not live in
+		the symbol table, the ordinal is -1.
 	
-	.. attribute:: library
+	.. attribute:: libord
 	
-		The :class:`~macho.loadcommands.dylib.DylibCommand` object associated
-		with this symbol.
-	
+		The "library ordinal" of this symbol. If this symbol is not undefined,
+		this value should be 0.
+		
+		For Mach-O objects, the library can be recovered with the method
+		:meth:`~macho.loadcommands.dylib.MachO_FromLibord.dylibFromLibord` 
+		patched in :mod:`macho.loadcommands.dylib`.
+		
 	.. attribute:: extern
 	
-		A boolean indicating whether this is an external symbol.
+		A boolean indicating whether this is an exported symbol.
 	
+	.. attribute:: symtype
+	
+		The type of symbol. Can be one of:
+		
+		+----------------------------+-----------------------------------+
+		| Value                      | Meaning                           |
+		+============================+===================================+
+		| ``SYMTYPE_UNDEFINED`` (-1) | Undefined (i.e. external) symbol. |
+		+----------------------------+-----------------------------------+
+		| ``SYMTYPE_GENERIC`` (0)    | Generic local symbol.             |
+		+----------------------------+-----------------------------------+
+		| ``SYMTYPE_CSTRING`` (3)    | C strings.                        |
+		+----------------------------+-----------------------------------+
+		| ``SYMTYPE_CFSTRING`` (4)   | CoreFoundation strings.           |
+		+----------------------------+-----------------------------------+
+		| ``SYMTYPE_OBJC_SEL`` (5)   | Objective-C selector.             |
+		+----------------------------+-----------------------------------+
 	
 	"""
 	
-	def __init__(self, name, addr, ordinal=-1, library=None, extern=False):
+	def __init__(self, name, addr, symtype, ordinal=-1, libord=0, extern=False):
 		self.name = name
 		self.addr = addr
+		self.symtype = symtype
 		self.ordinal = ordinal
-		self.library = library
+		self.libord = libord
 		self.extern = extern
 	
 	def copy(self):
 		'''Create a copy of this symbol.'''
-		return type(self)(self.name, self.addr, self.ordinal, self.library, self.extern)
+		return type(self)(self.name, self.addr, self.symtype, self.ordinal, self.libord, self.extern)
 	
 	def _toTuple(self):
-		return (self.name, self.addr, self.ordinal, self.library.offset if self.library else 0, self.extern)
+		return (self.name, self.addr, self.symtype, self.ordinal, self.libord, self.extern)
 
 	def __eq__(self, other):
 		return self._toTuple() == other._toTuple()
@@ -70,14 +100,14 @@ class Symbol(object):
 		
 	
 	def __str__(self):
-		return "<Symbol {!r}:0x{:x}>".format(self.name, self.addr)
+		return "<Symbol({}) '{}':0x{:x}>".format(self.symtype, self.name, self.addr)
 		
 	def __repr__(self):
-		args = [repr(self.name), '0x{:x}'.format(self.addr)]
+		args = [repr(self.name), '0x{:x}'.format(self.addr), repr(self.symtype)]
 		if self.ordinal >= 0:
 			args.append('ordinal={!r}'.format(self.ordinal))
-		if self.library is not None:
-			args.append('library={!r}'.format(self.library))
+		if self.libord:
+			args.append('libord={!r}'.format(self.libord))
 		if self.extern:
 			args.append('extern=True')
 		return 'Symbol({})'.format(', '.join(args))
