@@ -17,6 +17,7 @@
 
 from macho.sections.section import Section
 from ._abi2reader import readClassList
+from ._abi1reader import analyzeClassList
 
 class ObjCClassListSection(Section):
 	"""The Objective-C class list section (``__DATA,__objc_classlist``, etc).
@@ -29,8 +30,9 @@ class ObjCClassListSection(Section):
 	"""
 
 	def _analyze1(self, machO, protoRefsMap):
-		classTuples = self.asStructs(machO.makeStruct('12^'), machO, includeAddresses=True)
-		assert False, "Analyzing ABI 1.0 for the __OBJC,__class section is not implemented yet."
+		addressesAndClassTuples = self.asStructs(machO.makeStruct('12^'), machO, includeAddresses=True)
+		self.classes = analyzeClassList(machO, addressesAndClassTuples, protoRefsMap)
+		
 
 	def _analyze2(self, machO, protoRefsMap):
 		addresses = self.asPrimitives('^', machO)
@@ -52,4 +54,5 @@ class ObjCClassListSection(Section):
 
 Section.registerFactory('__objc_classlist', ObjCClassListSection)	# __DATA,__objc_classlist
 Section.registerFactory('__class_list', ObjCClassListSection)		# __OBJC2,__class_list
+Section.registerFactory('__class', ObjCClassListSection)			# __OBJC,__class
 # how about __DATA,__objc_nlclslist? what does it do?

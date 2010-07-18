@@ -68,7 +68,7 @@ def prepareMethodDescriptionList(machO, vmaddr):
 		return tuple()
 
 	absfileoff = machO.fromVM(vmaddr) + machO.origin
-	stru = machO.makeStruct('I')
+	stru = machO.makeStruct('i')
 	count = peekStruct(machO.file, stru, position=absfileoff)[0]	
 	return peekStructs(machO.file, machO.makeStruct('2^'), count, position=absfileoff+stru.size)
 
@@ -101,7 +101,7 @@ def _prepareProtocol(machO, protoTuple):
 
 def _readProtocolRefListsAt(machO, vmaddrs):
 	"""Return the an iterable of addresses to protocols from the iterable
-	*vmaddrs*."""
+	*vmaddrs* pointing to ``old_protocol_list``\\s."""
 	
 	#	struct old_protocol_list {
 	#		struct old_protocol_list *next;
@@ -144,27 +144,27 @@ def _analyzeProtocol(machO, d, analyzer, preped, protoListPtrs):
 	protocolRefs = _readProtocolRefListsAt(machO, protoListPtrs)
 	
 	return (proto, protocolRefs)
+	
 
 
-
-
-def analyzeProtocolList(machO, protoTuples):
+def analyzeProtocolList(machO, addressesAndProtoTuples):
 	"""Analyze a list of protocols, and return a :class:`~data_table.DataTable`
 	of :class:`~objc.protocol.Protocol`\\s with
 	the following column names:
 	
 	* ``'name'`` (string, the name of the protocol)
+	
 	* ``'addr'`` (unique, integer, the VM address to the protocol)
 	
-	The parameter *protos* should be an iteratable of 2-tuples, which include
-	the address of the protocol, and a 5-tuple representing an ``old_protocol``
-	struct.
+	The parameter *addressesAndProtoTuples* should be an iteratable of 2-tuples,
+	which include the VM address of the protocol, and a 5-tuple representing an
+	``old_protocol`` struct.
 	"""
 	
 	# associate each unique protocol to a list of vmaddrs.
 	protoDict = {}
 	protoListDict = {}
-	for vmaddr, protoTuple in protoTuples:
+	for vmaddr, protoTuple in addressesAndProtoTuples:
 		(preped, protoListPtr) = _prepareProtocol(machO, protoTuple)
 		if preped in protoDict:
 			protoDict[preped].append(vmaddr)
@@ -193,5 +193,211 @@ def analyzeProtocolList(machO, protoTuples):
 		connectProtocol(proto, protocolRefs, protos)
 		
 	return protos
+
+
+def analyzeIvar(machO, ivarTuple):
+	"""Analyze an ``old_ivar`` struct and return an :class:`~objc.ivar.Ivar`."""
+	d = machO.derefString
+	name = d(ivarTuple[0])
+	typenc = d(ivarTuple[1])
+	offset = ivarTuple[2]
+	return Ivar(name, typenc, offset)
+	
+	
+def analyzeMethod(machO, methodTuple):
+	"""Analyze an ``old_method`` struct and return a
+	:class:`~objc.method.Method`."""
+	d = machO.derefString
+	name = d(methodTuple[0])
+	typenc = d(methodTuple[1])
+	imp = methodTuple[2]
+	return Method(name, typenc, imp, False)
+
+
+def analyzeProperty(machO, propertyTuple):
+	"""Analyze an ``objc_property`` struct and return a
+	:class:`~objc.property.Property`."""
+	d = machO.derefString
+	name = d(propertyTuple[0])
+	attrib = d(propertyTuple[1])
+	return Property(name, attrib)
+
+
+def listReader(method, fmt1, fmt2):
+	"""
+	Returns a function with signature::
+	
+		f(machO, vmaddr)
+	
+	This function would read any continuous fixed-length structure *fmt2* at
+	*vmaddr*, and analyze them with *method*. Returns a list in **reversed
+	order**. If *vmaddr* is 0, an empty list is returned.
+	
+	This method has 3 specializations::
+	
+		readMethodList = listReader(analyzeMethod, '^I~', '3^')
+		readIvarList = listReader(analyzeIvar, 'I~', '2^I~')
+		readPropertyList = listReader(analyzeProperty, '?')
+
+	"""
+	def f(machO, vmaddr):
+		if not vmaddr:
+			return []
+	
+		f = machO.file
+		ms = machO.makeStruct
+		pos = machO.fromVM(vmaddr) + machO.origin
+		stru = ms(fmt1)
+		count = peekStruct(f, stru, position=pos)[-1]						# use fmt1 to obtain the count
+		tuples = peekStructs(f, ms(fmt2), count, position=pos+stru.size)	# use fmt2 to obtain the structures
+		lst = [method(machO, s) for s in tuples]
+		lst.reverse()
+		return lst
+		
+	return f
+
+readMethodList = listReader(analyzeMethod, '^I~', '3^')
+readIvarList = listReader(analyzeIvar, 'I~', '2^I~')
+readPropertyList = listReader(analyzeProperty, '2L', '2^')
+
+
+def readLists(machO, vmaddr, method):
+	"""Read a senital-terminated list at *vmaddr* using *method*, and
+	concatenate the result.
+	
+	*method* should have signature::
+	
+		f(machO, vmaddr)
+
+	and returns an iterable.
+	"""
+
+	#	struct old_method {
+	#		SEL method_name;
+	#		char *method_types;
+	#		IMP method_imp;
+	#	};
+	#
+	#	struct old_method_list {
+	#		struct old_method_list *obsolete;
+	#
+	#		int method_count;
+	#	#ifdef __LP64__
+	#		int space;
+	#	#endif
+	#		/* variable length structure */
+	#		struct old_method method_list[1];
+	#	};
+	
+	retval = []
+	
+	if vmaddr:
+		loc = machO.origin + machO.fromVM(vmaddr)
+		stru = machO.makeStruct('^')
+		ptrSize = stru.size
+		f = machO.file
+		while True:
+			ptr = peekStruct(f, stru, position=loc)[0]
+			if ptr > 0:
+				retval.extend(method(machO, ptr))
+			else:
+				break
+			loc += ptrSize
+			
+	return retval
+
+
+def analyzeClass(machO, classTuple, protoRefsMap):
+	"""Analyze an ``old_class`` structure.
+		
+	Returns the :class:`~objc.class_.Class` and the pointer to the super class.
+	"""
+
+	#	struct old_class {
+	#		struct old_class *isa;
+	#		struct old_class *super_class;
+	#		const char *name;
+	#		long version;
+	#		long info;
+	#		long instance_size;
+	#		struct old_ivar_list *ivars;
+	#		struct old_method_list **methodLists;
+	#		Cache cache;
+	#		struct old_protocol_list *protocols;
+	#		// CLS_EXT only
+	#		const char *ivar_layout;
+	#		struct old_class_ext *ext;
+	#	};
+	
+	(metaClsPtr, superClsPtr, namePtr, _, _, _, ivarListPtr, methodListsPtr, _, protoListPtr, _, classExtPtr) = classTuple
+	
+	ms = machO.makeStruct
+	deref = machO.deref
+	
+	name = machO.derefString(namePtr)
+	cls = Class(name)
+	
+	cls.addIvars(readIvarList(machO, ivarListPtr))
+	cls.addMethods(readLists(machO, methodListsPtr, readMethodList))
+	
+	if protoListPtr:
+		protoAddrs = list(_readProtocolRefListsAt(machO, [protoListPtr]))
+		connectProtocol(cls, protoAddrs, protoRefsMap)
+	
+	if classExtPtr:
+		#	struct old_class_ext {
+		#		uint32_t size;
+		#		const char *weak_ivar_layout;
+		#		struct objc_property_list **propertyLists;
+		#	};
+		propListsPtr = deref(classExtPtr, ms('L~2^'))[2]
+		cls.addProperties(readPropertyList(machO, propListsPtr))
+	
+	metaClsTuple = deref(metaClsPtr, ms('12^'))
+	cls.addClassMethods(readLists(machO, metaClsTuple[7], readMethodList))
+	
+	return (cls, superClsPtr)
+	
+
+def classAt(machO, vmaddr, classes):
+	'''Given a :class:`~data_table.DataTable` of :class:`~objc.class_.Class`\\s,
+	get the :class:`~objc.class_.Class` or :class:`~objc.class_.RemoteClass` at
+	the given *vmaddr*.'''
+	
+	cls = classes.any('addr', vmaddr)
+	if not cls:
+		nm = machO.symbols.any1('addr', vmaddr)
+		cls = RemoteClass(nm)
+	return cls
+
+
+
+
+def analyzeClassList(machO, addressesAndClassTuples, protocols):
+	"""Analyze a list of classes, and return a :class:`~data_table.DataTable` of
+	:class:`~objc.class_.Class`\\s with the following column names:
+	
+	* ``'name'`` (unique, string, the name of the class)
+	
+	* ``'addr'`` (unique, integer, the VM address to the protocol)
+	
+	The parameter *addressesAndClassTuples* should be an iteratable of 2-tuples,
+	which include the VM address of the class, and a 12-tuple representing an
+	``old_class`` struct.
+	"""
+
+	classes = DataTable('!name', '!addr')
+	supers = []
+	for vmaddr, classTuple in addressesAndClassTuples:
+		(cls, superPtr) = analyzeClass(machO, classTuple, protocols)
+		supers.append(superPtr)
+		classes.append(cls, name=cls.name, addr=vmaddr)
+	
+	for cls, superPtr in zip(classes, supers):
+		if superPtr:
+			supcls = classAt(machO, superPtr, classes)
+			cls.superClass = classAt(machO, superPtr, classes)
+	
+	return classes
 
 

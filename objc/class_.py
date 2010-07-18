@@ -17,6 +17,7 @@
 
 from .classlike import ClassLike
 from py2compat import OrderedDict
+from sym import SYMTYPE_UNDEFINED
 
 class Class(ClassLike):
 	"""A structure representing an Objective-C class.
@@ -81,5 +82,9 @@ class Class(ClassLike):
 class RemoteClass(ClassLike):
 	"""A structure representing an external class."""
 	def __init__(self, symbol):
-		super().__init__(symbol.name[14:])
+		name = symbol.name
+		if symbol.symtype == SYMTYPE_UNDEFINED:
+			name = name[14:]
+		
+		super().__init__(name)
 		self.symbol = symbol
