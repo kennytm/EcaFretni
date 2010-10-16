@@ -29,14 +29,14 @@ class MachO_SymbolPatches(MachO):
 	
 	.. attribute:: symbols
 	
-		Returns a :class:`~data_table.DataTable` of :class:`Symbol`\\s ordered
-		by insertion order, with the following column names: ``'name'``,
+		Returns a :class:`~data_table.DataTable` of :class:`~sym.Symbol`\\s
+		ordered by insertion order, with the following column names: ``'name'``,
 		``'addr'`` and ``'ordinal'``.
 		
 	'''
 
 	def addSymbols(self, symbols):
-		'''Add an iterable of :class:`Symbol`\\s to this Mach-O object.'''
+		'''Add an iterable of :class:`~sym.Symbol`\\s to this Mach-O object.'''
 	
 		if not hasattr(self, 'symbols'):
 			self.symbols = DataTable('name', 'addr', '!ordinal')

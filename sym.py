@@ -62,15 +62,15 @@ class Symbol(object):
 		+----------------------------+-----------------------------------+
 		| Value                      | Meaning                           |
 		+============================+===================================+
-		| ``SYMTYPE_UNDEFINED`` (-1) | Undefined (i.e. external) symbol. |
+		| :const:`SYMTYPE_UNDEFINED` | Undefined (i.e. external) symbol. |
 		+----------------------------+-----------------------------------+
-		| ``SYMTYPE_GENERIC`` (0)    | Generic local symbol.             |
+		| :const:`SYMTYPE_GENERIC`   | Generic local symbol.             |
 		+----------------------------+-----------------------------------+
-		| ``SYMTYPE_CSTRING`` (3)    | C strings.                        |
+		| :const:`SYMTYPE_CSTRING`   | C strings.                        |
 		+----------------------------+-----------------------------------+
-		| ``SYMTYPE_CFSTRING`` (4)   | CoreFoundation strings.           |
+		| :const:`SYMTYPE_CFSTRING`  | CoreFoundation strings.           |
 		+----------------------------+-----------------------------------+
-		| ``SYMTYPE_OBJC_SEL`` (5)   | Objective-C selector.             |
+		| :const:`SYMTYPE_OBJC_SEL`  | Objective-C selector.             |
 		+----------------------------+-----------------------------------+
 	
 	"""
