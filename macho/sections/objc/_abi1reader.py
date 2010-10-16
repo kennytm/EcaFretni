@@ -34,6 +34,7 @@ from objc.category import Category
 from macho.utilities import peekStruct, peekStructs, readStruct, peekPrimitives
 from data_table import DataTable
 from ._abi2reader import connectProtocol
+from sym import SYMTYPE_UNDEFINED, Symbol
 
 
 def methodDescriptionAnalyzer(d):
@@ -379,7 +380,7 @@ def analyzeClassList(machO, addressesAndClassTuples, protocols):
 	
 	* ``'name'`` (unique, string, the name of the class)
 	
-	* ``'addr'`` (unique, integer, the VM address to the protocol)
+	* ``'addr'`` (unique, integer, the VM address to the class)
 	
 	The parameter *addressesAndClassTuples* should be an iteratable of 2-tuples,
 	which include the VM address of the class, and a 12-tuple representing an
@@ -401,3 +402,61 @@ def analyzeClassList(machO, addressesAndClassTuples, protocols):
 	return classes
 
 
+
+
+def analyzeCategory(machO, catTuple, classes, protoRefsMap):
+	"""Analyze an ``old_category`` structure, and returns the
+	:class:`~objc.category.Category`"""
+	
+	#	struct old_category {
+	#	    char *category_name;
+	#	    char *class_name;
+	#	    struct old_method_list *instance_methods;
+	#	    struct old_method_list *class_methods;
+	#	    struct old_protocol_list *protocols;
+	#	    uint32_t size;
+	#	    struct objc_property_list *instance_properties;
+	#	};
+
+	(namePtr, clsNamePtr, methodListsPtr, clsMethodListsPtr, protoListPtr, _, propListsPtr) = catTuple
+	
+	ds = machO.derefString
+	
+	name = ds(namePtr)
+	clsName = ds(clsNamePtr)
+	
+	cls = classes.any('name', clsName)
+	if not cls:
+		newSymbol = machO.symbols.any1('addr', clsNamePtr)
+		cls = RemoteClass(newSymbol)
+	
+	cat = Category(name, cls)
+	cat.addMethods(readMethodList(machO, methodListsPtr))
+	cat.addClassMethods(readMethodList(machO, clsMethodListsPtr))
+	if protoListPtr:
+		protoAddrs = list(_readProtocolRefListsAt(machO, [protoListPtr]))
+		connectProtocol(cat, protoAddrs, protoRefsMap)	
+	
+	cls.addProperties(readPropertyList(machO, propListsPtr))
+	
+	return cat
+
+
+def analyzeCategoryList(machO, catTuples, classes, protocols):
+	"""Analyze a list of classes, and return a :class:`~data_table.DataTable` of
+	:class:`~objc.class_.Class`\\s with the following column names:
+	
+	* ``'name'`` (string, the name of the category)
+	
+	* ``'base'`` (string, the name of the class the category is patching)
+	
+	The parameter *catTuples* should be an iteratable of 7-tuples representing
+	the ``old_category`` structs.
+	"""
+
+	cats = DataTable('name', 'base')
+	for catTuple in catTuples:
+		cat = analyzeCategory(machO, catTuple, classes, protocols)
+		cats.append(cat, name=cat.name, base=cat.class_.name)
+	
+	return cats

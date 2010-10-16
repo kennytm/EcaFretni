@@ -298,7 +298,9 @@ def readClassList(machO, addresses, protoRefsMap):
 	the following column names:
 	
 	* ``'name'`` (unique, string, the name of the class)
-	* ``'addr'`` (unique, integer, the VM address to the protocol)
+	
+	* ``'addr'`` (unique, integer, the VM address to the class)
+	
 	"""
 		
 	classes = DataTable('!name', '!addr')

@@ -24,8 +24,11 @@ class ObjCClassListSection(Section):
 	
 	.. attribute:: classes
 	
-		An :class:`~collections.OrderedDict` of :class:`~objc.class_.Class`\\es,
-		keyed by their address.
+		A :class:`~data_table.DataTable` of :class:`~objc.class_.Class`\\es,
+		with the following columns:
+		
+		* ``'name'`` (unique, string, the name of the class)
+		* ``'addr'`` (unique, integer, the VM address to the class)
 	
 	"""
 

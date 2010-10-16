@@ -17,18 +17,26 @@
 
 from macho.sections.section import Section
 from ._abi2reader import readCategoryList
+from ._abi1reader import analyzeCategoryList
 
 class ObjCCategoryListSection(Section):
 	"""The Objective-C category list section (``__DATA,__objc_catlist``, etc).
 	
 	.. attribute:: categories
 	
-		An list of :class:`~objc.category.Category`\\s.
+		A :class:`~data_table.DataTable` of :class:`~objc.category.Category`\\s,
+		with the following columns:
+		
+		* ``'name'`` (string, the name of the category)
+		
+		* ``'base'`` (string, the name of the class the category is patching)
 	
 	"""
 
 	def _analyze1(self, machO, classes, protoRefsMap):
-		assert False, "Analyzing ABI 1.0 for the __OBJC,__category section is not implemented yet."
+		cats = self.asStructs(machO.makeStruct('5^L~^'), machO)
+		# assert False, "Analyzing ABI 1.0 for the __OBJC,__category section is not implemented yet."
+		self.categories = analyzeCategoryList(machO, cats, classes, protoRefsMap)
 
 	def _analyze2(self, machO, classes, protoRefsMap):
 		addresses = self.asPrimitives('^', machO)
@@ -50,4 +58,5 @@ class ObjCCategoryListSection(Section):
 
 Section.registerFactory('__objc_catlist', ObjCCategoryListSection)	# __DATA,__objc_catlist
 Section.registerFactory('__category_list', ObjCCategoryListSection)	# __OBJC2,__category_list
+Section.registerFactory('__category', ObjCCategoryListSection)	# __OBJC,__category (ABI 1.0)
 
