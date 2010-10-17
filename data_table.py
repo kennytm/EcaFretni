@@ -53,7 +53,8 @@ class DataTable(Sequence, Sized):
 	def __getitem__(self, i): return self._values[i]
 	def __iter__(self): return iter(self._values)
 	def __len__(self): return len(self._values)
-
+	def __bool__(self): return bool(self._values)
+	
 	def append(self, value, **columns):
 		'''Append a *value* to the end of the table, and associate it with some
 		keys, e.g.::
@@ -239,6 +240,20 @@ class DataTable(Sequence, Sized):
 		'''Checks if *key* exists in *columnName*.'''
 		return key in self._columns[columnName][1]
 	
+	def copy(self):
+		'''Return a shallow copy of itself.'''
+		retval = DataTable()
+		retval._values = self._values[:]
+		retval._columns = self._columns.copy()
+		return retval
+
+	__copy__ = copy
+	
+	def __eq__(self, other):
+		'''Checks whether the two data tables are equal.'''
+		return self._values == other._values and self._columns == other._columns
+	
+
 	
 if __name__ == '__main__':
 	from operator import itemgetter
@@ -347,3 +362,18 @@ if __name__ == '__main__':
 	assert set(dt2.columnNames) == set(['surname', 'name'])
 	assert len(dt2) == 3
 	
+	dt3 = DataTable('foo', 'bar')
+	assert not dt3
+	dt3.append(1, foo=3, bar=4)
+	assert dt3
+	dt4 = DataTable('bar', 'foo')
+	dt4.append(1, bar=4, foo=3)
+	assert dt3 == dt4
+	dt5 = dt3.copy()
+	assert dt5 == dt3
+	assert dt5 == dt4
+	dt5.append(2, foo=5, bar=6)
+	assert dt5 != dt3
+	assert dt5 != dt4
+	assert dt5.values == [1,2]
+
