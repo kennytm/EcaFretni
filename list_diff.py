@@ -63,8 +63,8 @@ from difflib import SequenceMatcher
 
 
 
-def _pairwise(lists):
-	old = []
+def _pairwise(lists, zerothVersion):
+	old = zerothVersion
 	for l in lists:
 		yield (old, l)
 		old = l
@@ -109,7 +109,7 @@ def versioning(lists):
 	sm = SequenceMatcher()
 	oldVersions = [ [] ]
 	
-	for newName, (oldList, newList) in enumerate(_pairwise(lists)):
+	for newName, (oldList, newList) in enumerate(_pairwise(lists, [])):
 		sm.set_seqs(oldList, newList)
 		
 		newVersions = [ oldVersions[0] ]
@@ -131,12 +131,36 @@ def versioning(lists):
 	return ci(oldVersions)
 
 
-def snapshot(versionedIterable, version):
+def versioningUnordered(sets):
+	"""
+	Like :func:`versioning`, but takes an iterable of :class:`set`\\s instead. 
+	This is more efficient than :func:`versioning` if you don't care about the
+	relative order between snapshots.
+	"""
+	
+	lowVersions = {}
+	
+	for newName, (oldSet, newSet) in enumerate(_pairwise(sets, set())):
+		insertedElements = newSet - oldSet
+		deletedElements = oldSet - newSet
+		
+		for v in deletedElements:
+			yield Versioned(v, lowVersions[v], newName - 1)
+			del lowVersions[v]
+			
+		for v in insertedElements:
+			lowVersions[v] = newName
+	
+	for v, low in lowVersions.items():
+		yield Versioned(v, low, newName)
+
+
+def snapshot(versionedIterable, versionNumber):
 	"""
 	Recover an iterable at a particular version from an iterable of
 	:class:`Versioned`\\s.
 	"""
-	return (v.content for v in versionedIterable if v.low <= version <= v.high)
+	return (v.content for v in versionedIterable if v.low <= versionNumber <= v.high)
 
 
 if __name__ == '__main__':
@@ -151,4 +175,10 @@ if __name__ == '__main__':
 	revs = list(versioning(lists))
 	for i, l in enumerate(lists):
 		assert list(snapshot(revs, i)) == l
+	
+	sets = list(map(set, lists))
+	revso = list(versioningUnordered(sets))
+	for i, l in enumerate(sets):
+		assert set(snapshot(revso, i)) == l
+	
 	
