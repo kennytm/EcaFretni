@@ -112,16 +112,18 @@ class SegmentCommand(LoadCommand):
 	def fromVM(self, vmaddr):
 		"""Convert VM address to file offset. Returns -1 if out of range."""
 		if vmaddr > 0 and self.vmaddr <= vmaddr < self.vmaddr + self._vmsize:
-			return vmaddr + self._fileoff - self.vmaddr
-		else:
-			return -1
+			for sect in reversed(self.sections):
+				if vmaddr >= sect.addr:
+					return vmaddr - sect.addr + sect.offset
+		return -1
 	
 	def toVM(self, fileoff):
 		"""Convert file offset to VM address. Returns -1 if out of range."""
 		if self._fileoff <= fileoff < self._fileoff + self._filesize:
-			return fileoff + self.vmaddr - self._fileoff
-		else:
-			return -1
+			for sect in reversed(self.sections):
+				if fileoff >= sect.fileoff:
+					return fileoff - sect.offset + sect.addr
+		return -1
 	
 	def deref(self, vmaddr, stru, machO):
 		'''
