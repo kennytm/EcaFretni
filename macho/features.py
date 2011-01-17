@@ -56,6 +56,7 @@ def _enable_all():
     _enable_encryption()
     _enable_libord()
     _enable_strings()
+    _enable_objc()
 
 __features = {
     'libord': _enable_libord,

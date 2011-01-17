@@ -128,11 +128,30 @@ class MachO(object):
 		self.endian = '<'
 		
 		self._structCache = {}
+		self._fileOrigin = 0
 		
 	@property
 	def pointerWidth(self):
 		"""Return the width of pointer in the current ABI."""
 		return 8 if self.is64bit else 4
+	
+	def openWith(self, file, offset=0):
+		'''
+		Open the Mach-O file object by reusing *file*. This parameter must be a
+		:class:`~mmap.mmap` object in order for the instance to work properly.
+		
+		If you open the object with this method, calling :meth:`close` will
+		**not** close *file*. You need to handle that manually.
+		
+		If the Mach-O file is not positioned at the beginning (e.g. extensions
+		packed in the ``kernelcache`` or image stored in a shared cache), please
+		give a nonzero *offset*.
+		'''
+		self.close()
+		self.file = file
+		self._fileOrigin = offset
+		self.file.seek(offset)
+		self.__analyze()
 	
 	def open(self):
 		"""Open the Mach-O file object for access.
@@ -146,10 +165,9 @@ class MachO(object):
 			flag = os.O_RDONLY | getattr(os, 'O_BINARY', 0)
 			fileno = os.open(self.filename, flag)
 			self.fileno = fileno
-			self.file = mmap(fileno, 0, access=ACCESS_READ)
-		else:
-			self.file.seek(0)
-		self.__analyze()
+			file = mmap(fileno, length=0, access=ACCESS_READ)
+			self.openWith(file, 0)
+	
 	
 	def close(self, exc_type=None, exc_value=None, traceback=None):
 		"""Close the Mach-O file object.
@@ -158,17 +176,20 @@ class MachO(object):
 		          this method explicitly.
 		
 		"""
-	
-		if self.file is not None:
-			self.file.close()
-			self.file = None
+		
+		self.origin = None
 		if self.fileno >= 0:
+			if self.file is not None:
+				self.file.close()
+				self.file = None
 			os.close(self.fileno)
 			self.fileno = -1
 
 	def seek(self, offset):
 		"""Jump the cursor to the specific file offset, factoring out the
 		:attr:`origin`."""
+		if offset < self._fileOrigin:
+			offset += self._fileOrigin
 		self.file.seek(offset + self.origin)
 
 	def tell(self):
@@ -194,7 +215,7 @@ class MachO(object):
 		
 		# Reset and return if not a fat file.
 		if magic != 0xcafebabe:
-			self.file.seek(0)
+			self.file.seek(self._fileOrigin)
 			return
 		
 		# Get all the possible fat archs.
@@ -215,7 +236,7 @@ class MachO(object):
 		self.file.seek(offsets[bestMatch])
 		
 	def __readMagic(self):
-		self.origin = self.file.tell()
+		self.origin = self.file.tell() - self._fileOrigin
 		(magic, ) = readStruct(self.file, Struct('<L'))
 		if magic == 0xfeedface:
 			self.endian = '<'
