@@ -81,7 +81,7 @@ class DyldSharedCache(object):
         
     .. attribute:: mappings
     
-        A list of :class:`Mapping`\s of this shared cache.
+        The :class:`MappingSet` of this shared cache.
     
     .. attribute:: images
     

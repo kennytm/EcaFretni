@@ -203,7 +203,7 @@ class MachO_VMAddr(MachO):
     
     .. attribute:: mappings
     
-        A :class:`MappingList` for this Mach-O file object.
+        The :class:`MappingSet` for this Mach-O file object.
         
     '''
 
