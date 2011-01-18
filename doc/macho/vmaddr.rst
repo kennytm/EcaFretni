@@ -4,5 +4,3 @@
 .. automodule:: macho.vmaddr
 	:members:
 
-.. automodule:: macho._mapping
-	:members:
