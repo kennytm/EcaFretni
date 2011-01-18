@@ -116,6 +116,8 @@ class MachO(object):
 		return self.close(exc_type, exc_value, traceback)
 
 	def __init__(self, filename, arch="armv6", lenientArchMatching=False):
+		from .vmaddr import MappingSet
+	
 		self.filename = filename
 		self._arch = Arch(arch)
 		self._lenientArchMatching = lenientArchMatching
@@ -129,6 +131,7 @@ class MachO(object):
 		
 		self._structCache = {}
 		self._fileOrigin = 0
+		self.mappings = MappingSet()
 		
 	@property
 	def pointerWidth(self):
@@ -188,8 +191,6 @@ class MachO(object):
 	def seek(self, offset):
 		"""Jump the cursor to the specific file offset, factoring out the
 		:attr:`origin`."""
-		if offset < self._fileOrigin:
-			offset += self._fileOrigin
 		self.file.seek(offset + self.origin)
 
 	def tell(self):
@@ -209,6 +210,7 @@ class MachO(object):
 		self.__readMagic()
 		self.__readHeader()
 		self.__analyzeLoadCommands()
+		self.mappings.freeze()
 		
 	def __pickArchFromFatFile(self):
 		(magic, nfat_arch) = readStruct(self.file, Struct('>2L'))

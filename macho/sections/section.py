@@ -49,6 +49,8 @@ from hexdump import hexdump
 	
 ) = range(22)
 
+_zeroFillFTypes = frozenset([S_ZEROFILL, S_GB_ZEROFILL, S_THREAD_LOCAL_ZEROFILL])
+
 @factorySuffix(suffix='FType', defaultConstructor='byFType')
 @factory
 class Section(object):
@@ -103,9 +105,16 @@ class Section(object):
 	
 		Whether this section has been completely analyzed.
 	
+	
 	"""
 	
 	STRUCT_FORMAT = '16s16s2^7L~'
+	
+	@property
+	def isZeroFill(self):
+		'''Whether this section is a zero-filled section, which occupies no file
+		space.'''
+		return self.ftype in _zeroFillFTypes
 	
 	@classmethod
 	def createSection(cls, val):
@@ -214,6 +223,4 @@ class Section(object):
 		else:
 			return prims
 
-
 	
-		

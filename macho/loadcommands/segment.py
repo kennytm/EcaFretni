@@ -20,9 +20,10 @@ from macho.loadcommands.loadcommand import LoadCommand, LC_SEGMENT, LC_SEGMENT_6
 from macho.utilities import fromStringz, peekStructs, peekString, readStruct, peekStruct
 from macho.macho import MachO
 from factory import factory
-from macho.sections.section import Section
+from macho.sections.section import Section, S_ZEROFILL, S_GB_ZEROFILL, S_THREAD_LOCAL_ZEROFILL
 from data_table import DataTable
 from monkey_patching import patch
+from macho.vmaddr import Mapping
 import struct
 
 class SegmentCommand(LoadCommand):
@@ -47,6 +48,14 @@ class SegmentCommand(LoadCommand):
 	
 		Get the base VM address of this segment.
 	
+	.. attribute:: maxprot
+	
+		Maximum VM protection of this segment when mapped to memory.
+	
+	.. attribute:: initprot
+	
+		Initial VM protection of this segment when mapped to memory.
+	
 	.. attribute:: sections
 	
 		A :class:`~data_table.DataTable` of all
@@ -58,17 +67,22 @@ class SegmentCommand(LoadCommand):
 	def _loadSections(self, machO):
 		segStruct = machO.makeStruct('16s4^2i2L')
 		sectStruct = machO.makeStruct(Section.STRUCT_FORMAT)
-		(segname, self.vmaddr, self._vmsize, self._fileoff, self._filesize, _, _, nsects, _) = readStruct(machO.file, segStruct)
+		(segname, self.vmaddr, self._vmsize, self._fileoff, self._filesize, self.maxprot, self.initprot, nsects, _) = readStruct(machO.file, segStruct)
 		
 		self.segname = fromStringz(segname)
 		
+		machO_fileOrigin = machO._fileOrigin
+			
 		sectVals = peekStructs(machO.file, sectStruct, count=nsects)	# get all section headers
 		sectionsList = (Section.createSection(i) for i in sectVals)	# convert all headers into Section objects
 		sections = DataTable('className', 'sectname', 'ftype')
 		for s in sectionsList:
+			if s.offset < machO_fileOrigin:
+				s.offset += machO_fileOrigin
 			sections.append(s, className=type(s).__name__, sectname=s.sectname, ftype=s.ftype)
 		self.sections = sections
 		self._hasAnalyzedSections = False
+		self._shouldImportMappings = machO.mappings.mutable
 
 
 	def _analyzeSections(self, machO):
@@ -81,7 +95,7 @@ class SegmentCommand(LoadCommand):
 			for s in self_sections:
 				if not s.isAnalyzed:
 					offset = s.offset
-					if machO_encrypted(offset):
+					if s.isZeroFill or machO_encrypted(offset):
 						s.isAnalyzed = True
 					else:
 						machO_seek(offset)
@@ -98,7 +112,16 @@ class SegmentCommand(LoadCommand):
 		# load sections if they aren't loaded yet.
 		if not hasattr(self, 'sections'):
 			self._loadSections(machO)
-		
+
+		# import mappings from sections if not closed yet
+		if self._shouldImportMappings:
+			addMapping = machO.mappings.add
+			for s in self.sections:
+				if s.isZeroFill:
+					addMapping(Mapping(s.addr, s.size, s.offset, self.maxprot, self.initprot))
+			machO.mappings.optimize()
+			self._shouldImportMappings = False
+	
 		# make sure all segments are ready
 		allSegments = machO.loadCommands.all('className', type(self).__name__)
 		if not all(hasattr(seg, 'vmaddr') for seg in allSegments):
@@ -107,41 +130,13 @@ class SegmentCommand(LoadCommand):
 		# now analyze the sections.
 		if not self._hasAnalyzedSections:
 			self._analyzeSections(machO)
-	
-	
-	def fromVM(self, vmaddr):
-		"""Convert VM address to file offset. Returns -1 if out of range."""
-		if vmaddr > 0 and self.vmaddr <= vmaddr < self.vmaddr + self._vmsize:
-			for sect in reversed(self.sections):
-				if vmaddr >= sect.addr:
-					return vmaddr - sect.addr + sect.offset
-		return -1
-	
-	def toVM(self, fileoff):
-		"""Convert file offset to VM address. Returns -1 if out of range."""
-		if self._fileoff <= fileoff < self._fileoff + self._filesize:
-			for sect in reversed(self.sections):
-				if fileoff >= sect.fileoff:
-					return fileoff - sect.offset + sect.addr
-		return -1
-	
-	def deref(self, vmaddr, stru, machO):
-		'''
-		Dereference a structure at VM address *vmaddr*. The structure is defined
-		by the :class:`struct.Struct` instance *stru*. Returns ``None`` if out
-		of range.
-		'''
-		
-		assert isinstance(stru, struct.Struct)
-		
-		fileoff = self.fromVM(vmaddr)
-		if fileoff < 0:
-			return None
-		return peekStruct(machO.file, stru, position=fileoff+machO.origin)
+				
 	
 	def __str__(self):
 		return "<Segment: {} [{}]>".format(self.segname, ', '.join(map(str, self._sections.values())))
 
+
+	
 
 LoadCommand.registerFactory(LC_SEGMENT, SegmentCommand)
 LoadCommand.registerFactory(LC_SEGMENT_64, SegmentCommand)
@@ -159,42 +154,6 @@ class MachO_SegmentCommandPatches(MachO):
 				return segment
 		return None
 
-	def fromVM(self, vmaddr):
-		"""Convert a VM address to file offset. Returns -1 if the address does
-		not exist."""
-		for segment in self.loadCommands.all('className', 'SegmentCommand'):
-			fileoff = segment.fromVM(vmaddr)
-			if fileoff >= 0:
-				return fileoff
-		return -1
-
-	def toVM(self, fileoff):
-		"""Convert a file offset to VM address. Returns -1 if the address does
-		not exist."""
-		for segment in self.loadCommands.all('className', 'SegmentCommand'):
-			vmaddr = segment.toVM(fileoff)
-			if vmaddr >= 0:
-				return vmaddr
-		return -1
-
-	def deref(self, vmaddr, stru):
-		'''Dereference a structure at VM address *vmaddr*. The structure is
-		defined by the :class:`~struct.Struct` instance *stru*. Returns ``None``
-		if the address does not exist.'''
-		for segment in self.loadCommands.all('className', 'SegmentCommand'):
-			result = segment.deref(vmaddr, stru, self)
-			if result:
-				return result
-		return None
-	
-	def derefString(self, vmaddr, encoding='utf_8', returnLength=False):
-		'''Read a null-terminated string at VM address *vmaddr*. Returns
-		``None`` if the address does not exist. See also
-		:func:`macho.utilities.peekString` for meaning of other parameters.'''
-		offset = self.fromVM(vmaddr)
-		if offset < 0:
-			return None
-		return peekString(self.file, encoding=encoding, returnLength=returnLength, position=offset+self.origin)
 		
 	def allSections(self, idtype, sectid):
 		'''Returns an iterable of all :class:`~macho.sections.section.Section`\\s
