@@ -19,6 +19,7 @@
 from .loadcommand import LoadCommand, LC_DYLD_INFO
 from macho.symbol import Symbol, SYMTYPE_UNDEFINED, SYMTYPE_GENERIC
 from macho.utilities import peekStruct, readULeb128, readSLeb128, readString
+import macho.loadcommands.segment
 
 def _bind(machO, size, symbols):
 	libord = 0

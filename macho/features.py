@@ -29,6 +29,7 @@ def _enable_libord():
     import macho.loadcommands.dylib
 
 def _enable_vmaddr():
+    import macho.vmaddr
     import macho.loadcommands.segment
 
 def _enable_symbol():
@@ -46,6 +47,7 @@ def _enable_strings():
     import macho.sections.cfstring
 
 def _enable_objc():
+    _enable_symbol()
     import macho.sections.objc.classlist
     import macho.sections.objc.protolist
     import macho.sections.objc.catlist
@@ -65,6 +67,7 @@ __features = {
     'encryption': _enable_encryption,
     'objc': _enable_objc,
     'all': _enable_all,
+    'strings': _enable_strings,
 }
 
 
@@ -80,7 +83,8 @@ def enable(*features):
     |                  | :class:`~macho.loadcommands.dylib.DylibCommand` |                                            |
     |                  | from the library ordinal.                       |                                            |
     +------------------+-------------------------------------------------+--------------------------------------------+
-    | ``'vmaddr'``     | Convert VM addresses to and from file offsets.  | :mod:`macho.loadcommands.segment`          |
+    | ``'vmaddr'``     | Convert VM addresses to and from file offsets.  | :mod:`macho.vmaddr`,                       |
+    |                  |                                                 | :mod:`macho.loadcommands.segment`          |
     +------------------+-------------------------------------------------+--------------------------------------------+
     | ``'symbol'``     | Retrieve :class:`~sym.Symbol`\s of the file.    | :mod:`macho.symbol`,                       |
     |                  |                                                 | :mod:`macho.loadcommands.symtab`,          |
