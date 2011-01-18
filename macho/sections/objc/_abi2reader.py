@@ -36,8 +36,9 @@ from objc.protocol import Protocol
 from objc.category import Category
 from macho.utilities import readStruct, peekStruct, peekStructs, peekPrimitives
 from data_table import DataTable
-import macho.loadcommands.segment	# to ensure macho.macho.MachO.[fromVM, derefString] are defined.
-
+import macho.vmaddr
+from macho.symbol import Symbol, SYMTYPE_UNDEFINED
+import macho.loadcommands.segment
 
 
 def readMethod(machO, optional):
@@ -279,6 +280,23 @@ def readClass(machO, vmaddr, protoRefsMap):
 	return (cls, superPtr)
 
 
+def readClassName(machO, vmaddr):
+	"Read the class name of the Objective-C class at *vmaddr*."
+	
+	origin = machO.origin
+	machO_fromVM = machO.fromVM
+	file = machO.file
+	
+	classT = machO.makeStruct('5^')
+	classRoT = machO.makeStruct('3L~7^')
+	
+	classRo = peekStruct(file, classT, position=machO_fromVM(vmaddr)+origin)[4]
+	namePtr = peekStruct(file, classRoT, position=machO_fromVM(classRo)+origin)[4]
+	
+	return machO.derefString(namePtr)
+	
+	
+
 def classAt(machO, vmaddr, classes):
 	'''Given a :class:`~data_table.DataTable` of :class:`~objc.class_.Class`\\s,
 	get the :class:`~objc.class_.Class` or :class:`~objc.class_.RemoteClass` at
@@ -286,8 +304,15 @@ def classAt(machO, vmaddr, classes):
 	
 	cls = classes.any('addr', vmaddr)
 	if not cls:
-		sym = machO.symbols.any1('addr', vmaddr)
+		try:
+			sym = machO.symbols.any1('addr', vmaddr)
+		except KeyError:
+			name = '_OBJC_CLASS_$_' + readClassName(machO, vmaddr)
+			sym = Symbol(name, vmaddr, SYMTYPE_UNDEFINED, ordinal=-2)
+			machO.addSymbols([sym])
+			
 		cls = RemoteClass(sym)
+		
 	return cls
 
 
