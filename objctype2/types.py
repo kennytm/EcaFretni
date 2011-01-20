@@ -133,7 +133,7 @@ class Primitive(Type):
     +-----------------------------+----------+------------------------+--------------------+
 
     .. note:: The ``char*`` type (``'*'``) is *not* considered a primitive type 
-        in this package. It should be converted to a :class:`Unary` type ``'^c'``.
+        in this package. It will be converted to a :class:`Unary` type.
         
     
     .. attribute:: primitive
@@ -231,7 +231,10 @@ class Unary(Type):
             return False
 
     def encode(self):
-        return self.modifier + self.baseType.encode()
+        if self.modifier == POINTER and self.baseType == Primitive(CHAR):
+            return '*'
+        else:
+            return self.modifier + self.baseType.encode()
     
     def __repr__(self):
         return "Unary({0!r}, {1!r})".format(self.modifier, self.baseType)
@@ -512,9 +515,11 @@ class Struct(Type):
             return openParen + self.name + closeParen
     
     def __repr__(self):
-        a = ['Struct({0!r}, isUnion={1}'.format(self.name, self.isUnion)]
+        a = ['Struct(' + repr(self.name)]
+        if self.isUnion:
+            a[0] += ', isUnion=True'
         a.extend(m._repr() for m in self.members)
-        return ').append('.join(a) + ')'
+        return ').append('.join(a) + ').freeze()'
     
     def alignof(self, is64bit=False):
         return max(m.baseType.alignof(is64bit) for m in self.members)
@@ -846,4 +851,6 @@ if __name__ == '__main__':
     assertEqual(Struct().append(Bitfield(1)).freeze().sizeof(), 4)
     
     set([flt, fltcmplxptr, stru2])
+    
+    assertEqual(Unary(POINTER, Primitive(CHAR)).encode(), '*')
     

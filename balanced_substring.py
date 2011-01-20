@@ -15,6 +15,8 @@
 #	You should have received a copy of the GNU General Public License
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import re
+
 
 class UnbalancedSubstringError(Exception):
 	"""An error raised when the string to parse is not balanced."""
@@ -98,6 +100,25 @@ def balancedSubstring(string, index=0, raiseOnUnbalanced=False):
 	
 	return index+1
 
+
+_numberRe = re.compile('\d+')
+
+def numericSubstring(string, index=0):
+    '''
+    Skip a numeric substring from specified index, return that number and the
+    next string index.
+    
+    >>> numericSubstring('127foo')
+    (127, 3)
+    >>> numericSubstring('abc765def', index=3)
+    (765, 6)
+    '''
+    
+    m = _numberRe.match(string, index)
+    return (int(m.group()), m.end())
+
+
+
 if __name__ == '__main__':
 	s = '(foo)bar[baz[bar]{bar}]'
 	assert 5 == balancedSubstring(s)	# (foo)
@@ -121,4 +142,5 @@ if __name__ == '__main__':
 	
 	assert caughtException
 	
-
+	assert numericSubstring('127foo') == (127, 3)
+	assert numericSubstring('abc765def', index=3) == (765, 6)
