@@ -20,7 +20,7 @@ from macho.loadcommands.loadcommand import LoadCommand, LC_SEGMENT, LC_SEGMENT_6
 from macho.utilities import fromStringz, peekStructs, peekString, readStruct, peekStruct
 from macho.macho import MachO
 from factory import factory
-from macho.sections.section import Section, S_ZEROFILL, S_GB_ZEROFILL, S_THREAD_LOCAL_ZEROFILL
+from macho.sections.section import Section
 from data_table import DataTable
 from monkey_patching import patch
 from macho.vmaddr import Mapping
@@ -117,7 +117,7 @@ class SegmentCommand(LoadCommand):
 		if self._shouldImportMappings:
 			addMapping = machO.mappings.add
 			for s in self.sections:
-				if s.isZeroFill:
+				if not s.isZeroFill:
 					addMapping(Mapping(s.addr, s.size, s.offset, self.maxprot, self.initprot))
 			machO.mappings.optimize()
 			self._shouldImportMappings = False
