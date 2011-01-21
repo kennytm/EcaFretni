@@ -42,6 +42,19 @@ class Arch(object):
     An :exc:`InvalidArchError` will be raised if the argument is none of the 
     above.
     
+    .. attribute:: cputype
+    
+        The CPU type as recognized by Mach.
+    
+    .. attribute:: cpusubtype
+    
+        The CPU subtype. This is the lower 24 bits of :attr:`cpusubtypePacked`
+    
+    .. attribute:: capability
+    
+        The capability of the CPU. Usually 0. This is the lower 8 bits of
+        :attr:`cpusubtypePacked`.
+    
     """
 
     __archs = {
@@ -97,6 +110,14 @@ class Arch(object):
     
     __archPairRx = re.compile(r"(\d+)\D*(\d+)")
         
+    
+    @property
+    def cpusubtypePacked(self):
+        '''
+        Return the packed CPU subtype as recognized by Mach, which contains both
+        the :attr:`cpusubtype` identifier and the :attr:`capability`. 
+        '''
+        return self.cpusubtype | self.capability << 24
     
     
     def __init__(self, arch):
