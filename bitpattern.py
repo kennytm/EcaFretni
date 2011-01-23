@@ -17,6 +17,7 @@
 #
 
 from collections import namedtuple
+import sys
 
 class _Piece(object):
     def __init__(self, rightShift, bias=0):
@@ -70,6 +71,33 @@ class BitPattern(object):
     '''
 
     def __init__(self, pattern):
+        pass
+        
+    def unpack(self, integer):
+        'Unpack an integer into bits. Returns ``None`` if fails to verify.'
+        if (integer & self._verifyMask) != self._verifyBits:
+            return None
+        
+        resDict = {}
+        for character, pieces in self._pieces:
+            result = 0
+            for piece in pieces:
+                result |= (integer >> piece.rightShift) & piece.mask
+            resDict[character] = result
+        
+        return self.returnType(**resDict)
+
+    def pack(self, bitres):
+        'Pack bits back into an integer.'
+        result = self._verifyBits
+        for character, pieces in self._pieces:
+            bits = getattr(bitres, character)
+            for piece in pieces:
+                result |= (bits & piece.mask) << piece.rightShift
+        return result
+
+if 'sphinx-build' not in sys.argv[0]:
+    def BitPattern_init(self, pattern):
         self.pattern = pattern
     
         verifyMask = 0
@@ -103,28 +131,7 @@ class BitPattern(object):
         self._verifyBits = verifyBits
         self._pieces = list(characterPieces.items())
         
-    def unpack(self, integer):
-        'Unpack an integer into bits. Returns ``None`` if fails to verify.'
-        if (integer & self._verifyMask) != self._verifyBits:
-            return None
-        
-        resDict = {}
-        for character, pieces in self._pieces:
-            result = 0
-            for piece in pieces:
-                result |= (integer >> piece.rightShift) & piece.mask
-            resDict[character] = result
-        
-        return self.returnType(**resDict)
-
-    def pack(self, bitres):
-        'Pack bits back into an integer.'
-        result = self._verifyBits
-        for character, pieces in self._pieces:
-            bits = getattr(bitres, character)
-            for piece in pieces:
-                result |= (bits & piece.mask) << piece.rightShift
-        return result
+    BitPattern.__init__ = BitPattern_init
 
 
 if __name__ == '__main__':
