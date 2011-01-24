@@ -118,19 +118,7 @@ class Memory(object):
     def free(self, pointer):
         'Free the heap pointer.'
         self.heap.free(pointer.handle)
-    
-    def retain(self, pointer):
-        'Add reference to the heap pointer.'
-        self.heap.retain(pointer.handle)
-    
-    def release(self, pointer):
-        'Remove reference from the heap pointer.'
-        self.heap.release(pointer.handle)
-    
-    def refcount(self, pointer):
-        'Get the reference count of the heap pointer.'
-        return self.heap.refcount(pointer.handle)
-    
+        
 
 
 
@@ -349,7 +337,6 @@ class Heap(object):
     
     def __init__(self):
         self.content = {}
-        self._refcount = {}
         self.nextHandle = 0
         
     def alloc(self, value=0):
@@ -358,31 +345,12 @@ class Heap(object):
         
         handle = self.nextHandle
         self.content[handle] = value
-        self._refcount[handle] = 1
         self.nextHandle += 1
         return handle
     
     def free(self, handle):
         'Free the memory region with handle *handle* on the heap.'
         del self.content[handle]
-        del self._refcount[handle]
-    
-    def retain(self, handle):
-        'Add reference to *handle*.'
-        self._refcount[handle] += 1
-    
-    def release(self, handle):
-        '''Remove reference from *handle*. When all references are gone, the
-        handle will be freed.'''
-        if self._refcount[handle] == 1:
-            del self.content[handle]
-            del self._refcount[handle]
-        else:
-            self._refcount[handle] -= 1
-    
-    def refcount(self, handle):
-        'Get the reference count of *handle*.'
-        return self._refcount[handle]
     
     def get(self, handle):
         'Return the value associated with *handle*.'
@@ -470,24 +438,13 @@ if __name__ == '__main__':
     assert heap.get(handle) == 'foo'
     heap.set(handle, 'bar')
     assert heap.get(handle) == 'bar'
-    assert heap.refcount(handle) == 1
-    heap.retain(handle)
-    assert heap.refcount(handle) == 2
-    heap.release(handle)
-    assert heap.refcount(handle) == 1
     newhandle = heap.alloc(400)
     assert heap.get(newhandle) == 400
     assert heap.get(handle) == 'bar'
-    heap.release(newhandle)
-    try:
-        heap.refcount(newhandle)
-    except KeyError:
-        pass
-    else:
-        assert False
     heap.free(handle)
+    assert heap.get(newhandle) == 400
     try:
-        heap.refcount(newhandle)
+        heap.get(handle)
     except KeyError:
         pass
     else:
@@ -506,10 +463,6 @@ if __name__ == '__main__':
     assert mem.get(0x1000) == 'omg'
     mem.set(StackPointer(1), 0x13, length=1)
     assert mem.get(StackPointer(0)) == 0x1300
-    mem.retain(heapPtr)
-    assert mem.refcount(heapPtr) == 2
-    mem.release(heapPtr)
-    assert mem.refcount(heapPtr) == 1
     mem.free(heapPtr)
     try:
         mem.get(heapPtr)
