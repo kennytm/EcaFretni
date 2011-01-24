@@ -41,8 +41,87 @@ and every heap object do not overlap with each other. The pointers are
 from collections import deque
 from struct import Struct
 from itertools import repeat
+from cpu.pointers import isStackPointer, isHeapPointer, HeapPointer, StackPointer
 
 _strus = (None, Struct('<B'), Struct('<H'), None, Struct('<I'), None, None, None, Struct('<Q'))
+
+
+class Memory(object):
+    '''The complete memory model. This consists of a :class:`RAM`, a
+    :class:`Stack` and a :class:`Heap`.
+    
+    .. attribute:: RAM
+    
+        The :class:`RAM` in this memory.
+        
+    .. attribute:: stack
+    
+        The :class:`Stack` in this memory.
+        
+    .. attribute:: heap
+    
+        The :class:`Heap` in this memory.
+    
+    '''
+    
+    def __init__(self, ROM, align=4):
+        self.RAM = RAM(ROM, align)
+        self.stack = Stack(align)
+        self.heap = Heap()
+        self.align = align
+        
+    def get(self, pointer, length=0):
+        'Get an integer at position indicated by *pointer*.'
+        if not length:
+            length = self.align
+    
+        if isStackPointer(pointer):
+            return self.stack.get(pointer.offset, length)
+        elif isHeapPointer(pointer):
+            obj = self.heap.get(pointer.handle)
+            if length < self.align or pointer.offset != 0:
+                return decompose(obj, pointer.offset, length)
+            else:
+                return obj
+        else:
+            return self.RAM.get(pointer, length)
+        
+    def set(self, pointer, value, length=0):
+        'Set an integer to the position indicated by *pointer*.'
+        if not length:
+            length = self.align
+
+        if isStackPointer(pointer):
+            self.stack.set(pointer.offset, value, length)
+        elif isHeapPointer(pointer):
+            if length < self.align or pointer.offset != 0:
+                obj = self.heap.get(pointer.handle)
+                value = replaceDecomposed(obj, pointer.offset, value, length)
+            self.heap.set(pointer.handle, value)
+        else:
+            return self.RAM.set(pointer, value, length)
+        
+    def alloc(self, value):
+        'Allocate heap space, and return the :class:`~cpu.pointers.HeapPointer`.'
+        return HeapPointer(self.heap.alloc(value))
+        
+    def free(self, pointer):
+        'Free the heap pointer.'
+        self.heap.free(pointer.handle)
+    
+    def retain(self, pointer):
+        'Add reference to the heap pointer.'
+        self.heap.retain(pointer.handle)
+    
+    def release(self, pointer):
+        'Remove reference from the heap pointer.'
+        self.heap.release(pointer.handle)
+    
+    def refcount(self, pointer):
+        'Get the reference count of the heap pointer.'
+        return self.heap.refcount(pointer.handle)
+    
+
 
 
 def decompose(obj, offset, length):
@@ -248,6 +327,59 @@ class Stack(object):
             self.content[index] = value & mask
             self.set(offset + align, value >> (align*8), length - align)
 
+
+class Heap(object):
+    'This class represents a heap.'
+    
+    def __init__(self):
+        self.content = {}
+        self._refcount = {}
+        self.nextHandle = 0
+        
+    def alloc(self, value=0):
+        '''Allocate a new memory region on the heap, and assign it with value
+        *value*. Return the handle of the allocated region.'''
+        
+        handle = self.nextHandle
+        self.content[handle] = value
+        self._refcount[handle] = 1
+        self.nextHandle += 1
+        return handle
+    
+    def free(self, handle):
+        'Free the memory region with handle *handle* on the heap.'
+        del self.content[handle]
+        del self._refcount[handle]
+    
+    def retain(self, handle):
+        'Add reference to *handle*.'
+        self._refcount[handle] += 1
+    
+    def release(self, handle):
+        '''Remove reference from *handle*. When all references are gone, the
+        handle will be freed.'''
+        if self._refcount[handle] == 1:
+            del self.content[handle]
+            del self._refcount[handle]
+        else:
+            self._refcount[handle] -= 1
+    
+    def refcount(self, handle):
+        'Get the reference count of *handle*.'
+        return self._refcount[handle]
+    
+    def get(self, handle):
+        'Return the value associated with *handle*.'
+        return self.content[handle]
+    
+    def set(self, handle, value):
+        'Set the value associated with *handle*.'
+        self.content[handle] = value
+
+
+    
+        
+
 if __name__ == '__main__':
     assert decompose(0x12345678, 0, 1) == 0x78
     assert decompose(0x12345678, 1, 1) == 0x56
@@ -317,3 +449,55 @@ if __name__ == '__main__':
     assert stk.get(0) == 0x55667788
     assert stk.get(4) == 0x11223344
     
+    heap = Heap()
+    handle = heap.alloc('foo')
+    assert heap.get(handle) == 'foo'
+    heap.set(handle, 'bar')
+    assert heap.get(handle) == 'bar'
+    assert heap.refcount(handle) == 1
+    heap.retain(handle)
+    assert heap.refcount(handle) == 2
+    heap.release(handle)
+    assert heap.refcount(handle) == 1
+    newhandle = heap.alloc(400)
+    assert heap.get(newhandle) == 400
+    assert heap.get(handle) == 'bar'
+    heap.release(newhandle)
+    try:
+        heap.refcount(newhandle)
+    except KeyError:
+        pass
+    else:
+        assert False
+    heap.free(handle)
+    try:
+        heap.refcount(newhandle)
+    except KeyError:
+        pass
+    else:
+        assert False
+        
+        
+    mem = Memory(srom)
+    assert mem.get(0x1000) == 0xabcdef90
+    assert mem.get(StackPointer(0)) == 0
+    heapPtr = mem.alloc(0x12345678)
+    assert mem.get(heapPtr) == 0x12345678
+    assert mem.get(heapPtr, length=1) == 0x78
+    mem.set(heapPtr + 2, 0x6543, length=2)
+    assert mem.get(heapPtr) == 0x65435678
+    mem.set(0x1000, 'omg')
+    assert mem.get(0x1000) == 'omg'
+    mem.set(StackPointer(1), 0x13, length=1)
+    assert mem.get(StackPointer(0)) == 0x1300
+    mem.retain(heapPtr)
+    assert mem.refcount(heapPtr) == 2
+    mem.release(heapPtr)
+    assert mem.refcount(heapPtr) == 1
+    mem.free(heapPtr)
+    try:
+        mem.get(heapPtr)
+    except KeyError:
+        pass
+    else:
+        assert False
