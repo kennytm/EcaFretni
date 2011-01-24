@@ -42,6 +42,7 @@ from collections import deque
 from struct import Struct
 from itertools import repeat
 from cpu.pointers import isStackPointer, isHeapPointer, HeapPointer, StackPointer
+from copy import deepcopy
 
 _strus = (None, Struct('<B'), Struct('<H'), None, Struct('<I'), None, None, None, Struct('<Q'))
 
@@ -69,6 +70,15 @@ class Memory(object):
         self.stack = Stack(align)
         self.heap = Heap()
         self.align = align
+        
+    def __copy__(self):
+        'Create a completely isolated copy of this memory.'
+        retval = type(self)(self.RAM.ROM, self.align)
+        retval.RAM.copyFrom(self.RAM)
+        retval.stack = deepcopy(self.stack)
+        retval.heap = deepcopy(self.heap)
+        return retval
+        
         
     def get(self, pointer, length=0):
         'Get an integer at position indicated by *pointer*.'
@@ -226,6 +236,12 @@ class RAM(object):
         self.align = align
         self._rightShift = (align-1).bit_length()
         
+    def copyFrom(self, otherRAM):
+        'Copy modified data from another RAM, which is backed by the same ROM.'
+        if self.ROM is not otherRAM.ROM:
+            raise ValueError('Cannot copy data from a RAM backed by another ROM.')
+        self._cowlayer = deepcopy(otherRAM._cowlayer)
+        
     def get(self, vmaddr, length=0):
         'Get an unsigned integer with the given number of bytes at *vmaddr*.'
         align = self.align
@@ -285,7 +301,7 @@ class Stack(object):
         self.negativeLength = 0
         self.align = align
         self._rightShift = (align-1).bit_length()
-
+        
     def __ensureItemExists(self, item):
         if item > self.positiveLength:
             self.content.extend(repeat(0, item + 1 - self.positiveLength))
@@ -501,3 +517,33 @@ if __name__ == '__main__':
         pass
     else:
         assert False
+    heapPtr = mem.alloc(0x1224)
+    assert mem.get(heapPtr) == 0x1224
+
+    mem2 = mem.__copy__()
+    assert mem2.get(0x1000) == 'omg'
+    assert mem2.get(StackPointer(0)) == 0x1300
+    assert mem2.get(heapPtr) == 0x1224
+    assert mem.get(0x1000) == 'omg'
+    assert mem.get(StackPointer(0)) == 0x1300
+    assert mem.get(heapPtr) == 0x1224
+    mem.set(0x1000, heapPtr)
+    assert mem2.get(0x1000) == 'omg'
+    assert mem.get(0x1000) == heapPtr
+    mem2.set(0x1000, 0x5566)
+    assert mem2.get(0x1000) == 0x5566
+    assert mem.get(0x1000) == heapPtr
+    mem2.set(StackPointer(0), 0x4445)
+    assert mem2.get(StackPointer(0)) == 0x4445
+    assert mem.get(StackPointer(0)) == 0x1300
+    mem.set(StackPointer(0), 'foobar')
+    assert mem2.get(StackPointer(0)) == 0x4445
+    assert mem.get(StackPointer(0)) == 'foobar'
+    mem.set(heapPtr, 0)
+    assert mem2.get(heapPtr) == 0x1224
+    assert mem.get(heapPtr) == 0
+    mem2.set(heapPtr, -442)
+    assert mem2.get(heapPtr) == -442
+    assert mem.get(heapPtr) == 0
+
+    
