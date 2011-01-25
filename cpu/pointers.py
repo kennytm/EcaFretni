@@ -16,6 +16,16 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+class __Return(object):
+    def __str__(self):
+        return 'return'
+    def __repr__(self):
+        return 'Return'
+Return = __Return()
+'''A singleton object representing the return address. The function should stop
+executing when jumping to this variable.'''
+
+
 
 
 class StackPointer(object):

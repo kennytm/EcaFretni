@@ -1,5 +1,5 @@
-:mod:`~cpu.pointers` --- Stack and Heap Pointers
-================================================
+:mod:`~cpu.pointers` --- Special pointers
+=========================================
 
 .. automodule:: cpu.pointers
     :members:
