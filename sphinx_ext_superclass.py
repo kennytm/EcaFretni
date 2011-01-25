@@ -52,17 +52,17 @@ def process_sig_for_monkey_patches(app, what, name, obj, options, signature, ret
 
 def process_base_for_classes(app, what, name, obj, options, docstring):
     if what == 'class':
-        bases = [(u':class:`%s.%s`' % (x.__module__, x.__name__) if x.__module__ != '__builtin__' else x.__name__)
+        bases = [(':class:`{0}.{1}`'.format(x.__module__, x.__name__) if x.__module__ != '__builtin__' else x.__name__)
                  for x in obj.__bases__ if x is not object]
         if bases:
             if hasattr(obj, 'sphinx_monkeyPatched'):
-                prefix = u'Patching: '
+                prefix = 'Patching: '
             elif len(bases) > 1:
-                prefix = u'Superclasses: '
+                prefix = 'Superclasses: '
             else:
-                prefix = u'Superclass: '
+                prefix = 'Superclass: '
             docstring.insert(0, '')
-            docstring.insert(0, u'.. efflushright:: %s%s' % (prefix, u', '.join(bases)))
+            docstring.insert(0, '.. efflushright:: %s%s' % (prefix, ', '.join(bases)))
 
 def check_skip_member(app, what, name, obj, skip, options):
     if skip:

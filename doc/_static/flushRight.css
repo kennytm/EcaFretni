@@ -14,3 +14,7 @@ div.body p.flushRight {
 .sphinxsidebar {
 	overflow: hidden;
 }
+
+col {
+    width: inherit;
+}
