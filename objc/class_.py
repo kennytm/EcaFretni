@@ -16,7 +16,7 @@
 #	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from .classlike import ClassLike
-from py2compat import OrderedDict
+from collections import OrderedDict
 from sym import SYMTYPE_UNDEFINED
 
 class Class(ClassLike):
