@@ -65,6 +65,8 @@ class Constant(Operand):
         return isinstance(other, type(self)) and self.imm == other.imm
     def __hash__(self):
         return hash(self.imm)
+    def __bool__(self):
+        return not not self.imm
 
     
 class Register(MutableOperand):

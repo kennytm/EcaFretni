@@ -8,15 +8,12 @@ Auxiliary functions
 -------------------
 .. autofunction:: cpu.arm.functions.signed
 
-Fixing PC address
------------------
-
-.. autofunction:: cpu.arm.functions.fixPCAddrBX
-.. autofunction:: cpu.arm.functions.fixPCAddrB
 
 
-Shift and rotate operations
----------------------------
+.. (sect A2.2.1)
+
+Integer arithmetic
+------------------
 
 .. autofunction:: cpu.arm.functions.LSL_C
 .. autofunction:: cpu.arm.functions.LSL
@@ -28,6 +25,42 @@ Shift and rotate operations
 .. autofunction:: cpu.arm.functions.ROR
 .. autofunction:: cpu.arm.functions.RRX_C
 .. autofunction:: cpu.arm.functions.RRX
+
+.. autofunction:: cpu.arm.functions.AddWithCarry
+
+
+.. (sect 2.3.1)
+
+Fixing PC address
+-----------------
+
+.. autofunction:: cpu.arm.functions.fixPCAddrBX
+.. autofunction:: cpu.arm.functions.fixPCAddrB
+
+
+
+.. (sect A2.5.2)
+
+ITSTATE operations
+------------------
+
+.. autofunction:: cpu.arm.functions.ITAdvance
+
+
+
+.. (sect A5.2.4 & A6.3.2)
+
+Expansion of immediates
+-----------------------
+
+.. autofunction:: cpu.arm.functions.ThumbExpandImm_C
+.. autofunction:: cpu.arm.functions.ThumbExpandImm
+.. autofunction:: cpu.arm.functions.ARMExpandImm_C
+.. autofunction:: cpu.arm.functions.ARMExpandImm
+
+
+
+.. (sect A8.4.3)
 
 Instruction-specified shifts and rotates
 ----------------------------------------
@@ -43,17 +76,4 @@ Instruction-specified shifts and rotates
     cpu.arm.functions.SRTYPE_RRX (4)
     
     The shift types.
-    
-Expansion of immediates
------------------------
-
-.. autofunction:: cpu.arm.functions.ThumbExpandImm_C
-.. autofunction:: cpu.arm.functions.ThumbExpandImm
-.. autofunction:: cpu.arm.functions.ARMExpandImm_C
-.. autofunction:: cpu.arm.functions.ARMExpandImm
-
-Addition and subtraction
-------------------------
-
-.. autofunction:: cpu.arm.functions.AddWithCarry
 

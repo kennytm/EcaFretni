@@ -20,10 +20,14 @@
 
 def signed(notmask, x):
     '''Make *x* a signed number. *notmask* should be set to ``-1<<N`` where *N*
-    is the number of bits *x* should have.'''
+    is the number of bits *x* should have.
+    
+    For a special pointer, it always return itself.'''
     if x & notmask>>1:
         x += notmask
     return x
+
+
 
 def fixPCAddrBX(pcAddr):
     '''Fix *pcAddr* into a valid instruction address, with possibility of
@@ -163,11 +167,19 @@ def AddWithCarry(mask, x, y, carry):
     notmask = ~mask
     usum = x + y + carry
     ssum = signed(notmask, x) + signed(notmask, y) + carry
-    carry = usum > mask
-    usum &= mask
     overflow = ssum != signed(notmask, usum)
+    carry = not not (usum & notmask)
+    #^ 'usum > mask' would be more efficient, but SpecialPointer doesn't support
+    #   such comparison.
+    usum &= mask
     return (usum, carry, overflow)
-    
+
+
+
+def ITAdvance(itstate):
+    "ARM ARM's ``ITAdvance`` function."
+    return (itstate & 0b111) and ((itstate & 0b11100000) + ((itstate&0b1111)*2))
+
 
 if __name__ == '__main__':
     assert signed(-1<<32, 0x12345678) == 0x12345678
@@ -325,6 +337,10 @@ if __name__ == '__main__':
     assert AddWithCarry(0xff, 0x40, 0x40, 1) == (0x81, 0, 1)
     assert AddWithCarry(0xff, 0x40, 0x40, 0) == (0x80, 0, 1)
 
-
+    assert ITAdvance(0b00000000) == 0
+    assert ITAdvance(0b10001000) == 0
+    assert ITAdvance(0b10010100) == 0b10001000
+    assert ITAdvance(0b10011010) == 0b10010100
+    assert ITAdvance(0b10010101) == 0b10001010
 
 

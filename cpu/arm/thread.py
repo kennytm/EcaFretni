@@ -20,7 +20,24 @@ from cpu.arm.status import Status, FloatingPointStatus
 from cpu.memory import Memory
 from cpu.pointers import StackPointer, Return
 from cpu.arm.instruction import Instruction
-from copy import deepcopy
+from cpu.arm.functions import ITAdvance
+from copy import deepcopy, copy
+
+class _RegisterList(list):
+    def __init__(self):
+        super().__init__([0]*16)
+        self.pcOffset = 4
+
+    def __getitem__(self, i):
+        retval = super().__getitem__(i)
+        if i == 15:
+            retval += self.pcOffset
+        return retval
+
+    @property
+    def pcRaw(self):
+        return super().__getitem__(15)
+
 
 class Thread(object):
     '''
@@ -29,7 +46,7 @@ class Thread(object):
     
     .. attribute:: r
         
-        The general registers r0 to r15 as an array.
+        The general registers r0 to r15 as a list.
     
     .. attribute:: cpsr
     
@@ -74,12 +91,12 @@ class Thread(object):
 
     def __init__(self, ROM, align=4, skipInitialization=False):
         if not skipInitialization:
-            self.r = [0] * 16
+            self.r = _RegisterList()
             self.s = [0] * 32
             self.d = [0] * 32
             self.q = [0] * 16
-            self.cpsr = Status()
-            self.spsr = Status()
+            self.cpsr = Status(16)
+            self.spsr = Status(16)
             self.fcpsr = FloatingPointStatus()
             self.memory = Memory(ROM, align)
             self.r[13] = StackPointer(0)
@@ -92,9 +109,9 @@ class Thread(object):
         retval.s = deepcopy(self.s)
         retval.d = deepcopy(self.d)
         retval.q = deepcopy(self.q)
-        retval.cpsr = self.cpsr.__copy__()
-        retval.spsr = self.spsr.__copy__()
-        retval.fcpsr = self.fcpsr.__copy__()
+        retval.cpsr = copy(self.cpsr)
+        retval.spsr = copy(self.spsr)
+        retval.fcpsr = copy(self.fcpsr)
         retval.memory = self.memory.__copy__()
         return retval
         
@@ -146,26 +163,21 @@ class Thread(object):
     def pc(self):
         '''This is an alias to ``r[15]``. The acronym means "program counter".
         This is a special register which always points to 4 or 8 bytes after the
-        current instruction. Modifying this value will cause the program jump to
-        another position.'''
+        current instruction on read. Modifying this value will cause the program
+        jump to another position.'''
         return self.r[15]
     @pc.setter
     def pc(self, value):
         self.r[15] = value
     
+    @property
+    def pcRaw(self):
+        '''The raw pc register without the 4 or 8 byte offset.'''
+        return self.r.pcRaw
     
-    def goto(self, value):
-        'Jump to the specific address in the ROM for program execution.'
-        pcdiff = 4 if self.cpsr.T else 8
-        self.r[15] = value + pcdiff
-    
-    def advance(self, delta):
-        'Advance the :attr:`pc` by *delta* bytes.'
-        self.r[15] += delta
-        
     @property
     def instructionSet(self):
-        '''Get the processor's current instruction set. 
+        '''Get/set the processor's current instruction set. 
                 
         +-------+-----------------+
         | Value | Instruction set |
@@ -180,16 +192,25 @@ class Thread(object):
         +-------+-----------------+
         '''
         return self.cpsr.instructionSet
+    @instructionSet.setter
+    def instructionSet(self, newIS):
+        self.cpsr.instructionSet = newIS
+        self.adjustPcOffset()
+    
+    def adjustPcOffset(self):
+        'Adjust the read offset for :attr:`pc` to match the current instruction set.'
+        self.r.pcOffset = 2 if self.cpsr.T else 4
         
     def fetch(self):
         '''Fetch an instruction at the current position. Returns a little-endian
         encoded integer that contains the full instruction, and the length of
         the instruction. You need to call :meth:`advance` manually to move the
         program counter.'''
-        instrSet = self.cpsr.instructionSet
+        cpsr = self.cpsr
+        instrSet = cpsr.instructionSet
+        itstate = cpsr.IT
         thumbMode = instrSet & 1
-        pcdiff = 4 if thumbMode else 8
-        loc = self.r[15] - pcdiff
+        loc = self.r.pcRaw
         instr = self.memory.get(loc, length=4)
         instrLen = 4
         if thumbMode:
@@ -198,13 +219,22 @@ class Thread(object):
             if instr < (0b11101 << 27):
                 instr >>= 16
                 instrLen = 2
+        cond = 15
+        if itstate:
+            cond = itstate >> 4
+            cpsr.IT = ITAdvance(itstate)
                 
-        return Instruction.create(instr, instrLen, instrSet)
-                
+        return Instruction.create(instr, instrLen, instrSet, cond)
+
     def gotoEvent(self, instruction):
         '''This function is called when the
         :meth:`~cpu.arm.instruction.Instruction.run` method caused :attr:`pc` to
         depart from its normal flow.'''
         pass
+        
+    def execute(self):
+        'Run 1 instruction and return.'
+        instr = self.fetch()
+        instr.execute(self)
         
     

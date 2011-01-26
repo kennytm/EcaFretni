@@ -17,9 +17,17 @@
 #
 
 from collections import Hashable
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod, abstractproperty
 from cpu.arm.functions import Shift, Shift_C
 from cpu.arm.operand import Constant, Operand
+
+__all__ = ['Instruction', 'Condition']
+
+def _formatShift(shiftType, shiftAmount):
+    if shiftType == 4:
+        return "rrx"
+    else:
+        return "{0} {1}".format(("lsl", "lsr", "asr", "ror")[shiftType], shiftAmount.decstr())
 
 class abstractclassmethod(classmethod):
     __isabstractmethod__ = True
@@ -107,38 +115,43 @@ class Instruction(metaclass=ABCMeta):
 
 
     @classmethod
-    def create(cls, encoding, length, instructionSet):
+    def create(cls, encoding, length, instructionSet, forceCondition=15):
         '''Create an instruction using *encoding* with length *length* in
-        *instructionSet*.'''
+        *instructionSet*.
+        
+        If the instruction ought to carry a condition (e.g. due to the IT block)
+        you could supply a valid condition code in *forceCondition*.'''
         
         isARM = instructionSet == 0
-        if isARM:
+        cond = forceCondition
+        if isARM and cond == 15:
             cond = encoding >> 28
             encoding &= 0xfffffff
         
         for sub in cls.__subclasses__():
             if isARM and sub.UNCONDITIONAL != (cond == 15):
                 continue
-            retval = sub.tryCreate(encoding, length, instructionSet)
+            retval = sub.tryCreate(encoding, length, instructionSet, cond)
             if retval:
                 break
         else:
              retval = cls(encoding, length, instructionSet)
 
-        if isARM:
+        if cond != 15:
             retval.condition = Condition(cond)
         return retval
 
     @abstractclassmethod
-    def tryCreate(cls, encoding, length, instructionSet):
+    def tryCreate(cls, encoding, length, instructionSet, condition):
         '''Try to create an instruction with this subclass. If this particular
         subclass cannot handle *encoding*, it should return ``None``. All
         subclasses must override this function.
         
         When this method is called with an ARM instruction, the condition code
-        will *not* be provided. If the subclass is an unconditional instruction
-        (i.e. the condition code must always be 0b1111), the subclass should 
-        override the class attribute ``UNCONDITIONAL`` to True.'''
+        will *not* be included along the *encoding*. If the subclass is an
+        unconditional instruction (i.e. the condition code must always be 15),
+        the subclass should override the class attribute ``UNCONDITIONAL`` to
+        True.'''
         assert False
 
     @abstractmethod
@@ -169,24 +182,29 @@ class Instruction(metaclass=ABCMeta):
         self.shiftAmount = shiftAmount
         return self
 
-    def run(self, thread):
-        'Execute the instruction with a *thread*.'
-        curpc = thread.pc
+    def execute(self, thread):
+        'Execute the instruction with a *thread*'
+        location = thread.pcRaw
+        thread.pc = location + self.length
         if self.condition.check(thread.cpsr):
-            self.run()
-            if thread.pc != curpc:
+            self.exec(thread)
+            if thread.pcRaw != location:
                 thread.gotoEvent(self)
-        thread.pc = curpc + self.length
 
         
     @abstractmethod
-    def runInstr(self, thread):
+    def exec(self, thread):
         '''Execute the instruction with a *thread* after passing the conditions.
         
         Subclasses should override this method to provide the actual
         implementation of this instruction.'''
         assert False
-        
+    
+    @abstractproperty
+    def operands(self):
+        'Return a list of :class:`~cpu.arm.operand.Operand`\s of the instruction.'
+        return []
+    
     def applyShift(self, thread, value, carry):
         'Apply shift to an integer. Return the shifted value.'
         return Shift(0xffffffff, value, self.shiftType, self.shiftAmount.get(thread), carry)
@@ -194,7 +212,37 @@ class Instruction(metaclass=ABCMeta):
     def applyShift_C(self, thread, value, carry):
         'Apply shift to an integer. Return the shifted value and carry.'        
         return Shift_C(0xffffffff, value, self.shiftType, self.shiftAmount.get(thread), carry)
+
+    def __str__(self):
+        'Disassemble this instruction.'
+        opcode = self.opcode
+        operands = ', '.join(map(str, self.operands))
+        if self.shiftAmount:
+            operands += _formatShift(self.shiftType, self.shiftAmount)
+        return '{0}\t{1}'.format(opcode, operands)
         
+
+
+_condcodes = ['eq','ne','cs','cc','mi','pl','vs','vc','hi','ls','ge','gt','le','','xx']
+_condchecks = [
+    lambda status: status.Z,
+    lambda status: not status.Z,
+    lambda status: status.C,
+    lambda status: not status.C,
+    lambda status: status.N,
+    lambda status: not status.N,
+    lambda status: status.V,
+    lambda status: not status.V,
+    lambda status: status.C and not status.Z,
+    lambda status: not status.C or status.Z,
+    lambda status: bool(status.N) == bool(status.V),
+    lambda status: bool(status.N) != bool(status.V),
+    lambda status: not status.Z and bool(status.N) == bool(status.V),
+    lambda status: status.Z or bool(status.N) != bool(status.V),
+    lambda status: True,
+    lambda status: False,
+]
+
 
 class Condition(Hashable):
     '''
@@ -263,29 +311,7 @@ class Condition(Hashable):
 
     '''
 
-    (EQ, NE, CS, CC, MI, PL, VS, VC, HI, LS, GE, GT, GT, LE, AL, NV) = range(16)
-    
-    
-    __condcodes = ['eq','ne','cs','cc','mi','pl','vs','vc','hi','ls','ge','gt','le','','xx']
-    __condchecks = [
-        lambda status: status.Z,
-        lambda status: not status.Z,
-        lambda status: status.C,
-        lambda status: not status.C,
-        lambda status: status.N,
-        lambda status: not status.N,
-        lambda status: status.V,
-        lambda status: not status.V,
-        lambda status: status.C and not status.Z,
-        lambda status: not status.C or status.Z,
-        lambda status: bool(status.N) == bool(status.V),
-        lambda status: bool(status.N) != bool(status.V),
-        lambda status: not status.Z and bool(status.N) == bool(status.V),
-        lambda status: status.Z or bool(status.N) != bool(status.V),
-        lambda status: True,
-        lambda status: False,
-    ]
-    
+    (EQ, NE, CS, CC, MI, PL, VS, VC, HI, LS, GE, GT, GT, LE, AL, NV) = range(16)    
     
     def __init__(self, condition):
         self.condition = condition
@@ -296,7 +322,7 @@ class Condition(Hashable):
         return Condition(self.condition ^ 1)
         
     def __str__(self):
-        return __condcodes[self.condition]
+        return _condcodes[self.condition]
     
     def __eq__(self, condition):
         'Check if two conditions are the same.'
@@ -310,7 +336,7 @@ class Condition(Hashable):
         '''Check if the *status* of class :class:`~cpu.arm.status.Status`
         satisfies this condition.'''
         cond = self.condition
-        return __condchecks[cond](status)
+        return _condchecks[cond](status)
 
 
 
