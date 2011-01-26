@@ -16,9 +16,66 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-class __Return(object):
-    def __str__(self):
-        return 'return'
+
+class SpecialPointer(object):
+    '''The base class of all special pointers.
+    
+    .. method:: __eq__(other)
+        __ne__(other)
+        __lt__(other)
+        __gt__(other)
+        __le__(other)
+        __ge__(other)
+        
+        Compare two special pointers.
+    
+    .. method:: __and__(mask)
+    
+        The bitwise AND is special cased such that, if any of *mask*'s lowest 2
+        bits are set, it will return ``self``; otherwise, it returns 0, e.g.
+        
+        >>> StackPointer(12) & ~0xfffffff
+        0
+        >>> StackPointer(12) & 0xffffffff
+        StackPointer(12)
+    
+    .. method:: __rshift__(value)
+    
+        The right-shift operation is special cased such that it alawys returns
+        0, e.g.
+        
+        >>> StackPointer(12) >> 31
+        0
+    
+    .. method:: __add__(value)
+    
+        Move the pointer forward by *value* bytes.
+    
+    .. method:: __sub__(value)
+    
+        If *value* is an integer, move the stack pointer backward by *value*
+        bytes. Otherwise, if *value* is a pointer of the same class, compute the
+        distance between the two.
+    '''
+    
+    def __and__(self, mask):
+        return self if mask & 3 else 0
+        
+    def __rshift__(self, value):
+        return 0
+
+
+class __Return(SpecialPointer):
+    def __lt__(self, other):
+        return False if self is other else NotImplemented
+    def __gt__(self, other):
+        return False if self is other else NotImplemented
+    def __le__(self, other):
+        return True if self is other else NotImplemented
+    def __ge__(self, other):
+        return True if self is other else NotImplemented
+    def __sub__(self, value):
+        return 0 if self is other else NotImplemented
     def __repr__(self):
         return 'Return'
 Return = __Return()
@@ -28,7 +85,7 @@ executing when jumping to this variable.'''
 
 
 
-class StackPointer(object):
+class StackPointer(SpecialPointer):
     '''
     This class represents a stack pointer in the memory.
     
@@ -42,40 +99,29 @@ class StackPointer(object):
         self.offset = offset
         
     def __add__(self, value):
-        'Move the stack pointer forward by *value* bytes.'
         return StackPointer(self.offset + value)
         
     def __sub__(self, value):
-        '''
-        If *value* is an integer, move the stack pointer backward by *value*
-        bytes. Otherwise, if *value* is a :class:`StackPointer`, compute the
-        distance between the two.
-        '''
         if isStackPointer(value):
             return self.offset - value.offset
         else:    
             return StackPointer(self.offset - value)
     
     def __eq__(self, other):
-        'Check if two stack pointers are equal.'
         return isStackPointer(other) and self.offset == other.offset
     def __ne__(self, other):
-        'Check if two objects are not equal.'
         return not (self == other)
     def __lt__(self, other):
-        'Check if a stack pointer is strictly before another.'
         if isStackPointer(other):
             return self.offset < other.offset
         else:
             return NotImplemented
     def __gt__(self, other):
-        'Check if a stack pointer is strictly after another.'
         if isStackPointer(other):
             return self.offset > other.offset
         else:
             return NotImplemented
     def __le__(self, other):
-        'Check if a stack pointer is before or equals to another.'
         if isStackPointer(other):
             return self.offset <= other.offset
         else:
@@ -86,14 +132,12 @@ class StackPointer(object):
             return self.offset >= other.offset
         else:
             return NotImplemented
+    def __repr__(self):
+        return 'StackPointer({0})'.format(self.offset)
 
 
-def isStackPointer(obj):
-    'Check if *obj* is a stack pointer.'
-    return isinstance(obj, StackPointer)
 
-
-class HeapPointer(object):
+class HeapPointer(SpecialPointer):
     '''
     This class represents a pointer to a memory location on the heap. 
             
@@ -113,15 +157,9 @@ class HeapPointer(object):
         self.handle = handle
     
     def __add__(self, value):
-        'Move the heap pointer forward by *value* bytes.'
         return HeapPointer(self.handle, self.offset + value)
         
     def __sub__(self, value):
-        '''
-        If *value* is an integer, move the heap pointer backward by *value*
-        bytes. Otherwise, if *value* is a :class:`HeapPointer` with the same
-        handle, compute the distance between the two.
-        '''
         if isHeapPointer(value):
             if self.handle == value.handle:
                 return self.offset - value.offset
@@ -131,36 +169,37 @@ class HeapPointer(object):
             return HeapPointer(self.handle, self.offset - value)
 
     def __eq__(self, other):
-        'Check if two heap pointers are equal.'
         return isHeapPointer(other) and self.handle == other.handle and self.offset == other.offset
     def __ne__(self, other):
-        'Check if two objects are not equal.'
         return not (self == other)
     def __lt__(self, other):
-        'Check if a heap pointer is strictly before another.'
         if isHeapPointer(other) and self.handle == other.handle:
             return self.offset < other.offset
         else:
             return NotImplemented
     def __gt__(self, other):
-        'Check if a heap pointer is strictly after another.'
         if isHeapPointer(other) and self.handle == other.handle:
             return self.offset > other.offset
         else:
             return NotImplemented
     def __le__(self, other):
-        'Check if a heap pointer is before or equals to another.'
         if isHeapPointer(other) and self.handle == other.handle:
             return self.offset <= other.offset
         else:
             return NotImplemented
     def __ge__(self, other):
-        'Check if a heap pointer is after or equals to another.'
         if isHeapPointer(other) and self.handle == other.handle:
             return self.offset >= other.offset
         else:
             return NotImplemented
-    
+    def __repr__(self):
+        return 'HeapPointer({0}, offset={1})'.format(self.hande, self.offset)
+
+
+def isStackPointer(obj):
+    'Check if *obj* is a stack pointer.'
+    return isinstance(obj, StackPointer)
+
 
 def isHeapPointer(obj):
     'Check if *obj* is a heap pointer.'
