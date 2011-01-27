@@ -185,11 +185,12 @@ class Instruction(metaclass=ABCMeta):
     def execute(self, thread):
         'Execute the instruction with a *thread*'
         location = thread.pcRaw
-        thread.pc = location + self.length
         if self.condition.check(thread.cpsr):
             self.exec(thread)
             if thread.pcRaw != location:
                 thread.gotoEvent(self)
+                return
+        thread.pc = location + self.length
 
         
     @abstractmethod

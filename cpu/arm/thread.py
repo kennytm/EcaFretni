@@ -26,7 +26,7 @@ from copy import deepcopy, copy
 class _RegisterList(list):
     def __init__(self):
         super().__init__([0]*16)
-        self.pcOffset = 4
+        self.pcOffset = 8
 
     def __getitem__(self, i):
         retval = super().__getitem__(i)
@@ -190,6 +190,12 @@ class Thread(object):
         +-------+-----------------+
         | 3     | ThumbEE         |
         +-------+-----------------+
+        
+        .. note::
+        
+            Always use this property to change the instruction set instead of
+            ``thread.cpsr.instructionSet``. This allows the pc offset to be
+            updated correctly.
         '''
         return self.cpsr.instructionSet
     @instructionSet.setter
@@ -199,7 +205,7 @@ class Thread(object):
     
     def adjustPcOffset(self):
         'Adjust the read offset for :attr:`pc` to match the current instruction set.'
-        self.r.pcOffset = 2 if self.cpsr.T else 4
+        self.r.pcOffset = 4 if self.cpsr.T else 8
         
     def fetch(self):
         '''Fetch an instruction at the current position. Returns a little-endian

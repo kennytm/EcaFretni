@@ -246,6 +246,8 @@ class ADCTestCase(TestCase):
             '0200bd10'  # adcsne r0, sp, r2
             '6200a000'  # adceq  r0, r0, r2, rrx
             '7102a010'  # adcne  r0, r0, r1, ror r2
+            '0120a2e2'  # adc    r2, r2, #0x1
+            '01faa2e2'  # adc    pc, r2, #0x1000
         )
         srom = SimulatedROM(program, vmaddr=0x1000)
         thread = Thread(srom)
@@ -336,5 +338,99 @@ class ADCTestCase(TestCase):
         self.assertFalse(thread.cpsr.V)
         self.assertFalse(thread.cpsr.Z)
         self.assertEqual(thread.pcRaw, 0x1018)
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), "adc\tr2, r2, #0x1")
+        self.assertEqual(thread.r[0], StackPointer(17 + ((0x12345678*0x100000001)>>17&0xffffffff)))
+        self.assertEqual(thread.r[2], 18)
+        self.assertEqual(thread.pcRaw, 0x101c)
+        
+        # check pc fixing
+        instr = thread.execute()
+        self.assertEqual(str(instr), "adc\tpc, r2, #0x1000")
+        self.assertEqual(thread.r[0], StackPointer(17 + ((0x12345678*0x100000001)>>17&0xffffffff)))
+        self.assertEqual(thread.r[2], 18)
+        self.assertEqual(thread.instructionSet, 0)
+        self.assertEqual(thread.pcRaw, 0x1010)
+
+        # check loop
+        instr = thread.execute()
+        self.assertEqual(str(instr), "adceq\tr0, r0, r2, rrx")
+        self.assertEqual(thread.r[0], StackPointer(17 + ((0x12345678*0x100000001)>>17&0xffffffff)))
+        self.assertEqual(thread.pcRaw, 0x1014)
+
+
+        
+    def test_thumb(self):
+        program = bytes.fromhex(
+            '41f1 8420'  # adc    r0, r1, #0x84008400
+            '4841'       # adcs   r0, r0, r1
+            '41eb 4220'  # adc.w  r0, r1, r2, lsl #9
+            '52eb 0f02'  # adcs.w r2, r2, pc
+        )
+        srom = SimulatedROM(program, vmaddr=0x1000)
+        thread = Thread(srom)
+        thread.r[1] = 0x6543210f
+        thread.r[2] = 12345
+        thread.pc = 0x1000
+        thread.instructionSet = 1
+        
+        instr = thread.execute()
+        self.assertEqual(instr.encoding, 0xf1412084)
+        self.assertEqual(instr.length, 4)
+        self.assertEqual(instr.instructionSet, 1)
+        self.assertEqual(instr.width, "")
+        self.assertEqual(instr.shiftType, 0)
+        self.assertEqual(instr.shiftAmount, Constant(0))
+        self.assertEqual(instr.mainOpcode(), 'adc')
+        self.assertEqual(instr.opcode, 'adc')
+        self.assertListEqual(instr.operands, [Register(0), Register(1), Constant(0x84008400)])
+        self.assertEqual(str(instr), "adc\tr0, r1, #0x84008400")
+        
+        self.assertEqual(thread.r[0], 0xe943a50f)
+        self.assertFalse(thread.cpsr.N)
+        self.assertFalse(thread.cpsr.C)
+        self.assertFalse(thread.cpsr.V)
+        self.assertFalse(thread.cpsr.Z)
+        self.assertEqual(thread.pcRaw, 0x1004)
+        
+        
+        instr = thread.execute()
+        self.assertEqual(instr.encoding, 0x4148)
+        self.assertEqual(instr.length, 2)
+        self.assertEqual(instr.instructionSet, 1)
+        self.assertEqual(instr.opcode, 'adcs')
+        self.assertListEqual(instr.operands, [Register(0), Register(0), Register(1)])
+        self.assertEqual(str(instr), "adcs\tr0, r0, r1")
+        
+        self.assertEqual(thread.r[0], 0x4e86c61e)
+        self.assertFalse(thread.cpsr.N)
+        self.assertTrue(thread.cpsr.C)
+        self.assertFalse(thread.cpsr.V)
+        self.assertFalse(thread.cpsr.Z)
+        self.assertEqual(thread.pcRaw, 0x1006)
+        
+        instr = thread.execute()
+        self.assertEqual(instr.encoding, 0xeb412042)
+        self.assertEqual(instr.length, 4)
+        self.assertEqual(instr.instructionSet, 1)
+        self.assertEqual(instr.opcode, 'adc.w')
+        self.assertListEqual(instr.operands, [Register(0), Register(1), Register(2)])
+        self.assertEqual(instr.shiftType, 0)
+        self.assertEqual(instr.shiftAmount, Constant(9))
+        self.assertEqual(str(instr), "adc.w\tr0, r1, r2, lsl #9")
+        
+        self.assertEqual(thread.r[0], 0x65a39310)
+        self.assertFalse(thread.cpsr.N)
+        self.assertTrue(thread.cpsr.C)
+        self.assertFalse(thread.cpsr.V)
+        self.assertFalse(thread.cpsr.Z)
+        self.assertEqual(thread.pcRaw, 0x100a)
+        
+        instr = thread.execute()
+        self.assertEqual(thread.r.pcOffset, 4)
+        self.assertEqual(str(instr), "adcs.w\tr2, r2, pc")
+        self.assertEqual(thread.r[2], 12345 + 0x100a + 4 + 1)
+        self.assertEqual(thread.pcRaw, 0x100e)
 
 main()

@@ -20,6 +20,11 @@
 class SpecialPointer(object):
     '''The base class of all special pointers.
     
+    .. attribute:: notmask
+    
+        Indicates the bit size of the pointer. It should be set to ``-1<<(N-1)``
+        for an *N*-bit system.
+    
     .. method:: __eq__(other)
         __ne__(other)
         __lt__(other)
@@ -63,6 +68,11 @@ class SpecialPointer(object):
         
     def __rshift__(self, value):
         return 0
+            
+
+
+def _signed(notmask, x):
+    return x + 2*notmask if x & notmask else x
 
 
 class __Return(SpecialPointer):
@@ -95,17 +105,18 @@ class StackPointer(SpecialPointer):
     
     '''
     
-    def __init__(self, offset=0):
+    def __init__(self, offset=0, notmask=-1<<31):
         self.offset = offset
+        self.notmask = notmask
         
     def __add__(self, value):
-        return StackPointer(self.offset + value)
+        return StackPointer( _signed(self.notmask, self.offset + value) )
         
     def __sub__(self, value):
         if isStackPointer(value):
-            return self.offset - value.offset
+            return _signed(self.notmask, self.offset - value.offset)
         else:    
-            return StackPointer(self.offset - value)
+            return StackPointer( _signed(self.notmask, self.offset - value) )
     
     def __eq__(self, other):
         return isStackPointer(other) and self.offset == other.offset
@@ -127,7 +138,6 @@ class StackPointer(SpecialPointer):
         else:
             return NotImplemented
     def __ge__(self, other):
-        'Check if a stack pointer is after or equals to another.'
         if isStackPointer(other):
             return self.offset >= other.offset
         else:
@@ -152,21 +162,22 @@ class HeapPointer(SpecialPointer):
     
     '''
     
-    def __init__(self, handle, offset=0):
+    def __init__(self, handle, offset=0, notmask=-1<<31):
         self.offset = offset
         self.handle = handle
+        self.notmask = notmask
     
     def __add__(self, value):
-        return HeapPointer(self.handle, self.offset + value)
+        return HeapPointer(self.handle, _signed(self.notmask, self.offset + value) )
         
     def __sub__(self, value):
         if isHeapPointer(value):
             if self.handle == value.handle:
-                return self.offset - value.offset
+                return _signed(self.notmask, self.offset - value.offset)
             else:
                 raise TypeError('Cannot compare two heap pointers having different handles.')
         else:    
-            return HeapPointer(self.handle, self.offset - value)
+            return HeapPointer(self.handle, _signed(self.notmask, self.offset - value) )
 
     def __eq__(self, other):
         return isHeapPointer(other) and self.handle == other.handle and self.offset == other.offset
