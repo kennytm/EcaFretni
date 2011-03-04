@@ -235,6 +235,14 @@ class MachO_VMAddr(MachO):
         if offset < 0:
             return None
         return peekString(self.file, encoding=encoding, returnLength=returnLength, position=offset+self.origin)
+        
+    def derefBytes(self, vmaddr, length):
+        '''Get bytes with length *length* at the VM address *vmaddr*. Returns
+        a zero-filled :class:`bytes` if the address does not exist.'''
+        offset = self.mappings.fromVM(vmaddr)
+        if offset < 0:
+            return bytes(length)
+        return self.file[offset:offset+length]
 
 
 if __name__ == '__main__':
