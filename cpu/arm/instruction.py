@@ -18,6 +18,8 @@
 
 from collections import Hashable
 from abc import ABCMeta, abstractmethod
+from cpu.arm.functions import Shift, Shift_C
+from cpu.arm.operand import Constant, Operand
 
 class abstractclassmethod(classmethod):
     __isabstractmethod__ = True
@@ -71,23 +73,24 @@ class Instruction(metaclass=ABCMeta):
         | ``'.w'`` | Force wide         |
         +----------+--------------------+
         
-    .. attribute:: shiftTypeAndAmount
+    .. attribute:: shiftType
+        shiftAmount
     
-        A tuple of the shift type and amount to be applied to the last operand.
+        The shift type and amount to be applied to the last operand.
         
-        +---------------------------------------------------------+---------------------------------+
-        | Shift type                                              | Meaning                         |
-        +=========================================================+=================================+
-        | :const:`~cpu.arm.instructions.functions.SRTYPE_LSL` (0) | Left shift                      |
-        +---------------------------------------------------------+---------------------------------+
-        | :const:`~cpu.arm.instructions.functions.SRTYPE_LSR` (1) | Logical (unsigned) right shift  |
-        +---------------------------------------------------------+---------------------------------+
-        | :const:`~cpu.arm.instructions.functions.SRTYPE_ASR` (2) | Arithmetic (signed) right shift |
-        +---------------------------------------------------------+---------------------------------+
-        | :const:`~cpu.arm.instructions.functions.SRTYPE_ROR` (3) | Rotate bits right               |
-        +---------------------------------------------------------+---------------------------------+
-        | :const:`~cpu.arm.instructions.functions.SRTYPE_RRX` (4) | Rotate bits right with carry    |
-        +---------------------------------------------------------+---------------------------------+
+        +--------------------------------------------+---------------------------------+
+        | Shift type                                 | Meaning                         |
+        +============================================+=================================+
+        | :const:`~cpu.arm.functions.SRTYPE_LSL` (0) | Left shift                      |
+        +--------------------------------------------+---------------------------------+
+        | :const:`~cpu.arm.functions.SRTYPE_LSR` (1) | Logical (unsigned) right shift  |
+        +--------------------------------------------+---------------------------------+
+        | :const:`~cpu.arm.functions.SRTYPE_ASR` (2) | Arithmetic (signed) right shift |
+        +--------------------------------------------+---------------------------------+
+        | :const:`~cpu.arm.functions.SRTYPE_ROR` (3) | Rotate bits right               |
+        +--------------------------------------------+---------------------------------+
+        | :const:`~cpu.arm.functions.SRTYPE_RRX` (4) | Rotate bits right with carry    |
+        +--------------------------------------------+---------------------------------+
                 
     '''
     
@@ -99,7 +102,8 @@ class Instruction(metaclass=ABCMeta):
         self.instructionSet = instructionSet
         self.condition = Condition(Condition.AL)
         self.width = ''
-        self.shiftTypeAndAmount = (0, 0)
+        self.shiftType = 0
+        self.shiftAmount = Constant(0)
 
 
     @classmethod
@@ -158,7 +162,11 @@ class Instruction(metaclass=ABCMeta):
     
     def setShift(self, shiftTypeAndAmount):
         'Set the :attr:`shiftType` and :attr:`shiftAmount`. Returns ``self``.'
-        self.shiftTypeAndAmount = shiftTypeAndAmount
+        self.shiftType = shiftTypeAndAmount[0]
+        shiftAmount = shiftTypeAndAmount[1]
+        if not isinstance(shiftAmount, Operand):
+            shiftAmount = Constant(shiftAmount)
+        self.shiftAmount = shiftAmount
         return self
 
     def run(self, thread):
@@ -178,7 +186,15 @@ class Instruction(metaclass=ABCMeta):
         Subclasses should override this method to provide the actual
         implementation of this instruction.'''
         assert False
-
+        
+    def applyShift(self, thread, value, carry):
+        'Apply shift to an integer. Return the shifted value.'
+        return Shift(0xffffffff, value, self.shiftType, self.shiftAmount.get(thread), carry)
+    
+    def applyShift_C(self, thread, value, carry):
+        'Apply shift to an integer. Return the shifted value and carry.'        
+        return Shift_C(0xffffffff, value, self.shiftType, self.shiftAmount.get(thread), carry)
+        
 
 class Condition(Hashable):
     '''
