@@ -44,42 +44,60 @@ def fixPCAddrB(pcAddr, thumbMode):
     notmask = ~1 if thumbMode else ~3
     return pcAddr & notmask
 
+def fixPCAddrLoad(pcAddr, thumbMode):
+    '''Fix *pcAddr* using ARM ARM's ``LoadWritePC`` algorithm. Return a tuple of
+    the fixed address and whether it will run in Thumb mode or not.'''
+    return fixPCAddrBX(pcAddr)
 
-def LSL_C(mask, x, Shift):
+def fixPCAddrALU(pcAddr, thumbMode):
+    '''Fix *pcAddr* using ARM ARM's ``ALUWritePC`` algorithm. Return a tuple of
+    the fixed address and whether it will run in Thumb mode or not.'''
+    if thumbMode:
+        return (pcAddr & ~1, True)
+    else:
+        return fixPcAddrBX(pcAddr)
+
+    
+
+def LSL_C(mask, x, shift):
     "ARM ARM's ``LSL_C`` function. Here, *mask* should be set to ``(1<<N)-1``."
-    x <<= Shift
+    x <<= shift
     return (x & mask, not not(x & (mask+1)))
 
-def LSL(mask, x, Shift):
+def LSL(mask, x, shift):
     "ARM ARM's ``LSL`` function. Here, *mask* should be set to ``(1<<N)-1``."
-    return (x << Shift) & mask
+    return (x << shift) & mask
 
-def LSR_C(mask, x, Shift):
-    "ARM ARM's ``LSR_C`` function. Here, *mask* should be set to ``(1<<N)-1``."
-    x >>= Shift-1
+def LSR_C(mask, x, shift):
+    """ARM ARM's ``LSR_C`` function. Here, *mask* should be set to ``(1<<N)-1``,
+    and *shift* must be positive (1 or above)."""
+    x >>= shift-1
     return (x >> 1, x & 1)
 
-def LSR(mask, x, Shift):
+def LSR(mask, x, shift):
     "ARM ARM's ``LSR`` function. Here, *mask* should be set to ``(1<<N)-1``."
-    return x >> Shift
+    return x >> shift
 
-def ASR_C(mask, x, Shift):
-    "ARM ARM's ``ASR_C`` function. Here, *mask* should be set to ``(1<<N)-1``."
-    x = signed(~mask, x) >> (Shift-1)
+def ASR_C(mask, x, shift):
+    """ARM ARM's ``ASR_C`` function. Here, *mask* should be set to ``(1<<N)-1``,
+    and *shift* must be positive (1 or above)."""
+    x = signed(~mask, x) >> (shift-1)
     return ((x >> 1) & mask, x & 1)
 
-def ASR(mask, x, Shift):
+def ASR(mask, x, shift):
     "ARM ARM's ``ASR`` function. Here, *mask* should be set to ``(1<<N)-1``."
-    return (signed(~mask, x) >> Shift) & mask
+    return (signed(~mask, x) >> shift) & mask
 
-def ROR_C(mask, x, Shift):
-    "ARM ARM's ``ROR_C`` function. Here, *mask* should be set to ``(1<<N)-1``."
-    res = (x*(2+mask)) >> Shift
+def ROR_C(mask, x, shift):
+    """ARM ARM's ``ROR_C`` function. Here, *mask* should be set to ``(1<<N)-1``,
+    and *shift* must be between 0 and *N*."""
+    res = (x*(2+mask)) >> shift
     return (res & mask, not not(res & (mask+1)>>1))
 
-def ROR(mask, x, Shift):
-    "ARM ARM's ``ROR`` function. Here, *mask* should be set to ``(1<<N)-1``."
-    return ((x*(2+mask)) >> Shift) & mask
+def ROR(mask, x, shift):
+    """ARM ARM's ``ROR`` function. Here, *mask* should be set to ``(1<<N)-1``
+    and *shift* must be between 0 and *N*."""
+    return ((x*(2+mask)) >> shift) & mask
 
 def RRX_C(mask, x, carry):
     "ARM ARM's ``RRX_C`` function. Here, *mask* should be set to ``(1<<N)-1``."
