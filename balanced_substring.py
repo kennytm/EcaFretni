@@ -18,16 +18,8 @@
 import re
 
 
-class UnbalancedSubstringError(Exception):
-	"""An error raised when the string to parse is not balanced."""
-	def __init__(self, level):
-		self.level = level
-	
-	def __str__(self):
-		return 'Unbalanced substring. Missing {} closing parenthesis.'.format(self.level)
 
-
-def balancedSubstring(string, index=0, raiseOnUnbalanced=False):
+def balancedSubstring(string, index=0):
 	'''
 	Skip a balanced substring from specified index, and return the next string
 	index.
@@ -64,9 +56,8 @@ def balancedSubstring(string, index=0, raiseOnUnbalanced=False):
 		>>> balancedSubstring('(a)(bbb)c', index=3)
 		8
 	
-	If the *raiseOnUnbalanced* argument is set to ``True``, this function will
-	raise an :exc:`UnbalancedSubstringError` on unbalanced paranthesis.
-	Otherwise, a number larger than the length of *string* will be returned.
+	A number larger than the length of *string* will be returned on unbalanced
+	paranthesis.
 		
 	'''
 	
@@ -94,10 +85,7 @@ def balancedSubstring(string, index=0, raiseOnUnbalanced=False):
 				break
 
 		index += 1
-	
-	if level > 0 and raiseOnUnbalanced:
-		raise UnbalancedSubstringError(level)
-	
+		
 	return index+1
 
 
@@ -110,8 +98,11 @@ def numericSubstring(string, index=0):
     
     >>> numericSubstring('127foo')
     (127, 3)
-    >>> numericSubstring('abc765def', index=3)
+    >>> numericSubstring('abc765def490', index=3)
     (765, 6)
+    
+    It is expected that ``string[index]`` is a digit. If not, an exception may
+    be raised.
     '''
     
     m = _numberRe.match(string, index)
@@ -132,15 +123,7 @@ if __name__ == '__main__':
 	assert 18 == balancedSubstring(s,11) # ')b"az'
 	
 	s = '(((foo'
-	caughtException = False
 	assert balancedSubstring(s) > 6
-	try:
-		balancedSubstring(s, raiseOnUnbalanced=True)
-	except UnbalancedSubstringError as err:
-		print("Caught expected exception:", err)
-		caughtException = True
-	
-	assert caughtException
-	
+
 	assert numericSubstring('127foo') == (127, 3)
-	assert numericSubstring('abc765def', index=3) == (765, 6)
+	assert numericSubstring('abc765def490', index=3) == (765, 6)
