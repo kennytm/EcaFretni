@@ -25,9 +25,9 @@ __all__ = ['Instruction', 'Condition']
 
 def _formatShift(shiftType, shiftAmount):
     if shiftType == 4:
-        return "rrx"
+        return ", rrx"
     else:
-        return "{0} {1}".format(("lsl", "lsr", "asr", "ror")[shiftType], shiftAmount.decstr())
+        return ", {0} {1}".format(("lsl", "lsr", "asr", "ror")[shiftType], shiftAmount.decstr())
 
 class abstractclassmethod(classmethod):
     __isabstractmethod__ = True
@@ -71,15 +71,15 @@ class Instruction(metaclass=ABCMeta):
     
         The instruction width. This field only affects the disassembly.
 
-        +----------+--------------------+
-        | Width    | Meaning            |
-        +==========+====================+
-        | ``''``   | Default            |
-        +----------+--------------------+
-        | ``'.n'`` | Force narrow       |
-        +----------+--------------------+
-        | ``'.w'`` | Force wide         |
-        +----------+--------------------+
+        +----------+--------------+
+        | Width    | Meaning      |
+        +==========+==============+
+        | ``''``   | Default      |
+        +----------+--------------+
+        | ``'.n'`` | Force narrow |
+        +----------+--------------+
+        | ``'.w'`` | Force wide   |
+        +----------+--------------+
         
     .. attribute:: shiftType
         shiftAmount
@@ -223,7 +223,7 @@ class Instruction(metaclass=ABCMeta):
         
 
 
-_condcodes = ['eq','ne','cs','cc','mi','pl','vs','vc','hi','ls','ge','gt','le','','xx']
+_condcodes = ['eq','ne','cs','cc','mi','pl','vs','vc','hi','ls','ge','lt','gt','le','','xx']
 _condchecks = [
     lambda status: status.Z,
     lambda status: not status.Z,
@@ -261,7 +261,7 @@ class Condition(Hashable):
         HI
         LS
         GE
-        GT
+        LT
         GT
         LE
         AL
@@ -324,7 +324,7 @@ class Condition(Hashable):
     def __str__(self):
         return _condcodes[self.condition]
     
-    def __eq__(self, condition):
+    def __eq__(self, other):
         'Check if two conditions are the same.'
         return self.condition == other.condition
 

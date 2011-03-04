@@ -233,8 +233,9 @@ class Thread(object):
         pass
         
     def execute(self):
-        'Run 1 instruction and return.'
+        'Run 1 instruction and return that instruction.'
         instr = self.fetch()
         instr.execute(self)
+        return instr
         
     

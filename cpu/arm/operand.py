@@ -26,13 +26,11 @@ class Operand(metaclass=ABCMeta):
     @abstractmethod
     def get(self, thread):
         'Get the value of this operand from a :class:`~cpu.arm.thread.Thread`.'
-        assert False
     
     @abstractmethod
     def __str__(self):
         '''Get the string representation (in hexadecimal) of this operand. It is
         only used for disassembling.'''
-        assert False
     
     def decstr(self):
         '''Get the string representation (in decimal) of this operand. It is
@@ -48,7 +46,6 @@ class MutableOperand(Operand):
     @abstractmethod
     def set(self, thread, value):
         'Set the value referred by this operand.'
-        assert False
 
 
 class Constant(Operand):
@@ -61,7 +58,7 @@ class Constant(Operand):
         return '#0x{0:x}'.format(self.imm)
     def decstr(self):
         return '#{0}'.format(self.imm)
-    def __eq__(self):
+    def __eq__(self, other):
         return isinstance(other, type(self)) and self.imm == other.imm
     def __hash__(self):
         return hash(self.imm)
@@ -78,7 +75,11 @@ class Register(MutableOperand):
     def set(self, thread, value):
         thread.r[self.rnum] = value
     def __str__(self):
-        return 'r{0}'.format(self.rnum)
+        rnum = self.rnum
+        if rnum < 13:
+            return 'r{0}'.format(rnum)
+        else:
+            return ('sp','lr','pc')[rnum-13]
     def __eq__(self, other):
         return isinstance(other, type(self)) and self.rnum == other.rnum
     def __hash__(self):
