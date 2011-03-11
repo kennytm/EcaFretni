@@ -22,6 +22,7 @@ from cpu.pointers import StackPointer, Return
 from cpu.arm.decoder import InstructionDecoder
 from cpu.arm.functions import ITAdvance, REG_SP, REG_LR, REG_PC, COND_NONE
 from copy import deepcopy, copy
+import struct
 
 class _RegisterList(list):
     def __init__(self):
@@ -217,7 +218,16 @@ class Thread(object):
         itstate = cpsr.IT
         thumbMode = instrSet & 1
         loc = self.r.pcRaw
-        instr = self.memory.get(loc, length=4)
+        try:
+            instr = self.memory.get(loc, length=4)
+        except struct.error:
+            # not enough instruction left to get. try length 2 in thumb mode.
+            if thumbMode:
+                instr = self.memory.get(loc, length=2)
+                if instr >= 0b11101 << 11:
+                    raise
+            else:
+                raise
         instrLen = 4
         if thumbMode:
             # Thumb instructions can be 2-byte long.

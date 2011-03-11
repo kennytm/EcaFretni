@@ -677,4 +677,123 @@ class DataProcTestCase(TestCase):
         self.assertEqual(thread.r[4], 0x100c)
 
 
+    def test_thumb_dataprocs(self):
+        program = bytes.fromhex(
+            '4ff0 0300' # mov.w r0, #0x3
+            '4fea 0001' # mov.w r1, r0
+            '8140'      # lsls  r1, r1, r0
+            '61f0 1302' # orn   r2, r1, #0x13
+            'c2ea 0003' # pkhbt r3, r2, r0
+            'b0eb 030f' # cmp.w r0, r3
+            '10eb 030f' # cmn.w r0, r3
+            '10ea 030f' # tst.w r0, r3
+            '90ea 030f' # teq   r0, r3
+            '1318'      # adds  r3, r2, r0
+            '5a1c'      # adds  r2, r3, #0x1
+            '7132'      # adds  r2, r2, #0x71
+            '4242'      # rsbs  r2, r0, #0x0
+            '8044'      # add   r8, r8, r0
+            '81b0'      # sub   sp, sp, #0x4
+            '02ad'      # add   r5, sp, #0x8
+        )
+        srom = SimulatedROM(program, vmaddr=0x1000)
+        thread = Thread(srom)
+        thread.pc = 0x1000
+        thread.r[8] = 1234
+        self.assertEqual(thread.sp, StackPointer(0))
+        thread.instructionSet = 1
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "mov.w\tr0, #0x3")
+        self.assertEqual(thread.r[0], 3)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "mov.w\tr1, r0")
+        self.assertEqual(thread.r[1], 3)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "lsls\tr1, r1, r0")
+        self.assertEqual(thread.r[1], 24)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "orn.w\tr2, r1, #0x13")
+        self.assertEqual(thread.r[2], 0xfffffffc)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "pkhbt.w\tr3, r2, r0")
+        self.assertEqual(thread.r[3], 0x0000fffc)
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), "cmp.w\tr0, r3")
+        self.assertTrue(thread.cpsr.N)
+        self.assertFalse(thread.cpsr.C)
+        self.assertFalse(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "cmn.w\tr0, r3")
+        self.assertFalse(thread.cpsr.N)
+        self.assertFalse(thread.cpsr.C)
+        self.assertFalse(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "tst.w\tr0, r3")
+        self.assertFalse(thread.cpsr.N)
+        self.assertFalse(thread.cpsr.C)
+        self.assertTrue(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "teq.w\tr0, r3")
+        self.assertFalse(thread.cpsr.N)
+        self.assertFalse(thread.cpsr.C)
+        self.assertFalse(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "adds\tr3, r2, r0")
+        self.assertEqual(thread.r[3], 0xffffffff)
+        self.assertTrue(thread.cpsr.N)
+        self.assertFalse(thread.cpsr.C)
+        self.assertFalse(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "adds\tr2, r3, #0x1")
+        self.assertEqual(thread.r[2], 0)
+        self.assertFalse(thread.cpsr.N)
+        self.assertTrue(thread.cpsr.C)
+        self.assertTrue(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "adds\tr2, r2, #0x71")
+        self.assertEqual(thread.r[2], 0x71)
+        self.assertFalse(thread.cpsr.N)
+        self.assertFalse(thread.cpsr.C)
+        self.assertFalse(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "rsbs\tr2, r0, #0x0")
+        self.assertEqual(thread.r[2], 0xfffffffd)
+        self.assertTrue(thread.cpsr.N)
+        self.assertFalse(thread.cpsr.C)
+        self.assertFalse(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "add\tr8, r8, r0")
+        self.assertEqual(thread.r[8], 1237)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "sub\tsp, sp, #0x4")
+        self.assertEqual(thread.sp, StackPointer(-4))
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "add\tr5, sp, #0x8")
+        self.assertEqual(thread.r[5], StackPointer(4))
+
+
 main()

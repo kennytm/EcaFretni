@@ -72,7 +72,9 @@ class SpecialPointer(object):
 
 
 def _signed(notmask, x):
-    return x + 2*notmask if x & notmask else x
+    nm2 = 2 * notmask
+    x &= ~nm2
+    return x + nm2 if x & notmask else x
 
 
 class __Return(SpecialPointer):

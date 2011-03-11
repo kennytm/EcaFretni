@@ -251,7 +251,7 @@ class PKHInstruction(DataProcInstruction):
 
 class ComparingInstruction(Instruction):
     'The base class of all comparing instructions.'
-    def __init__(self, encoding, length, instructionSet, mainOpcode, targetReg, srcReg, op2, setFlags=True):
+    def __init__(self, encoding, length, instructionSet, mainOpcode, targetReg, srcReg, op2, setFlags=True, append='', isADR=False):
         super().__init__(encoding, length, instructionSet)
         self.srcReg = srcReg
         self.op2 = op2
@@ -410,7 +410,7 @@ def dataProcessingInstructionDecoder_ARMImmediate(res, encoding, conditional):
 def dataProcessingInstructionDecoder_Thumb16AddSubRegister(res, encoding, condition):
     'Decode 16-bit Thumb ``add`` and ``sub`` instructions of the type ``add r0, r1, r2``.'
     x = _DPTYPE_SUB if res.x else _DPTYPE_ADD
-    setFlags = condition != COND_NONE
+    setFlags = condition == COND_NONE
     op2 = Register(res.m)
     return createDataProcessingInstruction(encoding, 2, 1, x, res.d, res.n, op2, setFlags)
 
@@ -419,7 +419,7 @@ def dataProcessingInstructionDecoder_Thumb16AddSubRegister(res, encoding, condit
 def dataProcessingInstructionDecoder_Thumb16AddSub3BitImmediate(res, encoding, condition):
     'Decode 16-bit Thumb ``add`` and ``sub`` instructions of the type ``add r0, r1, #0x2``.'
     x = _DPTYPE_SUB if res.x else _DPTYPE_ADD
-    setFlags = condition != COND_NONE
+    setFlags = condition == COND_NONE
     op2 = Constant(res.i)
     return createDataProcessingInstruction(encoding, 2, 1, x, res.d, res.n, op2, setFlags)
 
@@ -428,7 +428,7 @@ def dataProcessingInstructionDecoder_Thumb16AddSub3BitImmediate(res, encoding, c
 def dataProcessingInstructionDecoder_Thumb16AddSub8BitImmediate(res, encoding, condition):
     'Decode 16-bit Thumb ``add`` and ``sub`` instructions of the type ``add r0, r0, #0x12``.'
     x = _DPTYPE_SUB if res.x else _DPTYPE_ADD
-    setFlags = condition != COND_NONE
+    setFlags = condition == COND_NONE
     op2 = Constant(res.i)
     return createDataProcessingInstruction(encoding, 2, 1, x, res.d, res.d, op2, setFlags)
 
@@ -451,7 +451,8 @@ def dataProcessingInstructionDecoder_Thumb16Register(res, encoding, condition):
         return None
     else:
         op2 = Register(res.m)
-    return createDataProcessingInstruction(encoding, 2, 1, x, res.d, srcReg, op2, condition == COND_NONE)
+    setFlags = condition == COND_NONE
+    return createDataProcessingInstruction(encoding, 2, 1, x, res.d, srcReg, op2, setFlags, shiftTnA)
 
 # Sect A6.2.3
 @InstructionDecoder(2, 1, '01000100dmmmmddd')
