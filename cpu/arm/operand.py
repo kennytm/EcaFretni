@@ -18,6 +18,8 @@
 
 
 from abc import ABCMeta, abstractmethod
+from cpu.arm.functions import REG_SP, REG_LR, REG_PC
+from collections import defaultdict
 
 class Operand(metaclass=ABCMeta):
     '''This class represents an operand. An operand is an argument to an
@@ -65,7 +67,8 @@ class Constant(Operand):
     def __bool__(self):
         return not not self.imm
 
-    
+_register_names = {REG_SP: 'sp', REG_LR: 'lr', REG_PC: 'pc'}
+
 class Register(MutableOperand):
     'This class encapsulates a generic register (r0 to r15).'
     def __init__(self, regnum):
@@ -76,10 +79,10 @@ class Register(MutableOperand):
         thread.r[self.rnum] = value
     def __str__(self):
         rnum = self.rnum
-        if rnum < 13:
-            return 'r{0}'.format(rnum)
+        if rnum in _register_names:
+            return _register_names[rnum]
         else:
-            return ('sp','lr','pc')[rnum-13]
+            return 'r{0}'.format(rnum)
     def __eq__(self, other):
         return isinstance(other, type(self)) and self.rnum == other.rnum
     def __hash__(self):

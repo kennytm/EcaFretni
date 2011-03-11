@@ -43,7 +43,7 @@ class SpecialPointer(object):
         0
         >>> StackPointer(12) & 0xffffffff
         StackPointer(12)
-    
+
     .. method:: __rshift__(value)
     
         The right-shift operation is special cased such that it alawys returns
@@ -65,7 +65,7 @@ class SpecialPointer(object):
     
     def __and__(self, mask):
         return self if mask & 3 else 0
-        
+    
     def __rshift__(self, value):
         return 0
             

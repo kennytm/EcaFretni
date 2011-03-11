@@ -18,8 +18,10 @@
 
 from collections import Hashable
 from abc import ABCMeta, abstractmethod, abstractproperty
-from cpu.arm.functions import Shift, Shift_C
+from itertools import chain
+from cpu.arm.functions import Shift, Shift_C, COND_NONE
 from cpu.arm.operand import Constant, Operand
+
 
 __all__ = ['Instruction', 'Condition']
 
@@ -29,11 +31,8 @@ def _formatShift(shiftType, shiftAmount):
     else:
         return ", {0} {1}".format(("lsl", "lsr", "asr", "ror")[shiftType], shiftAmount.decstr())
 
-class abstractclassmethod(classmethod):
-    __isabstractmethod__ = True
-    def __init__(self, callable):
-        callable.__isabstractmethod__ = True
-        super().__init__(callable)
+
+
 
 class Instruction(metaclass=ABCMeta):
     '''
@@ -101,9 +100,7 @@ class Instruction(metaclass=ABCMeta):
         +--------------------------------------------+---------------------------------+
                 
     '''
-    
-    UNCONDITIONAL = False
-        
+            
     def __init__(self, encoding, length, instructionSet):
         self.length = length
         self.encoding = encoding
@@ -112,48 +109,7 @@ class Instruction(metaclass=ABCMeta):
         self.width = ''
         self.shiftType = 0
         self.shiftAmount = Constant(0)
-
-
-    @classmethod
-    def create(cls, encoding, length, instructionSet, forceCondition=15):
-        '''Create an instruction using *encoding* with length *length* in
-        *instructionSet*.
-        
-        If the instruction ought to carry a condition (e.g. due to the IT block)
-        you could supply a valid condition code in *forceCondition*.'''
-        
-        isARM = instructionSet == 0
-        cond = forceCondition
-        if isARM and cond == 15:
-            cond = encoding >> 28
-            encoding &= 0xfffffff
-        
-        for sub in cls.__subclasses__():
-            if isARM and sub.UNCONDITIONAL != (cond == 15):
-                continue
-            retval = sub.tryCreate(encoding, length, instructionSet, cond)
-            if retval:
-                break
-        else:
-             retval = cls(encoding, length, instructionSet)
-
-        if cond != 15:
-            retval.condition = Condition(cond)
-        return retval
-
-    @abstractclassmethod
-    def tryCreate(cls, encoding, length, instructionSet, condition):
-        '''Try to create an instruction with this subclass. If this particular
-        subclass cannot handle *encoding*, it should return ``None``. All
-        subclasses must override this function.
-        
-        When this method is called with an ARM instruction, the condition code
-        will *not* be included along the *encoding*. If the subclass is an
-        unconditional instruction (i.e. the condition code must always be 15),
-        the subclass should override the class attribute ``UNCONDITIONAL`` to
-        True.'''
-        assert False
-
+    
     @abstractmethod
     def mainOpcode(self):
         "Return the instruction's opcode without conditions."
@@ -218,7 +174,7 @@ class Instruction(metaclass=ABCMeta):
         'Disassemble this instruction.'
         opcode = self.opcode
         operands = ', '.join(map(str, self.operands))
-        if self.shiftAmount:
+        if self.shiftType or self.shiftAmount:
             operands += _formatShift(self.shiftType, self.shiftAmount)
         return '{0}\t{1}'.format(opcode, operands)
         

@@ -8,6 +8,16 @@ Auxiliary functions
 -------------------
 .. autofunction:: cpu.arm.functions.signed
 
+.. data:: cpu.arm.functions.REG_SP (13)
+    cpu.arm.functions.REG_LR (14)
+    cpu.arm.functions.REG_PC (15)
+    
+    Special register names.
+
+.. data:: cpu.arm.functions.COND_NONE (15)
+
+    The condition code representing "no condition". Equivalent to
+    :const:`cpu.arm.instruction.Condition.NV`.
 
 
 .. (sect A2.2.1)
@@ -36,6 +46,8 @@ Fixing PC address
 
 .. autofunction:: cpu.arm.functions.fixPCAddrBX
 .. autofunction:: cpu.arm.functions.fixPCAddrB
+.. autofunction:: cpu.arm.functions.fixPCAddrLoad
+.. autofunction:: cpu.arm.functions.fixPCAddrALU
 
 
 

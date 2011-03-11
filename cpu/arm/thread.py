@@ -19,8 +19,8 @@
 from cpu.arm.status import Status, FloatingPointStatus
 from cpu.memory import Memory
 from cpu.pointers import StackPointer, Return
-from cpu.arm.instruction import Instruction
-from cpu.arm.functions import ITAdvance
+from cpu.arm.decoder import InstructionDecoder
+from cpu.arm.functions import ITAdvance, REG_SP, REG_LR, REG_PC, COND_NONE
 from copy import deepcopy, copy
 
 class _RegisterList(list):
@@ -30,13 +30,13 @@ class _RegisterList(list):
 
     def __getitem__(self, i):
         retval = super().__getitem__(i)
-        if i == 15:
+        if i == REG_PC:
             retval += self.pcOffset
         return retval
 
     @property
     def pcRaw(self):
-        return super().__getitem__(15)
+        return super().__getitem__(REG_PC)
 
 
 class Thread(object):
@@ -144,20 +144,20 @@ class Thread(object):
         '''This is an alias to ``r[13]``. The acronym means "stack pointer". The
         value should be a :class:`~cpu.pointers.StackPointer` pointing to the
         top of the stack.'''
-        return self.r[13]
+        return self.r[REG_SP]
     @sp.setter
     def sp(self, value):
-        self.r[13] = value
+        self.r[REG_SP] = value
     
     @property
     def lr(self):
         '''This is an alias to ``r[14]``. The acronym means "link register".
         This register often holds the address to the caller, although sometimes
         it is also used as a general-purpose register.'''
-        return self.r[14]
+        return self.r[REG_LR]
     @lr.setter
     def lr(self, value):
-        self.r[14] = value
+        self.r[REG_LR] = value
     
     @property
     def pc(self):
@@ -165,10 +165,10 @@ class Thread(object):
         This is a special register which always points to 4 or 8 bytes after the
         current instruction on read. Modifying this value will cause the program
         jump to another position.'''
-        return self.r[15]
+        return self.r[REG_PC]
     @pc.setter
     def pc(self, value):
-        self.r[15] = value
+        self.r[REG_PC] = value
     
     @property
     def pcRaw(self):
@@ -225,12 +225,12 @@ class Thread(object):
             if instr < (0b11101 << 27):
                 instr >>= 16
                 instrLen = 2
-        cond = 15
+        cond = COND_NONE
         if itstate:
             cond = itstate >> 4
             cpsr.IT = ITAdvance(itstate)
                 
-        return Instruction.create(instr, instrLen, instrSet, cond)
+        return InstructionDecoder.create(instr, instrLen, instrSet, cond)
 
     def gotoEvent(self, instruction):
         '''This function is called when the

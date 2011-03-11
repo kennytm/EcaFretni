@@ -17,6 +17,8 @@
 #    
 
 (SRTYPE_LSL, SRTYPE_LSR, SRTYPE_ASR, SRTYPE_ROR, SRTYPE_RRX) = range(5)
+(REG_SP, REG_LR, REG_PC) = (13, 14, 15)
+COND_NONE = 15
 
 def signed(notmask, x):
     '''Make *x* a signed number. *notmask* should be set to ``-1<<N`` where *N*
@@ -55,7 +57,7 @@ def fixPCAddrALU(pcAddr, thumbMode):
     if thumbMode:
         return (pcAddr & ~1, True)
     else:
-        return fixPcAddrBX(pcAddr)
+        return fixPCAddrBX(pcAddr)
 
     
 
@@ -185,11 +187,11 @@ def AddWithCarry(mask, x, y, carry):
     notmask = ~mask
     usum = x + y + carry
     ssum = signed(notmask, x) + signed(notmask, y) + carry
-    overflow = ssum != signed(notmask, usum)
     carry = not not (usum & notmask)
     #^ 'usum > mask' would be more efficient, but SpecialPointer doesn't support
     #   such comparison.
     usum &= mask
+    overflow = ssum != signed(notmask, usum)
     return (usum, carry, overflow)
 
 
