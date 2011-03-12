@@ -16,7 +16,7 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from cpu.arm.instruction import Instruction
+from cpu.arm.instruction import Instruction, Condition
 from cpu.arm.decoder import InstructionDecoder
 from cpu.arm.functions import *
 from bitpattern import BitPattern
@@ -317,6 +317,73 @@ class CMNInstruction(ComparingInstruction):
         cpsr.V = overflow
         return res
 
+#===============================================================================
+# If-then and hints instructions
+# 
+#  it, nop, yield, wfe, wfi, sev
+#
+#===============================================================================
+
+class HintInstruction(Instruction):
+    '''The ``nop`` (no operation), ``yield``, ``wfe`` (wait for event), ``wfi``
+    (wait for interrupt) and ``sev`` (send event) hint instructions. In this
+    emulator, all these 5 instructions considered the same as no-op.'''
+    def __init__(self, encoding, length, instructionSet, mainOpcode):
+        super().__init__(encoding, length, instructionSet)
+        self._mainOpcode = mainOpcode
+    
+    @property
+    def operands(self):
+        return []
+
+    def mainOpcode(self):
+        return self._mainOpcode
+
+    def exec(self, thread):
+        pass
+
+_it_opcodes = (    # for firstcond[0] == 1
+    '',
+    'iteee',    # nnn1
+    'itee',     # nn10
+    'iteet',    # nny1
+    'ite',      # n100
+    'itete',    # nyn1
+    'itet',     # ny10
+    'itett',    # nyy1
+    'it',       # 1000
+    'ittee',    # ynn1
+    'itte',     # yn10
+    'ittet',    # yny1
+    'itt',      # y100
+    'ittte',    # yyn1
+    'ittt',     # yy10
+    'itttt',    # yyy1
+)
+# _it_opcodes_for_firstcond[0]=0[i] = _it_opcodes[16-i]
+
+
+class ITInstruction(Instruction):
+    'The ``it`` (if-then) instruction.'
+    def exec(self, thread):
+        thread.cpsr.IT = self.itState
+    
+    def __init__(self, encoding, length, instructionSet, cond, mask):
+        super().__init__(encoding, length, instructionSet)
+    
+        self.itState = cond * 16 + mask
+        self._operands = [Condition(cond)]
+    
+        opcodeIndex = mask if cond & 1 else 16 - mask
+        self._mainOpcode = _it_opcodes[opcodeIndex]
+    
+    @property
+    def operands(self):
+        return self._operands
+    
+    def mainOpcode(self):
+        return self._mainOpcode
+        
 
 #===============================================================================
 # Data processing instruction decoders
@@ -577,3 +644,40 @@ def specialMoveInstructionDecoder_Thumb32(res, encoding, condition):
         append = 'w'
     op2 = Constant(res.i + res.I * 0x1000)
     return createDataProcessingInstruction(encoding, 4, 1, x, res.d, res.d, op2, append=append)
+
+#===============================================================================
+# If-then and hints instruction decoder
+# 
+#  it, nop, yield, wfe, wfi, sev
+#
+#===============================================================================
+
+_hint_opcodes = ('nop', 'yield', 'wfe', 'wfi', 'sev')
+
+@InstructionDecoder(4, 0, '0011001000001111000000000xxx')
+def hintInstructionDecoder_ARM(res, encoding, condition):
+    x = res.x
+    if x > 4:
+        return None
+    return HintInstruction(encoding, 4, 0, _hint_opcodes[x])
+
+@InstructionDecoder(2, 1, '101111110xxx0000')
+def hintInstructionDecoder_Thumb16(res, encoding, condition):
+    x = res.x
+    if x > 4:
+        return None
+    return HintInstruction(encoding, 2, 1, _hint_opcodes[x])
+
+@InstructionDecoder(4, 1, '1111001110101111 1000000000000xxx')
+def hintInstructionDecoder_Thumb32(res, encoding, condition):
+    x = res.x
+    if x > 4:
+        return None
+    return HintInstruction(encoding, 4, 1, _hint_opcodes[x]).forceWide()
+
+@InstructionDecoder(2, 1, '10111111ccccmmmm')
+def ITInstructionDecoder_Thumb16(res, encoding, condition):
+    m = res.m
+    if not m:
+        return None
+    return ITInstruction(encoding, 2, 1, res.c, m)

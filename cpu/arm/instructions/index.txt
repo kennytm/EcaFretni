@@ -180,7 +180,7 @@ INDEX
 
 ::IT::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.50 - T1: ?
+   A8.6.50 - T1: ITInstructionDecoder_Thumb16
 
 ::LDC:LDC2::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -431,9 +431,9 @@ INDEX
 
 ::NOP:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.110 - T1: ?
-              T2: ?
-              A1: ?
+   A8.6.110 - T1: hintInstructionDecoder_Thumb16
+              T2: hintInstructionDecoder_Thumb32
+              A1: hintInstructionDecoder_ARM
 
 ::ORN:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -634,9 +634,9 @@ INDEX
 
 ::SEV:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.157 - T1: ?
-              T2: ?
-              A1: ?
+   A8.6.157 - T1: hintInstructionDecoder_Thumb16
+              T2: hintInstructionDecoder_Thumb32
+              A1: hintInstructionDecoder_ARM
 
 ::SHADD16:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -951,5 +951,23 @@ INDEX
                             T2: dataProcessingInstructionDecoder_Thumb32Register
                             A1: dataProcessingInstructionDecoder_ARMRegister
    A8.6.231 - (reg-shift) - A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::WFE:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.408 - T1: hintInstructionDecoder_Thumb16
+              T2: hintInstructionDecoder_Thumb32
+              A1: hintInstructionDecoder_ARM
+
+::WFI:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.409 - T1: hintInstructionDecoder_Thumb16
+              T2: hintInstructionDecoder_Thumb32
+              A1: hintInstructionDecoder_ARM
+
+::YIELD:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.410 - T1: hintInstructionDecoder_Thumb16
+              T2: hintInstructionDecoder_Thumb32
+              A1: hintInstructionDecoder_ARM
 
 (the rest are ignored for the moment)

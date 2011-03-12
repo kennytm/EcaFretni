@@ -798,6 +798,7 @@ class DataProcTestCase(TestCase):
     def test_arm_test2(self):
         program = bytes.fromhex(
             '230100e3'  # movw  r0, #0x123
+            '04f020e3'  # sev
             '320445e3'  # movt  r0, #0x5432
         )
         srom = SimulatedROM(program, vmaddr=0x1000)
@@ -807,6 +808,9 @@ class DataProcTestCase(TestCase):
         instr = thread.execute()
         self.assertEqual(str(instr), "movw\tr0, #0x123")
         self.assertEqual(thread.r[0], 0x123)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "sev\t")
 
         instr = thread.execute()
         self.assertEqual(str(instr), "movt\tr0, #0x5432")
@@ -825,6 +829,8 @@ class DataProcTestCase(TestCase):
             'cff6 dc61' # movt  r1, #0xfedc
             '4fea 6112' # asr.w r2, r1, #5
             '62fa 00f3' # ror.w r3, r2, r0
+            '00bf'      # nop
+            'aff3 0080' # nop.w
         )
         srom = SimulatedROM(program, vmaddr=0x1000)
         thread = Thread(srom)
@@ -890,5 +896,119 @@ class DataProcTestCase(TestCase):
         self.assertEqual(str(instr), "ror.w\tr3, r2, r0")
         self.assertEqual(thread.r[3], 0xAF7FFB72)
 
+        instr = thread.execute()
+        self.assertEqual(str(instr), "nop\t")
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "nop.w\t")
+
+
+    def test_thumb_ifthen(self):
+        program = bytes.fromhex(
+            '8842'      # cmp   r0, r1
+            '2cbf'      # ite   cs
+            '421a'      # subcs r2, r0, r1
+            'c0eb 0102' # rsbcc r2, r0, r1
+            '002a'      # cmp   r2, #0x0
+            '0dbf'      # iteet eq
+            '0123'      # moveq r3, #0x1
+            '0023'      # movne r3, #0x0
+            '4ff0 ff32' # movne.w r2, #0xffffffff
+            '9b18'      # addeq r3, r3, r2
+        )
+        srom = SimulatedROM(program, vmaddr=0x1000)
+        thread = Thread(srom)
+        thread.instructionSet = 1
+        thread.r[0] = 4
+        thread.r[1] = 6
+        thread.r[2] = 0
+        thread.r[3] = 2
+        
+        thread.pc = 0x1000
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), "cmp\tr0, r1")
+        self.assertTrue(thread.cpsr.N)
+        self.assertFalse(thread.cpsr.C)
+        self.assertFalse(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), "ite\tcs")
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "subcs\tr2, r0, r1")
+        self.assertEqual(thread.r[2], 0)
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), "rsbcc.w\tr2, r0, r1")
+        self.assertEqual(thread.r[2], 2)
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), "cmp\tr2, #0x0")
+        self.assertFalse(thread.cpsr.N)
+        self.assertTrue(thread.cpsr.C)
+        self.assertFalse(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), "iteet\teq")
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), "moveq\tr3, #0x1")
+        self.assertEqual(thread.r[3], 2)
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), "movne\tr3, #0x0")
+        self.assertEqual(thread.r[3], 0)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "movne.w\tr2, #0xffffffff")
+        self.assertEqual(thread.r[2], 0xffffffff)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "addeq\tr3, r3, r2")
+        self.assertEqual(thread.r[3], 0)
+        
+        # try again with a different condition.
+        thread.r[0] = 5
+        thread.r[1] = 5
+        thread.r[2] = 5
+        thread.r[3] = 2
+        thread.pc = 0x1000
+        
+        instr = thread.execute()    # cmp r0, r1
+        self.assertFalse(thread.cpsr.N)
+        self.assertTrue(thread.cpsr.C)
+        self.assertTrue(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+        
+        instr = thread.execute()    # ite cs
+        
+        instr = thread.execute()    # subcs r2, r0, r1
+        self.assertEqual(thread.r[2], 0)
+
+        instr = thread.execute()    # rsbcc r2, r0, r1
+        self.assertEqual(thread.r[2], 0)
+        
+        instr = thread.execute()    # cmp r2, #0x0
+        self.assertFalse(thread.cpsr.N)
+        self.assertTrue(thread.cpsr.C)
+        self.assertTrue(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+
+        instr = thread.execute()    # iteet eq
+        
+        instr = thread.execute()    # moveq r3, #1
+        self.assertEqual(thread.r[3], 1)
+
+        instr = thread.execute()    # movne r3, #0
+        self.assertEqual(thread.r[3], 1)
+
+        instr = thread.execute()    # movne.w r2, #-1
+        self.assertEqual(thread.r[2], 0)
+
+        instr = thread.execute()    # addeq r3, r2
+        self.assertEqual(thread.r[3], 1)
 
 main()
