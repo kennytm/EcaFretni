@@ -794,6 +794,101 @@ class DataProcTestCase(TestCase):
         instr = thread.execute()
         self.assertEqual(str(instr), "add\tr5, sp, #0x8")
         self.assertEqual(thread.r[5], StackPointer(4))
+    
+    def test_arm_test2(self):
+        program = bytes.fromhex(
+            '230100e3'  # movw  r0, #0x123
+            '320445e3'  # movt  r0, #0x5432
+        )
+        srom = SimulatedROM(program, vmaddr=0x1000)
+        thread = Thread(srom)
+        thread.pc = 0x1000
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "movw\tr0, #0x123")
+        self.assertEqual(thread.r[0], 0x123)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "movt\tr0, #0x5432")
+        self.assertEqual(thread.r[0], 0x54320123)
+
+    
+    def test_thumb_test2(self):
+        program = bytes.fromhex(
+            '0920'      # movs  r0, #0x9
+            '0101'      # lsls  r1, r0, #4
+            '8842'      # cmp   r0, r1
+            '0100'      # movs  r1, r0
+            '8046'      # mov   r8, r0
+            '4045'      # cmp   r0, r8
+            '4af6 cd31' # movw  r1, #0xabcd
+            'cff6 dc61' # movt  r1, #0xfedc
+            '4fea 6112' # asr.w r2, r1, #5
+            '62fa 00f3' # ror.w r3, r2, r0
+        )
+        srom = SimulatedROM(program, vmaddr=0x1000)
+        thread = Thread(srom)
+        thread.pc = 0x1000
+        thread.instructionSet = 1
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), "movs\tr0, #0x9")
+        self.assertEqual(thread.r[0], 9)
+        self.assertFalse(thread.cpsr.N)
+        self.assertFalse(thread.cpsr.C)
+        self.assertFalse(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), "lsls\tr1, r0, #4")
+        self.assertEqual(thread.r[1], 144)
+        self.assertFalse(thread.cpsr.N)
+        self.assertFalse(thread.cpsr.C)
+        self.assertFalse(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "cmp\tr0, r1")
+        self.assertEqual(thread.r[0], 9)
+        self.assertTrue(thread.cpsr.N)
+        self.assertFalse(thread.cpsr.C)
+        self.assertFalse(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "movs\tr1, r0")
+        self.assertEqual(thread.r[1], 9)
+        self.assertFalse(thread.cpsr.N)
+        self.assertFalse(thread.cpsr.C)
+        self.assertFalse(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "mov\tr8, r0")
+        self.assertEqual(thread.r[8], 9)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "cmp\tr0, r8")
+        self.assertFalse(thread.cpsr.N)
+        self.assertTrue(thread.cpsr.C)
+        self.assertTrue(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "movw\tr1, #0xabcd")
+        self.assertEqual(thread.r[1], 0xabcd)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "movt\tr1, #0xfedc")
+        self.assertEqual(thread.r[1], 0xfedcabcd)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "asr.w\tr2, r1, #5")
+        self.assertEqual(thread.r[2], 0xFFF6E55E)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "ror.w\tr3, r2, r0")
+        self.assertEqual(thread.r[3], 0xAF7FFB72)
 
 
 main()

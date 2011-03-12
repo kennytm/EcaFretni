@@ -28,7 +28,7 @@ import re
 # Data processing instructions
 # 
 #  adc, add, and, eor, sub, sbc, rsb, rsc, orr, mov (lsl, lsr, asr, ror, rrx),
-#  bic, mvn, orn, pkh
+#  bic, mvn, orn, pkh, movt
 #
 #===============================================================================
 
@@ -227,6 +227,16 @@ class MVNInstruction(DataProcInstruction):
             (res, cpsr.T) = fixPCAddrALU(res, cpsr.T)
         thread.r[targetReg] = res
 
+class MOVTInstruction(DataProcInstruction):
+    'The ``movt`` (move top) instruction.'
+    @property
+    def operands(self):
+        return [Register(self.targetReg), self.op2]
+    
+    def execCore(self, op1, op2, carry):    # pragma: no cover
+        return (op1 & 0xffff) + (op2 * 0x10000)
+    
+
 class PKHInstruction(DataProcInstruction):
     'The ``pkh`` (pack halfword) instruction.'
     def execCore(self, op1, op2, carry):
@@ -312,7 +322,7 @@ class CMNInstruction(ComparingInstruction):
 # Data processing instruction decoders
 # 
 #  adc, add, and, eor, sub, sbc, rsb, rsc, orr, mov (lsl, lsr, asr, ror, rrx),
-#  bic, mvn, tst, teq, cmp, cmn, orn, pkh
+#  bic, mvn, tst, teq, cmp, cmn, orn, pkh, movt
 #
 #===============================================================================
 
@@ -320,21 +330,21 @@ class CMNInstruction(ComparingInstruction):
  _DPTYPE_ADD, _DPTYPE_ADC, _DPTYPE_SBC, _DPTYPE_RSC,
  _DPTYPE_TST, _DPTYPE_TEQ, _DPTYPE_CMP, _DPTYPE_CMN,
  _DPTYPE_ORR, _DPTYPE_MOV, _DPTYPE_BIC, _DPTYPE_MVN,
- _DPTYPE_ORN, _DPTYPE_PKH) = range(18)
+ _DPTYPE_ORN, _DPTYPE_PKH, _DPTYPE_MOVT) = range(19)
 
 _dataProcReg_arm_opcodes = (
     'and', 'eor', 'sub', 'rsb',
     'add', 'adc', 'sbc', 'rsc',
     'tst', 'teq', 'cmp', 'cmn',
     'orr', 'mov', 'bic', 'mvn',
-    'orn', 'pkh', '', '',
+    'orn', 'pkh', 'movt', '',
 )
 _dataProcReg_arm_classes = (
     ANDInstruction, EORInstruction, SUBInstruction, RSBInstruction,
     ADDInstruction, ADCInstruction, SBCInstruction, RSCInstruction,
     TSTInstruction, TEQInstruction, CMPInstruction, CMNInstruction,
     ORRInstruction, MOVInstruction, BICInstruction, MVNInstruction,
-    ORNInstruction, PKHInstruction, None, None)
+    ORNInstruction, PKHInstruction, MOVTInstruction, None, None)
 
 _dataProcReg_thumb32_to_arm = {
     0: _DPTYPE_AND, 1: _DPTYPE_BIC, 2: _DPTYPE_ORR, 3: _DPTYPE_ORN,
@@ -406,6 +416,19 @@ def dataProcessingInstructionDecoder_ARMImmediate(res, encoding, conditional):
     return createDataProcessingInstruction(encoding, 4, 0, x, res.d, res.n, op2, res.S, isADR=isADR)
 
 # Sect A6.2.1
+@InstructionDecoder(2, 1, '000ttiiiiimmmddd')
+def dataProcessingInstructionDecoder_Thumb16ShiftImmediate(res, encoding, condition):
+    'Decode 16-bit Thumb ``lsl``, ``lsr`` and ``asr`` instructions of the type ``lsls r0, r1, #2``.'
+    shiftType = res.t
+    if shiftType == 0b11:   # ror is not part of Thumb16
+        return None
+    shiftTnA = DecodeImmShift(shiftType, res.i)
+    op2 = Register(res.m)
+    setFlags = condition == COND_NONE
+    return createDataProcessingInstruction(encoding, 2, 1, _DPTYPE_MOV, res.d, res.d, op2, setFlags, shiftTnA)
+    
+
+# Sect A6.2.1
 @InstructionDecoder(2, 1, '000110xmmmnnnddd')
 def dataProcessingInstructionDecoder_Thumb16AddSubRegister(res, encoding, condition):
     'Decode 16-bit Thumb ``add`` and ``sub`` instructions of the type ``add r0, r1, r2``.'
@@ -424,10 +447,10 @@ def dataProcessingInstructionDecoder_Thumb16AddSub3BitImmediate(res, encoding, c
     return createDataProcessingInstruction(encoding, 2, 1, x, res.d, res.n, op2, setFlags)
 
 # Sect A6.2.1
-@InstructionDecoder(2, 1, '0011xdddiiiiiiii')
-def dataProcessingInstructionDecoder_Thumb16AddSub8BitImmediate(res, encoding, condition):
-    'Decode 16-bit Thumb ``add`` and ``sub`` instructions of the type ``add r0, r0, #0x12``.'
-    x = _DPTYPE_SUB if res.x else _DPTYPE_ADD
+@InstructionDecoder(2, 1, '001xxdddiiiiiiii')
+def dataProcessingInstructionDecoder_Thumb16_8BitImmediate(res, encoding, condition):
+    'Decode 16-bit Thumb ``mov``, ``cmp``, ``add`` and ``sub`` instructions of the type ``mov r0, #0x12``.'
+    x = (_DPTYPE_MOV, _DPTYPE_CMP, _DPTYPE_ADD, _DPTYPE_SUB)[res.x]
     setFlags = condition == COND_NONE
     op2 = Constant(res.i)
     return createDataProcessingInstruction(encoding, 2, 1, x, res.d, res.d, op2, setFlags)
@@ -455,11 +478,16 @@ def dataProcessingInstructionDecoder_Thumb16Register(res, encoding, condition):
     return createDataProcessingInstruction(encoding, 2, 1, x, res.d, srcReg, op2, setFlags, shiftTnA)
 
 # Sect A6.2.3
-@InstructionDecoder(2, 1, '01000100dmmmmddd')
-def dataProcessingInstructionDecoder_Thumb16AddHighRegister(res, encoding, condition):
-    'Decode 16-bit Thumb ``add`` instruction of the type ``add r10, r10, r11``.'
+@InstructionDecoder(2, 1, '010001xxdmmmmddd')
+def dataProcessingInstructionDecoder_Thumb16HighRegister(res, encoding, condition):
+    'Decode 16-bit Thumb ``add``, ``cmp`` and ``mov`` instructions of the type ``add r10, r11``.'
+    xt = res.x
+    if xt == 0b11:
+        # these are B and BX instructions
+        return None
+    x = (_DPTYPE_ADD, _DPTYPE_CMP, _DPTYPE_MOV)[xt]
     op2 = Register(res.m)
-    return createDataProcessingInstruction(encoding, 2, 1, _DPTYPE_ADD, res.d, res.d, op2)
+    return createDataProcessingInstruction(encoding, 2, 1, x, res.d, res.d, op2)
 
 # Sect A6.2.5
 @InstructionDecoder(2, 1, '10110000xiiiiiii')
@@ -503,8 +531,8 @@ def dataProcessingInstructionDecoder_Thumb32ImmediateW(res, encoding, condition)
 
 # Sect A6.3.11
 @InstructionDecoder(4, 1, '1110101xxxxSnnnn 0iiiddddiittmmmm')
-def dataProcessingInstructionDecoder_Thumb32ShiftRegister(res, encoding, condition):
-    'Decode 32-bit Thumb data-processing instructions of the type ``add r0, r1, r2, lsl #3``.'
+def dataProcessingInstructionDecoder_Thumb32Register(res, encoding, condition):
+    'Decode 32-bit Thumb data-processing instructions of the type ``add.w r0, r1, r2, lsl #3``.'
     x = getARMTypeFromThumbType(res.x, res.d, res.n)
     if x < 0:
         return None
@@ -512,10 +540,40 @@ def dataProcessingInstructionDecoder_Thumb32ShiftRegister(res, encoding, conditi
     shiftTnA = DecodeImmShift(res.t, res.i)
     return createDataProcessingInstruction(encoding, 4, 1, x, res.d, res.n, op2, res.S, shiftTnA).forceWide()
 
+# Sect A6.3.12
+@InstructionDecoder(4, 1, '111110100ttSnnnn 1111dddd0000mmmm')
+def dataProcessingInstructionDecoder_Thumb32RegisterShiftInstr(res, encoding, condition):
+    'Decode 32-bit Thumb shift instructions of the type ``lsl.w r0, r1, r2``.'
+    op2 = Register(res.n)
+    shiftTnA = (res.t, Register(res.m))
+    return createDataProcessingInstruction(encoding, 4, 1, _DPTYPE_MOV, res.d, res.d, op2, res.S, shiftTnA).forceWide()
+
 # Sect A8.6.10
 @InstructionDecoder(2, 1, '10100dddiiiiiiii')
 def ADRInstructionDecoder_Thumb16(res, encoding, condition):
     op2 = Constant(res.i * 4)
     return createDataProcessingInstruction(encoding, 2, 1, _DPTYPE_ADD, res.d, REG_PC, op2, isADR=True)
 
+# Sect A5.2
+@InstructionDecoder(4, 0, '00110x00iiiiddddiiiiiiiiiiii')
+def specialMoveInstructionDecoder_ARM(res, encoding, condition):
+    if res.x:
+        x = _DPTYPE_MOVT
+        append = ''
+    else:
+        x = _DPTYPE_MOV
+        append = 'w'
+    op2 = Constant(res.i)
+    return createDataProcessingInstruction(encoding, 4, 0, x, res.d, res.d, op2, append=append)
 
+# Sect A6.3.3
+@InstructionDecoder(4, 1, '11110i10x100IIII 0iiiddddiiiiiiii')
+def specialMoveInstructionDecoder_Thumb32(res, encoding, condition):
+    if res.x:
+        x = _DPTYPE_MOVT
+        append = ''
+    else:
+        x = _DPTYPE_MOV
+        append = 'w'
+    op2 = Constant(res.i + res.I * 0x1000)
+    return createDataProcessingInstruction(encoding, 4, 1, x, res.d, res.d, op2, append=append)

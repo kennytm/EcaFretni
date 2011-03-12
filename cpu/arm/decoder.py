@@ -84,9 +84,10 @@ class InstructionDecoder(object):
                 continue
             retval = decoder(encoding, cond)
             if retval:
+                #print ('Decoded',hex(encoding),'with',decoder)
                 break
-        else:
-            raise NotImplementedError("Cannot decode 0x{0:x} [{0:0{3}b}] of length {1} in instruction set {2}".format(encoding, length, instructionSet, length*8))
+        else:   # pragma: no cover
+            raise NotImplementedError("Cannot decode 0x{0:0{1}x} [{0:0{3}b}] of length {1} in instruction set {2}".format(encoding, length, instructionSet, length*8))
             retval = Instruction(encoding, length, instructionSet)
 
         if cond != COND_NONE:
