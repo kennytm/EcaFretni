@@ -24,7 +24,7 @@ from cpu.arm.operand import Constant, Register
 from cpu.arm.status import Status
 from cpu.memory import SimulatedROM
 from cpu.arm.thread import Thread
-from cpu.pointers import StackPointer
+from cpu.pointers import StackPointer, Return
 from cpu.arm.functions import *
 
 class StatusTestCase(TestCase):
@@ -559,7 +559,6 @@ class DataProcTestCase(TestCase):
         self.assertEqual(str(instr), 'mov\tr0, #0xc')
         self.assertEqual(thread.r[0], 12)
 
-        
     def test_thumb_adc(self):
         program = bytes.fromhex(
             '41f1 8420'  # adc.w  r0, r1, #0x84008400
@@ -631,7 +630,6 @@ class DataProcTestCase(TestCase):
         self.assertEqual(str(instr), "adcs.w\tr2, r2, pc")
         self.assertEqual(thread.r[2], 12345 + 0x100a + 4 + 1)
         self.assertEqual(thread.pcRaw, 0x100e)
-
         
     def test_thumb_adr(self):
         program = bytes.fromhex(
@@ -675,7 +673,6 @@ class DataProcTestCase(TestCase):
         instr = thread.execute()
         self.assertEqual(str(instr), "subw\tr4, pc, #0x8")
         self.assertEqual(thread.r[4], 0x100c)
-
 
     def test_thumb_dataprocs(self):
         program = bytes.fromhex(
@@ -795,28 +792,6 @@ class DataProcTestCase(TestCase):
         self.assertEqual(str(instr), "add\tr5, sp, #0x8")
         self.assertEqual(thread.r[5], StackPointer(4))
     
-    def test_arm_test2(self):
-        program = bytes.fromhex(
-            '230100e3'  # movw  r0, #0x123
-            '04f020e3'  # sev
-            '320445e3'  # movt  r0, #0x5432
-        )
-        srom = SimulatedROM(program, vmaddr=0x1000)
-        thread = Thread(srom)
-        thread.pc = 0x1000
-
-        instr = thread.execute()
-        self.assertEqual(str(instr), "movw\tr0, #0x123")
-        self.assertEqual(thread.r[0], 0x123)
-
-        instr = thread.execute()
-        self.assertEqual(str(instr), "sev\t")
-
-        instr = thread.execute()
-        self.assertEqual(str(instr), "movt\tr0, #0x5432")
-        self.assertEqual(thread.r[0], 0x54320123)
-
-    
     def test_thumb_test2(self):
         program = bytes.fromhex(
             '0920'      # movs  r0, #0x9
@@ -902,7 +877,7 @@ class DataProcTestCase(TestCase):
         instr = thread.execute()
         self.assertEqual(str(instr), "nop.w\t")
 
-
+class IfThenTestCase(TestCase):
     def test_thumb_ifthen(self):
         program = bytes.fromhex(
             '8842'      # cmp   r0, r1
@@ -1010,5 +985,160 @@ class DataProcTestCase(TestCase):
 
         instr = thread.execute()    # addeq r3, r2
         self.assertEqual(thread.r[3], 1)
+
+class BranchTestCase(TestCase):
+    def test_loop_program(self):
+        program = bytes.fromhex(
+            '1000a0e3'  # mov r0, #0x10
+            '0010a0e3'  # mov r1, #0x0
+            '0e20a0e1'  # mov r2, lr
+            '020000fa'  # blx pc+0x8
+            '000050e3'  # cmp r0, #0x0
+            'fcffff1a'  # bne pc-0x10
+            '12ff2fe1'  # bx  r2
+            
+            '0918'  # adds r1, r1, r0
+            '0138'  # subs r0, r0, #0x1
+            '7047'  # bx   lr
+        )
+        
+        srom = SimulatedROM(program, vmaddr=0x2fdc)
+        thread = Thread(srom)
+        thread.pc = 0x2fdc
+        
+        instr = thread.execute()    # mov r0, #0x10
+        instr = thread.execute()    # mov r1, #0x0
+        instr = thread.execute()    # mov r2, lr
+        self.assertEqual(str(instr), 'mov\tr2, lr')
+        self.assertEqual(thread.r[2], Return)
+        
+        instr = thread.execute()    # blx pc+0x8
+        self.assertEqual(str(instr), 'blx\tpc+0x8')
+        self.assertEqual(thread.pcRaw, 0x2ff8)
+        self.assertEqual(thread.lr, 0x2fec)
+        self.assertTrue(thread.cpsr.T)
+        
+        instr = thread.execute()    # adds r1, r1, r0
+        self.assertEqual(str(instr), 'adds\tr1, r1, r0')
+        self.assertEqual(thread.r[1], 16)
+        
+        instr = thread.execute()    # subs r0, r0, #1
+        instr = thread.execute()    # bx lr
+        self.assertEqual(str(instr), 'bx\tlr')        
+        self.assertEqual(thread.lr, 0x2fec)
+        self.assertFalse(thread.cpsr.T)
+        
+        instr = thread.execute()    # cmp r0, #0
+        self.assertEqual(str(instr), 'cmp\tr0, #0x0')
+        self.assertFalse(thread.cpsr.N)
+        self.assertTrue(thread.cpsr.C)
+        self.assertFalse(thread.cpsr.Z)
+        self.assertFalse(thread.cpsr.V)
+        
+        instr = thread.execute()    # bne pc-0x10
+        self.assertEqual(str(instr), 'bne\tpc-0x10')
+        self.assertEqual(thread.pcRaw, 0x2fe8)
+        self.assertFalse(thread.cpsr.T)
+
+        instr = thread.execute()    # blx pc+0x8
+        self.assertEqual(str(instr), 'blx\tpc+0x8')
+        self.assertEqual(thread.pcRaw, 0x2ff8)
+        self.assertEqual(thread.lr, 0x2fec)
+        self.assertTrue(thread.cpsr.T)
+        
+        thread.run()
+        
+        self.assertEqual(thread.pcRaw, Return)
+        self.assertEqual(thread.r[0], 0)
+        self.assertEqual(thread.r[1], 136)
+        self.assertEqual(thread.r[2], Return)        
+        
+        
+
+class MiscInstrTestCase(TestCase):
+    def test_arm_special_move(self):
+        program = bytes.fromhex(
+            '230100e3'  # movw  r0, #0x123
+            '04f020e3'  # sev
+            '320445e3'  # movt  r0, #0x5432
+        )
+        srom = SimulatedROM(program, vmaddr=0x1000)
+        thread = Thread(srom)
+        thread.pc = 0x1000
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "movw\tr0, #0x123")
+        self.assertEqual(thread.r[0], 0x123)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "sev\t")
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), "movt\tr0, #0x5432")
+        self.assertEqual(thread.r[0], 0x54320123)
+    
+    def test_crazy_jump(self):
+        program = bytes.fromhex(
+            '4ff0 0000' # mov.w r0, #0x0
+            '0028'      # cmp   r0, #0x0
+            '0ad0'      # beq   0x2ff6
+            '00f0 0a80' # beq.w 0x2ff8
+            '0ff2 1401' # addw  r1, pc, #0x14
+            '8847'      # blx   r1
+            '00f0 00f8' # bl    0x2fee
+            '00f0 06e8' # blx   0x2ffc
+            'cef3 008f' # bxj   lr
+            'f3e7'      # b     0x2fe0
+            'fff7 f4bf' # b.w   0x2fe4
+            
+            '1eff2fe1'  # bx    lr
+        )
+        srom = SimulatedROM(program, vmaddr=0x2fd8)
+        thread = Thread(srom)
+        thread.pc = 0x2fd8
+        thread.instructionSet = 1
+        
+        self.assertEqual(thread.pcRaw, 0x2fd8)
+        thread.execute()    # mov.w r0, #0x0
+        
+        self.assertEqual(thread.pcRaw, 0x2fdc)
+        thread.execute()    # cmp r0, #0x0
+        
+        self.assertEqual(thread.pcRaw, 0x2fde)
+        thread.execute()    # beq 0x2ff6
+        
+        self.assertEqual(thread.pcRaw, 0x2ff6)
+        thread.execute()    # b 0x2fe0
+
+        self.assertEqual(thread.pcRaw, 0x2fe0)
+        thread.execute()    # beq.w 0x2ff8
+
+        self.assertEqual(thread.pcRaw, 0x2ff8)
+        thread.execute()    # b.w 0x2fe4
+
+        self.assertEqual(thread.pcRaw, 0x2fe4)
+        thread.execute()    # addw r1, pc, #0x20
+        self.assertEqual(thread.r[1], 0x2ffc)
+        
+        self.assertEqual(thread.pcRaw, 0x2fe8)
+        thread.execute()    # blx r1
+        
+        self.assertEqual(thread.pcRaw, 0x2ffc)
+        thread.execute()    # bx lr
+        
+        self.assertEqual(thread.pcRaw, 0x2fea)
+        thread.execute()    # bl 0x2fee
+        
+        self.assertEqual(thread.pcRaw, 0x2fee)
+        thread.execute()    # blx 0x2ffc
+
+        self.assertEqual(thread.pcRaw, 0x2ffc)
+        thread.execute()    # bx lr
+
+        self.assertEqual(thread.pcRaw, 0x2ff2)
+        instr = thread.fetch()    # bxj lr
+        self.assertEqual(str(instr), 'bxj\tlr')
+        
+
 
 main()

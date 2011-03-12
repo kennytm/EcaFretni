@@ -20,7 +20,7 @@ from cpu.arm.instruction import Instruction, Condition
 from cpu.arm.decoder import InstructionDecoder
 from cpu.arm.functions import *
 from bitpattern import BitPattern
-from cpu.arm.operand import Register, Constant
+from cpu.arm.operand import Register, Constant, PCRelative
 from abc import abstractmethod
 import re
 
@@ -383,7 +383,88 @@ class ITInstruction(Instruction):
     
     def mainOpcode(self):
         return self._mainOpcode
-        
+
+#===============================================================================
+# Branch instructions
+# 
+#  b, bl, bx, blx
+#
+#===============================================================================
+
+class BInstruction(Instruction):
+    'The ``b`` (branch) instruction.'
+    def __init__(self, encoding, length, instructionSet, target):
+        super().__init__(encoding, length, instructionSet)
+        self.target = target
+    
+    @property
+    def operands(self):
+        return [self.target]
+    
+    def mainOpcode(self):
+        return 'b'
+    
+    def exec(self, thread):
+        thread.pc = fixPCAddrB(self.target.get(thread), thread.cpsr.T)
+
+class BLInstruction(Instruction):
+    '''The ``bl`` (branch with link) and ``blx`` (branch with link and exchange
+    instruction set) instructions for immediate offset.'''
+    def __init__(self, encoding, length, instructionSet, target, exchange=False):
+        super().__init__(encoding, length, instructionSet)
+        self.target = target
+        self._mainOpcode = ('bl', 'blx')[exchange]
+        self.toThumb = (encoding & 1) != exchange
+    
+    @property
+    def operands(self):
+        return [self.target]
+    
+    def mainOpcode(self):
+        return self._mainOpcode
+    
+    def exec(self, thread):
+        cpsr = thread.cpsr
+        pc = thread.pc
+        toThumb = self.toThumb
+        if cpsr.T:
+            thread.lr = pc | 1
+        else:
+            thread.lr = pc - 4
+        if not toThumb:
+            pc &= ~3
+        cpsr.T = toThumb
+        thread.pc = fixPCAddrB(self.target.delta + pc, toThumb)
+
+class BXInstruction(Instruction):
+    '''
+    The ``bx`` (branch and exchange) (*instrType*=1), ``bxj`` (branch and
+    exchange Jazelle) (*instrType*=2) and ``blx`` (branch with link and exchange)
+    (*instrType*=3) instructions for registers.
+    '''
+    def __init__(self, encoding, length, instructionSet, target, instrType):
+        super().__init__(encoding, length, instructionSet)
+        self.target = target
+        self._mainOpcode = ('', 'bx', 'bxj', 'blx')[instrType]
+        self.link = instrType == 3
+    
+    @property
+    def operands(self):
+        return [self.target]
+    
+    def mainOpcode(self):
+        return self._mainOpcode
+    
+    def exec(self, thread):
+        cpsr = thread.cpsr
+        pc = thread.pc
+        if self.link:
+            if cpsr.T:
+                thread.lr = (pc - 2) | 1
+            else:
+                thread.lr = pc - 4
+        (thread.pc, cpsr.T) = fixPCAddrBX(self.target.get(thread))
+
 
 #===============================================================================
 # Data processing instruction decoders
@@ -525,6 +606,7 @@ def dataProcessingInstructionDecoder_Thumb16_8BitImmediate(res, encoding, condit
 # Sect A6.2.2
 @InstructionDecoder(2, 1, '010000xxxxmmmddd')
 def dataProcessingInstructionDecoder_Thumb16Register(res, encoding, condition):
+    'Decode 16-bit Thumb data-processing instructions of the type ``adcs r0, r0, r1``.'
     x = res.x
     shiftTnA = None
     srcReg = res.d
@@ -567,7 +649,7 @@ def dataProcessingInstructionDecoder_Thumb16AddSubSP(res, encoding, condition):
 # Sect A8.6.8
 @InstructionDecoder(2, 1, '10101dddiiiiiiii')
 def dataProcessingInstructionDecoder_Thumb16AddSP(res, encoding, condition):
-    'Decode 16-bit Thumb ``add`` instruction of the type ``add rd, sp, #1``.'
+    'Decode 16-bit Thumb ``add`` instruction of the type ``add r0, sp, #4``.'
     op2 = Constant(res.i * 4)
     return createDataProcessingInstruction(encoding, 2, 1, _DPTYPE_ADD, res.d, REG_SP, op2)
 
@@ -597,7 +679,7 @@ def dataProcessingInstructionDecoder_Thumb32ImmediateW(res, encoding, condition)
     return createDataProcessingInstruction(encoding, 4, 1, x, res.d, res.n, op2, isADR=isADR, append='w')
 
 # Sect A6.3.11
-@InstructionDecoder(4, 1, '1110101xxxxSnnnn 0iiiddddiittmmmm')
+@InstructionDecoder(4, 1, '1110101xxxxSnnnn _iiiddddiittmmmm')
 def dataProcessingInstructionDecoder_Thumb32Register(res, encoding, condition):
     'Decode 32-bit Thumb data-processing instructions of the type ``add.w r0, r1, r2, lsl #3``.'
     x = getARMTypeFromThumbType(res.x, res.d, res.n)
@@ -618,12 +700,14 @@ def dataProcessingInstructionDecoder_Thumb32RegisterShiftInstr(res, encoding, co
 # Sect A8.6.10
 @InstructionDecoder(2, 1, '10100dddiiiiiiii')
 def ADRInstructionDecoder_Thumb16(res, encoding, condition):
+    'Decode 16-bit Thumb ``adr`` instruction (a.k.a. ``add r0, pc, #4``)'
     op2 = Constant(res.i * 4)
     return createDataProcessingInstruction(encoding, 2, 1, _DPTYPE_ADD, res.d, REG_PC, op2, isADR=True)
 
 # Sect A5.2
 @InstructionDecoder(4, 0, '00110x00iiiiddddiiiiiiiiiiii')
 def specialMoveInstructionDecoder_ARM(res, encoding, condition):
+    'Decode ARM ``movw`` and ``movt`` instructions.'
     if res.x:
         x = _DPTYPE_MOVT
         append = ''
@@ -636,6 +720,7 @@ def specialMoveInstructionDecoder_ARM(res, encoding, condition):
 # Sect A6.3.3
 @InstructionDecoder(4, 1, '11110i10x100IIII 0iiiddddiiiiiiii')
 def specialMoveInstructionDecoder_Thumb32(res, encoding, condition):
+    'Decode 32-bit Thumb ``movw`` and ``movt`` instructions.'
     if res.x:
         x = _DPTYPE_MOVT
         append = ''
@@ -654,8 +739,9 @@ def specialMoveInstructionDecoder_Thumb32(res, encoding, condition):
 
 _hint_opcodes = ('nop', 'yield', 'wfe', 'wfi', 'sev')
 
-@InstructionDecoder(4, 0, '0011001000001111000000000xxx')
+@InstructionDecoder(4, 0, '001100100000________00000xxx')
 def hintInstructionDecoder_ARM(res, encoding, condition):
+    'Decode ARM hint instructions.'
     x = res.x
     if x > 4:
         return None
@@ -663,13 +749,15 @@ def hintInstructionDecoder_ARM(res, encoding, condition):
 
 @InstructionDecoder(2, 1, '101111110xxx0000')
 def hintInstructionDecoder_Thumb16(res, encoding, condition):
+    'Decode 16-bit Thumb hint instructions.'
     x = res.x
     if x > 4:
         return None
     return HintInstruction(encoding, 2, 1, _hint_opcodes[x])
 
-@InstructionDecoder(4, 1, '1111001110101111 1000000000000xxx')
+@InstructionDecoder(4, 1, '111100111010____ 10_0_00000000xxx')
 def hintInstructionDecoder_Thumb32(res, encoding, condition):
+    'Decode 32-bit Thumb hint instructions.'
     x = res.x
     if x > 4:
         return None
@@ -677,7 +765,107 @@ def hintInstructionDecoder_Thumb32(res, encoding, condition):
 
 @InstructionDecoder(2, 1, '10111111ccccmmmm')
 def ITInstructionDecoder_Thumb16(res, encoding, condition):
+    'Decode 16-bit Thumb ``it`` instruction.'
     m = res.m
     if not m:
         return None
     return ITInstruction(encoding, 2, 1, res.c, m)
+
+
+#===============================================================================
+# Branch instruction decoder
+# 
+#  b, bx, bl, blx
+#
+#===============================================================================
+
+# Sect A5.5
+@InstructionDecoder(4, 0, '101xiiiiiiiiiiiiiiiiiiiiiiii')
+def branchInstructionDecoder_ARMLocal(res, encoding, condition):
+    'Decode ARM ``b`` and ``bl`` instructions.'
+    delta = signed(-1<<26, res.i * 4)
+    instrClr = (BInstruction, BLInstruction)[res.x]
+    return instrClr(encoding, 4, 0, PCRelative(delta))
+
+# Sect A5.5
+@InstructionDecoder(4, 0, '101Hiiiiiiiiiiiiiiiiiiiiiiii', unconditional=True)
+def branchInstructionDecoder_ARMExchange(res, encoding, condition):
+    'Decode ARM ``blx`` instruction of the type ``blx 0x4321``'
+    delta = signed(-1<<26, res.i * 4 + res.H * 2)
+    return BLInstruction(encoding, 4, 0, PCRelative(delta), exchange=True)
+
+# Sect A5.2.12
+@InstructionDecoder(4, 0, '00010010____________00xxmmmm')
+def branchInstructionDecoder_ARMRegister(res, encoding, condition):
+    'Decode ARM ``bx``, ``bxj`` and ``blx`` instructions.'
+    instrType = res.x
+    if not instrType:
+        # msr & mrs instructions
+        return None
+    target = Register(res.m)
+    return BXInstruction(encoding, 4, 0, target, instrType)
+
+# Sect A6.2.6
+@InstructionDecoder(2, 1, '1101cccciiiiiiii')
+def branchInstructionDecoder_Thumb16Conditional(res, encoding, condition):
+    'Decode 16-bit Thumb conditional ``b`` instructions.'
+    cond = res.c
+    if cond >= 0b1110:
+        # svc
+        return None
+    delta = signed(-1<<9, res.i*2)
+    instr = BInstruction(encoding, 2, 1, PCRelative(delta))
+    instr.condition = Condition(cond)
+    return instr
+
+# Sect A8.6.16/A6.2
+@InstructionDecoder(2, 1, '11100iiiiiiiiiii')
+def branchInstructionDecoder_Thumb16Unconditional(res, encoding, condition):
+    'Decode the 16-bit Thumb unconditional ``b`` instruction.'
+    delta = signed(-1<<12, res.i*2)
+    return BInstruction(encoding, 2, 1, PCRelative(delta))
+
+# Sect A6.2.3
+@InstructionDecoder(2, 1, '01000111xmmmm___')
+def branchInstructionDecoder_Thumb16Register(res, encoding, condition):
+    'Decode 16-bit Thumb ``bx`` and ``blx`` instructions.'
+    instrType = 2 * res.x + 1
+    target = Register(res.m)
+    return BXInstruction(encoding, 2, 1, target, instrType)
+
+# Sect A6.3.4
+@InstructionDecoder(4, 1, '11110Scccciiiiii 10J0jiiiiiiiiiii')
+def branchInstructionDecoder_Thumb32Conditional(res, encoding, condition):
+    'Decode 32-bit Thumb conditional ``b`` instructions.'
+    cond = res.c
+    if cond >= 0b1110:
+        return None
+    delta = signed(-1<<21, res.i*2 + res.j*0x40000 + res.J*0x80000 + res.S*0x100000)
+    instr = BInstruction(encoding, 4, 1, PCRelative(delta))
+    instr.condition = Condition(cond)
+    return instr.forceWide()
+
+# Sect A6.3.4
+@InstructionDecoder(4, 1, '11110jiiiiiiiiii 1xjxjiiiiiiiiiii')
+def branchInstructionDecoder_Thumb32Unconditional(res, encoding, condition):
+    'Decode 32-bit Thumb unconditional ``b``, ``bl`` and ``blx`` instructions.'
+    x = res.x
+    if not x:
+        return None
+    j = res.j
+    j ^= 3*(j<4)
+    delta = signed(-1<<25, res.i*2 + j*0x400000)
+    target = PCRelative(delta)
+    
+    if x == 1:
+        instr = BInstruction(encoding, 4, 1, target)
+    else:
+        instr = BLInstruction(encoding, 4, 1, target, exchange=(x==3))
+    return instr.forceWide()
+
+# Sect A8.6.26
+@InstructionDecoder(4, 1, '111100111100mmmm 10_0____________')
+def branchInstructionDecoder_Thumb32BXJ(res, encoding, condition):
+    'Decode the 32-bit Thumb ``bxj`` instruction.'
+    return BXInstruction(encoding, 4, 1, Register(res.m), instrType=2)
+

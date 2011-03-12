@@ -59,11 +59,11 @@ INDEX
 
 ::B:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.16 - T1: ?
-             T2: ?
-             T3: ?
-             T4: ?
-             A1: ?
+   A8.6.16 - T1: branchInstructionDecoder_Thumb16Conditional
+             T2: branchInstructionDecoder_Thumb16Unconditional
+             T3: branchInstructionDecoder_Thumb32Conditional
+             T4: branchInstructionDecoder_Thumb32Unconditional
+             A1: branchInstructionDecoder_ARMLocal
 
 ::BFC:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -91,22 +91,22 @@ INDEX
 
 ::BL:BLX::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.23 - (immediate) - T1: ?
-                           T2: ?
-                           A1: ?
-                           A2: ?
-   A8.6.24 - (register)  - T1: ?
-                           A1: ?
+   A8.6.23 - (immediate) - T1: branchInstructionDecoder_Thumb32Unconditional
+                           T2: branchInstructionDecoder_Thumb32Unconditional
+                           A1: branchInstructionDecoder_ARMLocal
+                           A2: branchInstructionDecoder_ARMExchange
+   A8.6.24 - (register)  - T1: branchInstructionDecoder_Thumb16Register
+                           A1: branchInstructionDecoder_ARMRegister
 
 ::BX::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.25 - T1: ?
-             A1: ?
+   A8.6.25 - T1: branchInstructionDecoder_Thumb16Register
+             A1: branchInstructionDecoder_ARMRegister
 
 ::BXJ:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.26 - T1: ?
-             A1: ?
+   A8.6.26 - T1: branchInstructionDecoder_Thumb32BXJ
+             A1: branchInstructionDecoder_ARMRegister
 
 ::CBNZ:CBZ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
