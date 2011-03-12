@@ -30,6 +30,15 @@ _decoders = {
     (4,3):[],
 }
 
+class InstructionDecoderNotFoundError(Exception):
+    '''This exception is raised when :class:`InstructionDecoder` fails to find a
+    suitable decoder to decode a byte sequence.'''
+    def __init__(self, encoding, length, instructionSet):
+        fmt = "Cannot decode {2} instruction {0:#0{1}x} [{0:0{3}b}]."
+        isetName = ('ARM', 'Thumb', 'Jazelle', 'Thumb-EE')[instructionSet]
+        bitLength = length*8 if instructionSet else 28
+        super().__init__(fmt.format(encoding, bitLength>>2, isetName, bitLength))
+
 
 class InstructionDecoder(object):
     '''A decorator to convert a function into an instruction decoder. You should
@@ -87,7 +96,7 @@ class InstructionDecoder(object):
                 #print ('Decoded',hex(encoding),'with',decoder)
                 break
         else:   # pragma: no cover
-            raise NotImplementedError("Cannot decode 0x{0:0{1}x} [{0:0{3}b}] of length {1} in instruction set {2}".format(encoding, length, instructionSet, length*8))
+            raise InstructionDecoderNotFoundError(encoding, length, instructionSet)
             retval = Instruction(encoding, length, instructionSet)
 
         if cond != COND_NONE:
@@ -96,6 +105,11 @@ class InstructionDecoder(object):
 
 
     def __init__(self, length, instructionSet, pattern, unconditional=False):
+        # safe check
+        assert (instructionSet == 0 and length == 4 and len(pattern) == 28) \
+            or (instructionSet == 1 and length == 2 and len(pattern) == 16) \
+            or (instructionSet == 1 and length == 4 and len(pattern.replace(' ','')) == 32)
+    
         self.pattern = pattern
         self.unconditional = unconditional
         self.length = length

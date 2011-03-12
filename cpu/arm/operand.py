@@ -67,6 +67,23 @@ class Constant(Operand):
     def __bool__(self):
         return not not self.imm
 
+
+class PCRelative(Operand):
+    'This class encapsulates a pc-relative offset.'
+    def __init__(self, delta):
+        self.delta = delta
+    def get(self, thread):
+        return thread.pc + self.delta
+    def __str__(self):
+        return 'pc{0:+#x}'.format(self.delta)
+    def decstr(self):
+        return 'pc{0:+}'.format(self.delta)
+    def __eq__(self, other):
+        return isinstance(other, type(self)) and self.delta == other.delta
+    def __hash__(self):
+        return hash(self.delta)
+        
+
 _register_names = {REG_SP: 'sp', REG_LR: 'lr', REG_PC: 'pc'}
 
 class Register(MutableOperand):

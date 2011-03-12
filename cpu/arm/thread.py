@@ -253,5 +253,10 @@ class Thread(object):
         instr = self.fetch()
         instr.execute(self)
         return instr
-        
+    
+    def run(self, address=None):
+        '''Run many instructions until hitting *address* (if provided) or
+        ``Return``, whichever comes first.'''
+        while self.pcRaw != Return or address is not None and self.pcRaw != address:
+            self.execute()
     

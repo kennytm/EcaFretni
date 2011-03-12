@@ -46,11 +46,16 @@ class SpecialPointer(object):
 
     .. method:: __rshift__(value)
     
-        The right-shift operation is special cased such that it alawys returns
-        0, e.g.
+        The right-shift operation is special cased such that it always returns
+        0 when *value* is nonzero, e.g.
         
         >>> StackPointer(12) >> 31
         0
+    
+    .. method:: __lshift__(value)
+    
+        The left-shift operation is only defined when *value* is zero. In other
+        cases, it returns ``NotImplemented``.
     
     .. method:: __add__(value)
     
@@ -67,8 +72,10 @@ class SpecialPointer(object):
         return self if mask & 3 else 0
     
     def __rshift__(self, value):
-        return 0
-            
+        return 0 if value else self
+    
+    def __lshift__(self, value):
+        return NotImplemented if value else self
 
 
 def _signed(notmask, x):
@@ -86,8 +93,15 @@ class __Return(SpecialPointer):
         return True if self is other else NotImplemented
     def __ge__(self, other):
         return True if self is other else NotImplemented
-    def __sub__(self, value):
-        return 0 if self is other else NotImplemented
+    def __sub__(self, other):
+        if self is other:
+            return 0
+        elif -1 <= other <= 1:
+            return self
+        else:
+            return NotImplemented
+    def __add__(self, other):
+        return self if -1 <= other <= 1 else NotImplemented
     def __repr__(self):
         return 'Return'
 Return = __Return()

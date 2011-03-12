@@ -111,7 +111,7 @@ class Instruction(metaclass=ABCMeta):
         self.shiftAmount = Constant(0)
     
     @abstractmethod
-    def mainOpcode(self):
+    def mainOpcode(self):   # pragma: no cover
         "Return the instruction's opcode without conditions."
         return '<unk{0:0{1}x}>'.format(self.encoding, self.length*2)
         
@@ -150,7 +150,7 @@ class Instruction(metaclass=ABCMeta):
 
         
     @abstractmethod
-    def exec(self, thread):
+    def exec(self, thread): # pragma: no cover
         '''Execute the instruction with a *thread* after passing the conditions.
         
         Subclasses should override this method to provide the actual
@@ -158,7 +158,7 @@ class Instruction(metaclass=ABCMeta):
         assert False
     
     @abstractproperty
-    def operands(self):
+    def operands(self): # pragma: no cover
         'Return a list of :class:`~cpu.arm.operand.Operand`\s of the instruction.'
         return []
     
