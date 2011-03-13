@@ -107,8 +107,8 @@ class InstructionDecoder(object):
     def __init__(self, length, instructionSet, pattern, unconditional=False):
         # safe check
         assert (instructionSet == 0 and length == 4 and len(pattern) == 28) \
-            or (instructionSet == 1 and length == 2 and len(pattern) == 16) \
-            or (instructionSet == 1 and length == 4 and len(pattern.replace(' ','')) == 32)
+            or (instructionSet & 1 and length == 2 and len(pattern) == 16) \
+            or (instructionSet & 1 and length == 4 and len(pattern.replace(' ','')) == 32)
     
         self.pattern = pattern
         self.unconditional = unconditional

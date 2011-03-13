@@ -20,7 +20,7 @@ from cpu.arm.instruction import Instruction, Condition
 from cpu.arm.decoder import InstructionDecoder
 from cpu.arm.functions import *
 from bitpattern import BitPattern
-from cpu.arm.operand import Register, Constant, PCRelative
+from cpu.arm.operand import Register, Constant, PCRelative, Indirect
 from abc import abstractmethod
 import re
 
@@ -465,6 +465,67 @@ class BXInstruction(Instruction):
                 thread.lr = pc - 4
         (thread.pc, cpsr.T) = fixPCAddrBX(self.target.get(thread))
 
+#===============================================================================
+# Load/store instructions
+# 
+#  ldr, str, ldrt, strt, ldrb, strb, ldrsb, strsb, ldrh, strh, ldrsh, strsh,
+#  ldrbt, strbt, ldrht, strht, ldrd, strd, ldrex, strex, ldrexb, strexb,
+#  ldrexh, strexh, ldrexd, strexd
+#
+#===============================================================================
+
+class LDRInstruction(Instruction):
+    'The ``ldr`` (load register)-related instructions.'
+    def __init__(self, encoding, length, instructionSet, targetReg, op, append='', loadLen=4, align=~0, signedNotMask=0):
+        super().__init__(encoding, length, instructionSet)
+        self.targetReg = targetReg
+        self.op = op
+        self.loadLen = loadLen
+        self.align = align
+        self._mainOpcode = 'ldr' + append
+        self.signedNotMask = signedNotMask
+    
+    @property
+    def operands(self):
+        return [Register(self.targetReg), self.op]
+    
+    def mainOpcode(self):
+        return self._mainOpcode
+    
+    def exec(self, thread):
+        val = self.op.get(thread, self.loadLen, self.align)
+        t = self.targetReg
+        if t == REG_PC:
+            (val, thread.cpsr.T) = fixPCAddrLoad(val, thread.cpsr.T)
+        snm = self.signedNotMask
+        if snm:
+            val = 0xffffffff & signed(snm, val)
+        thread.r[t] = val
+
+class STRInstruction(Instruction):
+    'The ``str`` (store register)-related instructions.'
+    def __init__(self, encoding, length, instructionSet, srcReg, op, append='', loadLen=4, align=~0, signedNotMask=0):
+        super().__init__(encoding, length, instructionSet)
+        self.srcReg = srcReg
+        self.op = op
+        self.loadLen = loadLen
+        self._mainOpcode = 'str' + append
+    
+    @property
+    def operands(self):
+        return [Register(self.srcReg), self.op]
+    
+    def mainOpcode(self):
+        return self._mainOpcode
+    
+    def exec(self, thread):
+        self.op.set(thread, thread.r[self.srcReg], self.loadLen)
+    
+
+################################################################################
+################################################################################
+################################################################################
+
 
 #===============================================================================
 # Data processing instruction decoders
@@ -869,3 +930,224 @@ def branchInstructionDecoder_Thumb32BXJ(res, encoding, condition):
     'Decode the 32-bit Thumb ``bxj`` instruction.'
     return BXInstruction(encoding, 4, 1, Register(res.m), instrType=2)
 
+#===============================================================================
+# Load/store instruction decoder
+# 
+#  ldr, str, ldrt, strt, ldrb, strb, ldrsb, strsb, ldrh, strh, ldrsh, strsh,
+#  ldrbt, strbt, ldrht, strht, ldrd, strd, ldrex, strex, ldrexb, strexb,
+#  ldrexh, strexh, ldrexd, strexd
+#
+#===============================================================================
+
+# Sect A5.3
+@InstructionDecoder(4, 0, '010pubwxnnnnddddiiiiiiiiiiii')
+def loadStoreInstructionDecoder_ARMImmediate(res, encoding, condition):
+    '''Decode ARM ``ldr``, ``str``, ``ldrt``, ``strt``, ``ldrb``, ``strb``,
+    ``ldrbt`` and ``strbt`` instructions of the type ``ldr r0, [r1, #4]``'''
+    # (including the literal variant...)
+    n = res.n
+    p = res.p
+    u = res.u
+    w = res.w
+    isLDR = res.x
+    imm12 = res.i
+    if n == 0b1101 and p != isLDR and u == isLDR and w and imm12 == 0b100:
+        # these are 'push' and 'pop' instructions.
+        return None
+    instrCls = LDRInstruction if isLDR else STRInstruction
+    wback = w or not p
+    
+    op = Indirect(Register(n), Constant(imm12), positive=u, writeBack=wback, index=p)
+    if res.b:
+        suffix = 'b'
+        loadLen = 1
+    else:
+        suffix = ''
+        loadLen = 4
+    if w and not p:
+        suffix += 't'
+    align = ~3 if n == REG_PC else ~0
+    
+    return instrCls(encoding, 4, 0, res.d, op, suffix, loadLen, align)
+
+# Sect A5.3
+@InstructionDecoder(4, 0, '011pubwxnnnnddddiiiiitt0mmmm')
+def loadStoreInstructionDecoder_ARMRegister(res, encoding, condition):
+    '''Decode ARM ``ldr``, ``str``, ``ldrt``, ``strt``, ``ldrb``, ``strb``,
+    ``ldrbt`` and ``strbt`` instructions of the type ``ldr r0, [r1, r2, lsl
+    #3]``.'''
+    p = res.p
+    w = res.w
+    instrCls = LDRInstruction if res.x else STRInstruction
+    wback = w or not p
+    (shiftType, shiftAmount) = DecodeImmShift(res.t, res.i)
+    op = Indirect(Register(res.n), Register(res.m),
+            positive=res.u, writeBack=wback, index=p,
+            shiftType=shiftType, shiftAmount=shiftAmount)
+    if res.b:
+        suffix = 'b'
+        loadLen = 1
+    else:
+        suffix = ''
+        loadLen = 4
+    if w and not p:
+        suffix += 't'
+    return instrCls(encoding, 4, 0, res.d, op, suffix, loadLen)
+
+_loadStore_thumb16_suffix = ('', 'h', 'b', 'sb', '', 'h', 'b', 'sh')
+_loadStore_thumb16_length = (4, 2, 1, 1, 4, 2, 1, 2)
+_loadStore_thumb16_signedNotMask = (0, 0, 0, -1<<8, 0, 0, 0, -1<<16)
+_loadStore_thumbEE_shift = (0, 1, 1, 2)
+
+# Sect A6.2.4
+@InstructionDecoder(2, 1, '0101xxxmmmnnnddd')
+def loadStoreInstructionDecoder_Thumb16Register(res, encoding, condition):
+    '''Decode 16-bit Thumb ``str``, ``strh``, ``strb``, ``ldrsb``, ``ldr``, 
+    ``ldrh``, ``ldrb`` and ``ldrsh`` instructions of the type ``ldr r0, [r1,
+    r2]``.'''
+    x = res.x
+    instrCls = LDRInstruction if x >= 0b11 else STRInstruction
+    op = Indirect(Register(res.n), Register(res.m))
+    append = _loadStore_thumb16_suffix[x]
+    loadLen = _loadStore_thumb16_length[x]
+    snm = _loadStore_thumb16_signedNotMask[x]
+    return instrCls(encoding, 2, 1, res.d, op, append, loadLen, signedNotMask=snm)
+
+# Sect A9.4
+@InstructionDecoder(2, 3, '0101xxxmmmnnnddd')
+def loadStoreInstructionDecoder_ThumbEERegister(res, encoding, condition):
+    '''Decode ThumbEE ``str``, ``strh``, ``strb``, ``ldrsb``, ``ldr``, ``ldrh``,
+    ``ldrb`` and ``ldrsh`` instructions of the type ``ldr r0, [r1, r2,
+    lsl #2]``.'''
+    x = res.x
+    instrCls = LDRInstruction if x >= 0b11 else STRInstruction
+    append = _loadStore_thumb16_suffix[x]
+    loadLen = _loadStore_thumb16_length[x]
+    snm = _loadStore_thumb16_signedNotMask[x]
+    shiftAmount = _loadStore_thumbEE_shift[loadLen]
+    op = Indirect(Register(res.n), Register(res.m), shiftType=SRTYPE_LSL, shiftAmount=shiftAmount)
+    return instrCls(encoding, 2, 3, res.d, op, append, loadLen, signedNotMask=snm)
+
+# Sect A6.2.4
+@InstructionDecoder(2, 1, 'xxxxyiiiiinnnddd')
+def loadStoreInstructionDecoder_Thumb16Immediate(res, encoding, condition):
+    '''Decode 16-bit Thumb ``str``, ``strh``, ``strb``, ``ldr``, ``ldrh`` and
+    ``ldrb`` instructions of the type ``ldr r0, [r1, #0x4]``.'''
+    x = res.x - 0b0110
+    if x < 0 or x > 2:
+        return None
+    instrCls = LDRInstruction if res.y else STRInstruction
+    loadLen = (4, 1, 2)[x]
+    op = Indirect(Register(res.n), Constant(res.i*loadLen))
+    append = ('', 'b', 'h')[x]
+    return instrCls(encoding, 2, 1, res.d, op, append, loadLen)
+
+# Sect A6.2.4
+@InstructionDecoder(2, 1, '1001xdddiiiiiiii')
+def loadStoreInstructionDecoder_Thumb16SPRelative(res, encoding, condition):
+    '''Decode 16-bit Thumb ``str`` and ``ldr`` instructions of the type ``ldr
+    r0, [sp, #0x4]``.'''
+    instrCls = LDRInstruction if res.x else STRInstruction
+    op = Indirect(Register(REG_SP), Constant(res.i*4))
+    return instrCls(encoding, 2, 1, res.d, op)
+
+# Sect A8.6.59
+@InstructionDecoder(2, 1, '01001dddiiiiiiii')
+def loadStoreInstructionDecoder_Thumb16PCRelative(res, encoding, condition):
+    'Decode the 16-bit Thumb ``ldr`` instruction of the type ``ldr r0, [pc, #0x4]``'
+    op = Indirect(Register(REG_PC), Constant(res.i*4))
+    return LDRInstruction(encoding, 2, 1, res.d, op, align=~3)
+
+def _loadStore_thumb32_getInstrInfo(isLDR, x, s):
+    instrCls = LDRInstruction if isLDR else STRInstruction
+    append = ('b', 'h', '')[x]
+    loadLen = 1 << x
+    if s:
+        append = 's' + append
+        snm = -1 << (8*loadLen)
+    else:
+        snm = 0
+    return (instrCls, append, loadLen, snm)
+
+# Sect A6.3.7, A6.3.8, A6.3.9, A6.3.10
+@InstructionDecoder(4, 1, '1111100suxxynnnn ddddiiiiiiiiiiii')
+def loadStoreInstructionDecoder_Thumb32Immediate12(res, encoding, condition):
+    '''Decode 32-bit Thumb ``ldr``, ``ldrh``, ``ldrsh``, ``ldrb``, ``ldrsb``,
+    ``str``, ``strh`` and ``strb`` instructions of the type ``ldr.w r0, [r1,
+    #0x23]``'''
+    x = res.x
+    u = res.u
+    s = res.s
+    n = res.n
+    d = res.d
+    isLDR = res.y
+    if x == 0b11:
+        return None     # undefined
+    if n == REG_PC and not isLDR:
+        return None     # undefined
+    if n != REG_PC and not u:
+        return None     # these are ldr.w r0, [r1, r2, lsl #3] 
+    if (x == 0b10 or not isLDR) and s:
+        return None     # undefined
+    if isLDR and x != 0b10 and d == REG_PC:
+        return None     # unallocated memory hint or 'pld'/'pli' instructions
+    
+    (instrCls, append, loadLen, snm) = _loadStore_thumb32_getInstrInfo(isLDR, x, s)
+    align = ~3 if n == REG_PC else ~0
+    
+    op = Indirect(Register(n), Constant(res.i), positive=u)
+    return instrCls(encoding, 4, 1, res.d, op, append, loadLen, align, signedNotMask=snm).forceWide()
+
+# Sect A6.3.7, A6.3.8, A6.3.9, A6.3.10
+@InstructionDecoder(4, 1, '1111100s0xxynnnn dddd1puwiiiiiiii')
+def loadStoreInstructionDecoder_Thumb32Immediate8(res, encoding, condition):
+    '''Decode 32-bit Thumb ``ldr``, ``ldrt``, ``ldrh``, ``ldrht`` ``ldrsh``,
+    ``ldrsht``, ``ldrb``, ``ldrbt``, ``ldrsb``, ``ldrsbt``, ``str``, ``strt``,
+    ``strh``, ``strht``, ``strb`` and ``strbt`` instructions of the type ``ldr
+    r0, [r1, #-0x23]``'''
+    n = res.n
+    s = res.s
+    d = res.d
+    p = res.p
+    u = res.u
+    w = res.w
+    x = res.x
+    imm8 = res.i
+    isLDR = res.y
+    if n == REG_PC or x == 0b11:
+        return None     # for literals, see loadStoreInstructionDecoder_Thumb32Immediate12
+    if (x == 0b10 or not isLDR) and s:
+        return None     # undefined
+    if not p and not w:
+        return None     # undefined
+    if x == 0b10 and n == 0b1101 and p != isLDR and u == isLDR and w and imm8 == 0b100:
+        return None     # push and pop
+    if isLDR and x != 0b10 and d == REG_PC and p and not u and not w:
+        return None     # unallocated memory hints and 'pld', 'pli'
+
+    (instrCls, append, loadLen, snm) = _loadStore_thumb32_getInstrInfo(isLDR, x, s)
+    if p and u and not w:
+        append += 't'
+
+    op = Indirect(Register(n), Constant(imm8), positive=u, writeBack=w, index=p)
+    return instrCls(encoding, 4, 1, d, op, append, loadLen, signedNotMask=snm)
+
+# Sect A6.3.7, A6.3.8, A6.3.9, A6.3.10
+@InstructionDecoder(4, 1, '1111100s0xxynnnn dddd000000iimmmm')
+def loadStoreInstructionDecoder_Thumb32Register(res, encoding, condition):
+    n = res.n
+    x = res.x
+    s = res.s
+    d = res.d
+    isLDR = res.y
+    if n == REG_PC or x == 0b11:
+        return None     # undefined or literal
+    if s and (x == 0b10 or not isLDR):
+        return None     # undefined
+    if isLDR and x != 0b10 and d == REG_PC:
+        return None     # unallocated memory hints and 'pld', 'pli'
+
+    (instrCls, append, loadLen, snm) = _loadStore_thumb32_getInstrInfo(isLDR, x, s)
+    op = Indirect(Register(n), Register(res.m), shiftType=SRTYPE_LSL, shiftAmount=res.i)
+    return instrCls(encoding, 4, 1, d, op, append, loadLen, signedNotMask=snm)
+    

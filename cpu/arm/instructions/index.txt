@@ -214,35 +214,35 @@ INDEX
 
 ::LDR:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.57 - (imm Thumb) - T1: ?
-                           T2: ?
-                           T3: ?
-                           T4: ?
-   A8.6.58 - (imm ARM)   - A1: ?
-   A8.6.59 - (literal)   - T1: ?
-                           T2: ?
-                           A1: ?
-   A8.6.60 - (register)  - T1: ?
-                           T2: ?
-                           A1: ?
+   A8.6.57 - (imm Thumb) - T1: loadStoreInstructionDecoder_Thumb16Immediate
+                           T2: loadStoreInstructionDecoder_Thumb16SPRelative
+                           T3: loadStoreInstructionDecoder_Thumb32Immediate12
+                           T4: loadStoreInstructionDecoder_Thumb32Immediate8
+   A8.6.58 - (imm ARM)   - A1: loadStoreInstructionDecoder_ARMImmediate
+   A8.6.59 - (literal)   - T1: loadStoreInstructionDecoder_Thumb16PCRelative
+                           T2: loadStoreInstructionDecoder_Thumb32Immediate12
+                           A1: loadStoreInstructionDecoder_ARMImmediate
+   A8.6.60 - (register)  - T1: loadStoreInstructionDecoder_Thumb16Register
+                           T2: loadStoreInstructionDecoder_Thumb32Register
+                           A1: loadStoreInstructionDecoder_ARMRegister
 
 ::LDRB::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.61 - (imm Thumb) - T1: ?
-                           T2: ?
-                           T3: ?
-   A8.6.62 - (imm ARM)   - A1: ?
-   A8.6.63 - (literal)   - T1: ?
-                           A1: ?
-   A8.6.64 - (register)  - T1: ?
-                           T2: ?
-                           A1: ?
+   A8.6.61 - (imm Thumb) - T1: loadStoreInstructionDecoder_Thumb16Immediate
+                           T2: loadStoreInstructionDecoder_Thumb32Immediate12
+                           T3: loadStoreInstructionDecoder_Thumb32Immediate8
+   A8.6.62 - (imm ARM)   - A1: loadStoreInstructionDecoder_ARMImmediate
+   A8.6.63 - (literal)   - T1: loadStoreInstructionDecoder_Thumb32Immediate12
+                           A1: loadStoreInstructionDecoder_ARMImmediate
+   A8.6.64 - (register)  - T1: loadStoreInstructionDecoder_Thumb16Register
+                           T2: loadStoreInstructionDecoder_Thumb32Register
+                           A1: loadStoreInstructionDecoder_ARMRegister
 
 ::LDRBT:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.65 - T1: ?
-             A1: ?
-             A2: ?
+   A8.6.65 - T1: loadStoreInstructionDecoder_Thumb32Immediate8
+             A1: loadStoreInstructionDecoder_ARMImmediate
+             A2: loadStoreInstructionDecoder_ARMRegister
 
 ::LDRD::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -274,14 +274,14 @@ INDEX
 
 ::LDRH::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.73 - (imm Thumb) - T1: ?
-                           T2: ?
-                           T3: ?
+   A8.6.73 - (imm Thumb) - T1: loadStoreInstructionDecoder_Thumb16Immediate
+                           T2: loadStoreInstructionDecoder_Thumb32Immediate12
+                           T3: loadStoreInstructionDecoder_Thumb32Immediate8
    A8.6.74 - (imm ARM)   - A1: ?
-   A8.6.75 - (literal)   - T1: ?
+   A8.6.75 - (literal)   - T1: loadStoreInstructionDecoder_Thumb32Immediate12
                            A1: ?
-   A8.6.76 - (register)  - T1: ?
-                           T2: ?
+   A8.6.76 - (register)  - T1: loadStoreInstructionDecoder_Thumb16Register
+                           T2: loadStoreInstructionDecoder_Thumb32Register
                            A1: ?
 
 ::LDRHT:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -292,43 +292,43 @@ INDEX
 
 ::LDRSB:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.78 - (immediate) - T1: ?
-                           T2: ?
+   A8.6.78 - (immediate) - T1: loadStoreInstructionDecoder_Thumb32Immediate12
+                           T2: loadStoreInstructionDecoder_Thumb32Immediate8
                            A1: ?
-   A8.6.79 - (literal)   - T1: ?
+   A8.6.79 - (literal)   - T1: loadStoreInstructionDecoder_Thumb32Immediate12
                            A1: ?
-   A8.6.80 - (register)  - T1: ?
-                           T2: ?
+   A8.6.80 - (register)  - T1: loadStoreInstructionDecoder_Thumb16Register
+                           T2: loadStoreInstructionDecoder_Thumb32Register
                            A1: ?
 
 ::LDRSBT::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.81 - T1: ?
+   A8.6.81 - T1: loadStoreInstructionDecoder_Thumb32Immediate8
              A1: ?
              A2: ?
 
 ::LDRSH:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.82 - (immediate) - T1: ?
-                           T2: ?
+   A8.6.82 - (immediate) - T1: loadStoreInstructionDecoder_Thumb32Immediate12
+                           T2: loadStoreInstructionDecoder_Thumb32Immediate8
                            A1: ?
-   A8.6.83 - (literal)   - T1: ?
+   A8.6.83 - (literal)   - T1: loadStoreInstructionDecoder_Thumb32Immediate12
                            A1: ?
-   A8.6.84 - (register)  - T1: ?
-                           T2: ?
+   A8.6.84 - (register)  - T1: loadStoreInstructionDecoder_Thumb16Register
+                           T2: loadStoreInstructionDecoder_Thumb32Register
                            A1: ?
 
 ::LDRSHT::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.85 - T1: ?
+   A8.6.85 - T1: loadStoreInstructionDecoder_Thumb32Immediate8
              A1: ?
              A2: ?
 
 ::LDRT::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.86 - T1: ?
-             A1: ?
-             A2: ?
+   A8.6.86 - T1: loadStoreInstructionDecoder_Thumb32Immediate8
+             A1: loadStoreInstructionDecoder_ARMImmediate
+             A2: loadStoreInstructionDecoder_ARMRegister
 
 ::LSL:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -801,30 +801,30 @@ INDEX
 
 ::STR:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.192 - (imm Thumb) - T1: ?
-                            T2: ?
-                            T3: ?
-                            T4: ?
-   A8.6.193 - (imm ARM)   - A1: ?
-   A8.6.194 - (register)  - T1: ?
-                            T2: ?
-                            A1: ?
+   A8.6.192 - (imm Thumb) - T1: loadStoreInstructionDecoder_Thumb16Immediate
+                            T2: loadStoreInstructionDecoder_Thumb16SPRelative
+                            T3: loadStoreInstructionDecoder_Thumb32Immediate12
+                            T4: loadStoreInstructionDecoder_Thumb32Immediate8
+   A8.6.193 - (imm ARM)   - A1: loadStoreInstructionDecoder_ARMImmediate
+   A8.6.194 - (register)  - T1: loadStoreInstructionDecoder_Thumb16Register
+                            T2: loadStoreInstructionDecoder_Thumb32Register
+                            A1: loadStoreInstructionDecoder_ARMRegister
 
 ::STRB::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.195 - (imm Thumb) - T1: ?
-                            T2: ?
-                            T3: ?
-   A8.6.196 - (imm ARM)   - A1: ?
-   A8.6.197 - (register)  - T1: ?
-                            T2: ?
-                            A1: ?
+   A8.6.195 - (imm Thumb) - T1: loadStoreInstructionDecoder_Thumb16Immediate
+                            T2: loadStoreInstructionDecoder_Thumb32Immediate12
+                            T3: loadStoreInstructionDecoder_Thumb32Immediate8
+   A8.6.196 - (imm ARM)   - A1: loadStoreInstructionDecoder_ARMImmediate
+   A8.6.197 - (register)  - T1: loadStoreInstructionDecoder_Thumb16Register
+                            T2: loadStoreInstructionDecoder_Thumb32Register
+                            A1: loadStoreInstructionDecoder_ARMRegister
 
 ::STRBT:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.198 - T1: ?
-              A1: ?
-              A2: ?
+   A8.6.198 - T1: loadStoreInstructionDecoder_Thumb32Immediate8
+              A1: loadStoreInstructionDecoder_ARMImmediate
+              A2: loadStoreInstructionDecoder_ARMRegister
 
 ::STRD::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -854,25 +854,25 @@ INDEX
 
 ::STRH::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.205 - (imm Thumb) - T1: ?
-                            T2: ?
-                            T3: ?
+   A8.6.205 - (imm Thumb) - T1: loadStoreInstructionDecoder_Thumb16Immediate
+                            T2: loadStoreInstructionDecoder_Thumb32Immediate12
+                            T3: loadStoreInstructionDecoder_Thumb32Immediate8
    A8.6.206 - (imm ARM)   - A1: ?
-   A8.6.207 - (register)  - T1: ?
-                            T2: ?
+   A8.6.207 - (register)  - T1: loadStoreInstructionDecoder_Thumb16Register
+                            T2: loadStoreInstructionDecoder_Thumb32Register
                             A1: ?
 
 ::STRHT:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.208 - T1: ?
+   A8.6.208 - T1: loadStoreInstructionDecoder_Thumb32Immediate8
               A1: ?
               A2: ?
 
 ::STRT::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.209 - T1: ?
-              A1: ?
-              A2: ?
+   A8.6.209 - T1: loadStoreInstructionDecoder_Thumb32Immediate8
+              A1: loadStoreInstructionDecoder_ARMImmediate
+              A2: loadStoreInstructionDecoder_ARMRegister
 
 ::SUB:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 

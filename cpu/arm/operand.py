@@ -95,7 +95,7 @@ class PCRelative(Operand):
 
 
 
-_register_names = {REG_SP: 'sp', REG_LR: 'lr', REG_PC: 'pc'}
+_register_names = {12: 'ip', REG_SP: 'sp', REG_LR: 'lr', REG_PC: 'pc'}
 
 class Register(MutableOperand):
     '''This class encapsulates a generic register (r0 to r15).
@@ -270,7 +270,7 @@ class Indirect(MutableOperand):
         if shiftType or shiftAmount:
             offsetStr += ', {0} #{1}'.format(_shift_names[shiftType], shiftAmount)
         
-        if offsetStr == ', #0':
+        if offsetStr == ', #0x0':
             offsetStr = ''
         
         if not self.index:
