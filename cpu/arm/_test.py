@@ -20,7 +20,7 @@
 from unittest import main, TestCase
 import cpu.arm.instructions.core
 from cpu.arm.instruction import Condition
-from cpu.arm.operand import Constant, Register
+from cpu.arm.operand import Constant, Register, Indirect
 from cpu.arm.status import Status
 from cpu.memory import SimulatedROM
 from cpu.arm.thread import Thread
@@ -235,6 +235,40 @@ class FunctionTestCase(TestCase):
         self.assertEqual(fixPCAddrB(0x1003, 1), 0x1002)
         self.assertEqual(fixPCAddrB(0x1004, 0), 0x1004)
         self.assertEqual(fixPCAddrB(0x1004, 1), 0x1004)
+
+class OperandTestCase(TestCase):
+    def test_indirect_operand(self):
+        data = bytes.fromhex('67452301 efcdab89')
+        srom = SimulatedROM(data, vmaddr=0x1000)
+        thread = Thread(srom)
+        thread.pc = 0x1000
+        
+        indir = Indirect(Register(REG_PC), Constant(8), positive=False)
+        self.assertEqual(str(indir), '[pc, #-0x8]')
+        self.assertEqual(indir.get(thread), 0x01234567)
+        self.assertEqual(thread.pcRaw, 0x1000)
+        
+        thread.r[0] = 0x1000
+        indir = Indirect(Register(0), Constant(4), writeBack=True)
+        self.assertEqual(str(indir), '[r0, #0x4]!')
+        self.assertEqual(indir.get(thread), 0x89abcdef)
+        self.assertEqual(thread.r[0], 0x1004)
+
+        thread.r[0] = 4
+        indir = Indirect(Register(REG_SP), Register(0), index=False, writeBack=True)
+        self.assertEqual(str(indir), '[sp], r0')
+        indir.set(thread, 0xaabbccdd)
+        self.assertEqual(thread.sp, StackPointer(4))
+        self.assertEqual(thread.memory.get(StackPointer(0)), 0xaabbccdd)
+
+        thread.r[0] = 3
+        indir = Indirect(Register(REG_PC), Register(0), positive=False, shiftType=SRTYPE_LSL, shiftAmount=1)
+        self.assertEqual(str(indir), '[pc, -r0, lsl #1]')
+        self.assertEqual(indir.get(thread, length=2), 0x0123)
+        
+        thread.pc = 0x1002
+        indir = Indirect(Register(REG_PC), Constant(8), positive=False)
+        self.assertEqual(indir.get(thread, align=~3), 0x01234567)
 
 
 class DataProcTestCase(TestCase):

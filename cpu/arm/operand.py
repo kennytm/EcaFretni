@@ -18,7 +18,7 @@
 
 
 from abc import ABCMeta, abstractmethod
-from cpu.arm.functions import REG_SP, REG_LR, REG_PC
+from cpu.arm.functions import REG_SP, REG_LR, REG_PC, Shift
 from collections import defaultdict
 
 class Operand(metaclass=ABCMeta):
@@ -51,7 +51,12 @@ class MutableOperand(Operand):
 
 
 class Constant(Operand):
-    'This class encapsulates a constant (a.k.a. immediate value).'
+    '''This class encapsulates a constant (a.k.a. immediate value).
+    
+    .. attribute:: imm
+    
+        The value of this constant.
+    '''
     def __init__(self, imm):
         self.imm = imm
     def get(self, thread):
@@ -69,7 +74,12 @@ class Constant(Operand):
 
 
 class PCRelative(Operand):
-    'This class encapsulates a pc-relative offset.'
+    '''This class encapsulates a pc-relative offset.
+    
+    .. attribute:: delta
+    
+        The relative offset from pc.
+    '''
     def __init__(self, delta):
         self.delta = delta
     def get(self, thread):
@@ -82,12 +92,18 @@ class PCRelative(Operand):
         return isinstance(other, type(self)) and self.delta == other.delta
     def __hash__(self):
         return hash(self.delta)
-        
+
+
 
 _register_names = {REG_SP: 'sp', REG_LR: 'lr', REG_PC: 'pc'}
 
 class Register(MutableOperand):
-    'This class encapsulates a generic register (r0 to r15).'
+    '''This class encapsulates a generic register (r0 to r15).
+    
+    .. attribute:: rnum
+    
+        The register number.
+    '''
     def __init__(self, regnum):
         self.rnum = regnum
     def get(self, thread):
@@ -107,7 +123,12 @@ class Register(MutableOperand):
 
 
 class SRegister(MutableOperand):
-    'This class encapsulates the 32-bit VFP registers (s0 to s31).'
+    '''This class encapsulates the 32-bit VFP registers (s0 to s31).
+    
+    .. attribute:: snum
+    
+        The register number.
+    '''
     def __init__(self, regnum):
         self.snum = regnum
     def get(self, thread):
@@ -123,7 +144,12 @@ class SRegister(MutableOperand):
 
 
 class DRegister(MutableOperand):
-    'This class encapsulates the 64-bit VFP/NEON registers (d0 to d31).'
+    '''This class encapsulates the 64-bit VFP/NEON registers (d0 to d31).
+    
+    .. attribute:: dnum
+
+        The register number.
+    '''
     def __init__(self, regnum):
         self.dnum = regnum    
     def get(self, thread):
@@ -139,7 +165,12 @@ class DRegister(MutableOperand):
 
 
 class QRegister(MutableOperand):
-    'This class encapsulates the 128-bit NEON registers (q0 to q15).'
+    '''This class encapsulates the 128-bit NEON registers (q0 to q15).
+
+    .. attribute:: qnum
+
+        The register number.
+    '''
     def __init__(self, regnum):
         self.qnum = regnum
     def get(self, thread):
@@ -154,19 +185,108 @@ class QRegister(MutableOperand):
         return hash(self.qnum)
 
 
-#class Relative(Operand):
-#    'This class represents relative operands, i.e. the sum of two values.'
-#    def __init__(self, base, offset):
-#        assert isinstance(base, Operand)
-#        assert isinstance(offset, Operand)
-#        self.base = base
-#        self.offset = offset
-#    def get(self, thread):
-#        return self.base.get(thread) + self.offset.get(thread)
-#    def __str__(self):
-#        return '{0}, {1}'.format(self.base, self.offset)
-#    def __eq__(self, other):
-#        return isinstance(other, type(self)) and self.base == other.base and self.offset == other.offset
-#    def __hash__(self):
-#        return hash((self.base, self.offset))
+_shift_names = ('lsl', 'lsr', 'asr', 'ror', 'rrx')
 
+class Indirect(MutableOperand):
+    '''
+    The class represents an indirect operand. An indirect operand can be any of
+    the followings:
+    
+    * ``[Register, \xb1Operand]``
+    * ``[Register], \xb1Operand``
+    * ``[Register, \xb1Operand]!``
+    * ``[Register, \xb1Operand, shift]``
+    
+    * ``[Register, \xb1Operand, shift]!``
+    
+    .. attribute:: register
+    
+        The primary :class:`Register` to offset and write back to.
+        
+    .. attribute:: offset
+    
+        An :class:`Operand` to offset the register.
+    
+    .. attribute:: positive
+
+        Whether the offset should be added or subtracted.    
+    
+    .. attribute:: writeBack
+    
+        Whether to update the register with the offset when dereferenced.
+    
+    .. attribute:: index
+    
+        Whether the write back should be done as pre-index (``[rN, x]``) or not
+        (``[rN], x``).
+    
+    .. attribute:: shifType
+        shiftAmount
+        
+        The shift applied to the offset.
+    '''
+    
+    def __init__(self, register, offset, positive=True, writeBack=False, index=True, shiftType=0, shiftAmount=0):
+        self.register = register
+        self.offset = offset
+        self.positive = positive
+        self.writeBack = writeBack
+        self.index = index
+        self.shiftType = shiftType
+        self.shiftAmount = shiftAmount
+    
+    def deref(self, thread, align=~0):
+        'Dereference this operand, and write back the offset value when needed.'
+        reg = self.register
+        base = reg.get(thread) & align
+        offset = Shift(0xffffffff, self.offset.get(thread), self.shiftType, self.shiftAmount, thread.cpsr.C)
+        offsetAddr = base + offset if self.positive else base - offset
+        addr = offsetAddr if self.index else base
+        if self.writeBack:
+            reg.set(thread, offsetAddr)
+        return addr
+    
+    def get(self, thread, length=4, align=~0):
+        '''Get the value of this operand from a :class:`~cpu.arm.thread.Thread`.
+        with an optional number of bytes and alignment (as ``~(nbytes-1)``).'''
+        addr = self.deref(thread, align)
+        return thread.memory.get(addr, length)
+    
+    def set(self, thread, value, length=4):
+        '''Set the value referred by this operand, with an optional number of
+        bytes.'''
+        addr = self.deref(thread)
+        thread.memory.set(addr, value & ((1 << (length*8)) - 1), length)
+
+    def __str__(self):
+        offset = self.offset
+        sign = '' if self.positive else '-'
+        if isinstance(offset, Constant):
+            offsetStr = ', #{0}{1:#x}'.format(sign, offset.imm)
+        else:
+            offsetStr = ', {0}{1}'.format(sign, str(offset))
+
+        (shiftType, shiftAmount) = (self.shiftType, self.shiftAmount)
+        if shiftType or shiftAmount:
+            offsetStr += ', {0} #{1}'.format(_shift_names[shiftType], shiftAmount)
+        
+        if offsetStr == ', #0':
+            offsetStr = ''
+        
+        if not self.index:
+            formatStr = '[{0}]{1}'
+        elif self.writeBack:
+            formatStr = '[{0}{1}]!'
+        else:
+            formatStr = '[{0}{1}]'
+        
+        return formatStr.format(self.register, offsetStr)
+            
+    def _toTuple(self):
+        return (self.rnum, self.offset, self.positive, self.writeBack, self.index, self.shiftType, self.shiftAmount)
+        
+    def __eq__(self, other):
+        return isinstance(other, type(self)) and self._toTuple() == other._toTuple()
+        
+    def __hash__(self):
+        return hash(self._toTuple())
