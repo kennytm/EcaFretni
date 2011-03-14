@@ -144,7 +144,7 @@ class Instruction(metaclass=ABCMeta):
         if self.condition.check(thread.cpsr):
             self.exec(thread)
             if thread.pcRaw != location:
-                thread.gotoEvent(self)
+                thread.onBranch(location, self, thread)
                 return
         thread.pc = location + self.length
 

@@ -1186,6 +1186,42 @@ class BranchTestCase(TestCase):
         self.assertEqual(thread.pcRaw, 0x2ff2)
         instr = thread.fetch()    # bxj lr
         self.assertEqual(str(instr), 'bxj\tlr')
+    
+    def test_onbranch(self):
+        program = bytes.fromhex(
+            '00b5'      # push  {lr}
+            '0420'      # movs  r0, #0x4
+            '0721'      # movs  r1, #0x7
+            '8842'      # cmp   r0, r1
+            '00d1'      # bne   0x2fec
+            '00bd'      # pop   {pc}
+            '401a'      # subs  r0, r0, r1
+            '00f0 02e8' # blx   0x2ff4
+            'fae7'      # b     0x2fea
+        )
+        srom = SimulatedROM(program, vmaddr=0x2fe0)
+        thread = Thread(srom)
+        thread.pc = 0x2fe0
+        thread.instructionSet = 1
+        
+        branchLst = []
+        
+        def thread_on_branch(prevLoc, instr, thread_):
+            branchLst.append((prevLoc, thread_.pcRaw))
+            if instr.mainOpcode() in {'bl', 'blx'}:
+                thread_.forceReturn()
+            
+        thread.onBranch = thread_on_branch
+        thread.run()
+        
+        self.assertListEqual(branchLst, [
+            (0x2fe8, 0x2fec),
+            (0x2fee, 0x2ff4),
+            (0x2ff2, 0x2fea),
+            (0x2fea, Return)
+        ])
+        
+        
 
 class LoadStoreTestCase(TestCase):
     def test_arm_word(self):

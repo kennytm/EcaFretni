@@ -20,7 +20,7 @@ from cpu.arm.status import Status, FloatingPointStatus
 from cpu.memory import Memory
 from cpu.pointers import StackPointer, Return
 from cpu.arm.decoder import InstructionDecoder
-from cpu.arm.functions import ITAdvance, REG_SP, REG_LR, REG_PC, COND_NONE
+from cpu.arm.functions import ITAdvance, REG_SP, REG_LR, REG_PC, COND_NONE, fixPCAddrBX
 from copy import deepcopy, copy
 import struct
 
@@ -88,6 +88,16 @@ class Thread(object):
     
         The :class:`~cpu.memory.Memory` associated to this thread.
     
+    .. attribute:: onBranch
+    
+        This is a user-defined callback callable. This callable is called when
+        the :meth:`~cpu.arm.instruction.Instruction.execute` method caused
+        :attr:`pc` to depart from its normal flow. The callable's signature must
+        be of the form::
+        
+            def onBranch(previousLocation, instruction, thread):
+                ...
+    
     '''
 
     def __init__(self, ROM, align=4, skipInitialization=False):
@@ -102,6 +112,7 @@ class Thread(object):
             self.memory = Memory(ROM, align)
             self.r[13] = StackPointer(0)
             self.r[14] = Return
+            self.onBranch = lambda p, i, t: None
         
     def __copy__(self):
         'Create a completely isolated copy (fork) of the current thread.'
@@ -114,6 +125,7 @@ class Thread(object):
         retval.spsr = copy(self.spsr)
         retval.fcpsr = copy(self.fcpsr)
         retval.memory = self.memory.__copy__()
+        retval.onBranch = self.onBranch
         return retval
         
     @property 
@@ -241,12 +253,6 @@ class Thread(object):
             cpsr.IT = ITAdvance(itstate)
                 
         return InstructionDecoder.create(instr, instrLen, instrSet, cond)
-
-    def gotoEvent(self, instruction):
-        '''This function is called when the
-        :meth:`~cpu.arm.instruction.Instruction.run` method caused :attr:`pc` to
-        depart from its normal flow.'''
-        pass
         
     def execute(self):
         'Run 1 instruction and return that instruction.'
@@ -260,3 +266,6 @@ class Thread(object):
         while self.pcRaw != Return or address is not None and self.pcRaw != address:
             self.execute()
     
+    def forceReturn(self):
+        'Force early return from a function by performing ``bx lr``.'
+        (self.pc, self.cpsr.T) = fixPCAddrBX(self.lr)
