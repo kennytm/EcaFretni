@@ -20,7 +20,7 @@ from cpu.arm.instruction import Instruction, Condition
 from cpu.arm.decoder import InstructionDecoder
 from cpu.arm.functions import *
 from bitpattern import BitPattern
-from cpu.arm.operand import Register, Constant, PCRelative, Indirect
+from cpu.arm.operand import Register, Constant, PCRelative, Indirect, RegisterList
 from abc import abstractmethod
 import re
 
@@ -520,7 +520,147 @@ class STRInstruction(Instruction):
     
     def exec(self, thread):
         self.op.set(thread, thread.r[self.srcReg], self.loadLen)
+
+#===============================================================================
+# Load/store multiple instruction decoder
+# 
+#  ldmXX, stmXX
+#
+#===============================================================================
+
+def _getLoadStoreMultipleInfo(startAddress, offset, isInc, before):
+    # ldmia:                        ldmib:
+    #     sp+c <--------- new sp        sp+c ==> r2 <-- new sp
+    #     sp+8 ==> r2                   sp+8 ==> r1
+    #     sp+4 ==> r1                   sp+4 ==> r0
+    #     sp   ==> r0                   sp
+    # 
+    # ldmda:                        ldmdb:
+    #     sp   ==> r2                   sp
+    #     sp-4 ==> r1                   sp-4 ==> r2
+    #     sp-8 ==> r0                   sp-8 ==> r1
+    #     sp-c <--------- new sp        sp-c ==> r0 <-- new sp
+    #
+
+    endAddress = startAddress
+    if isInc:
+        newAddress = startAddress + offset  # valid for ***ia
+        endAddress = newAddress
+    else:
+        startAddress -= offset      # valid for ***db
+        newAddress = startAddress
+    if before == isInc:    # fix for ***ib & ***da
+        startAddress += 4
+        endAddress += 4
     
+    addrs = []
+    aa = addrs.append
+    while startAddress != endAddress:
+        aa(startAddress)
+        startAddress += 4
+    
+    return (newAddress, addrs)
+
+class LDMInstruction(Instruction):
+    '''The ``ldm`` (load multiple)-related instructions, including ``pop`` (pop
+    multiple registers).'''
+    def __init__(self, encoding, length, instructionSet, srcReg, targetRegList, writeBack, inc, before, excMode=False):
+        super().__init__(encoding, length, instructionSet)
+        self.writeBack = writeBack
+        self.srcReg = srcReg
+        self.targetRegList = targetRegList
+        self.inc = inc
+        self.before = before
+        self.excMode = excMode
+        self.isPop = srcReg == REG_SP and writeBack and inc and not before and not excMode
+    
+    def mainOpcode(self):
+        if self.isPop:
+            return 'pop'
+        else:
+            return 'ldm' + ('i' if self.inc else 'd') + ('b' if self.before else 'a')
+    
+    @property
+    def operands(self):
+        return [Register(self.srcReg), self.targetRegList]
+        
+    def __str__(self):
+        newStr = super().__str__()
+        if self.isPop:
+            return newStr.replace('sp, ', '', 1)
+        else:
+            if self.writeBack:
+                newStr = newStr.replace(',', '!,', 1)
+            if self.excMode:
+                newStr += '^'
+            return newStr
+    
+    def exec(self, thread):
+
+        srcReg = self.srcReg
+        rl = self.targetRegList
+        offset = len(rl)*4
+        
+        startAddress = thread.r[srcReg]
+        (newAddress, addresses) = _getLoadStoreMultipleInfo(startAddress, offset, self.inc, self.before)
+        
+        values = map(thread.memory.get, addresses)
+        rl.set(thread, values)
+        if self.writeBack:
+            thread.r[srcReg] = newAddress
+
+class STMInstruction(Instruction):
+    '''The ``stm`` (store multiple)-related instructions, including ``push``
+    (push multiple registers).'''
+    def __init__(self, encoding, length, instructionSet, targetReg, srcRegList, writeBack, inc, before, excMode=False):
+        super().__init__(encoding, length, instructionSet)
+        self.writeBack = writeBack
+        self.targetReg = targetReg
+        self.srcRegList = srcRegList
+        self.inc = inc
+        self.before = before
+        self.excMode = excMode
+        self.isPush = targetReg == REG_SP and writeBack and not inc and before and not excMode
+    
+    def mainOpcode(self):
+        if self.isPush:
+            return 'push'
+        else:
+            return 'stm' + ('i' if self.inc else 'd') + ('b' if self.before else 'a')
+    
+    @property
+    def operands(self):
+        return [Register(self.targetReg), self.srcRegList]
+        
+    def __str__(self):
+        newStr = super().__str__()
+        if self.isPush:
+            return newStr.replace('sp, ', '', 1)
+        else:
+            if self.writeBack:
+                newStr = newStr.replace(',', '!,', 1)
+            if self.excMode:
+                newStr += '^'
+            return newStr
+    
+    def exec(self, thread):
+        targetReg = self.targetReg
+        rl = self.srcRegList
+        offset = len(rl)*4
+        isInc = self.inc
+        
+        startAddress = thread.r[targetReg]
+        (newAddress, addresses) = _getLoadStoreMultipleInfo(startAddress, offset, self.inc, self.before)
+
+        values = rl.get(thread)
+        tms = thread.memory.set
+        for addr, val in zip(addresses, values):
+            tms(addr, val)
+        
+        if self.writeBack:
+            thread.r[targetReg] = newAddress
+
+
 
 ################################################################################
 ################################################################################
@@ -951,9 +1091,6 @@ def loadStoreInstructionDecoder_ARMImmediate(res, encoding, condition):
     w = res.w
     isLDR = res.x
     imm12 = res.i
-    if n == 0b1101 and p != isLDR and u == isLDR and w and imm12 == 0b100:
-        # these are 'push' and 'pop' instructions.
-        return None
     instrCls = LDRInstruction if isLDR else STRInstruction
     wback = w or not p
     
@@ -1120,8 +1257,6 @@ def loadStoreInstructionDecoder_Thumb32Immediate8(res, encoding, condition):
         return None     # undefined
     if not p and not w:
         return None     # undefined
-    if x == 0b10 and n == 0b1101 and p != isLDR and u == isLDR and w and imm8 == 0b100:
-        return None     # push and pop
     if isLDR and x != 0b10 and d == REG_PC and p and not u and not w:
         return None     # unallocated memory hints and 'pld', 'pli'
 
@@ -1151,3 +1286,56 @@ def loadStoreInstructionDecoder_Thumb32Register(res, encoding, condition):
     op = Indirect(Register(n), Register(res.m), shiftType=SRTYPE_LSL, shiftAmount=res.i)
     return instrCls(encoding, 4, 1, d, op, append, loadLen, signedNotMask=snm)
     
+#===============================================================================
+# Load/store multiple instruction decoder
+# 
+#  ldmXX, stmXX
+#
+#===============================================================================
+
+def _parseRegList(x):
+    i = 0
+    while x:
+        if x & 1:
+            yield i
+        i += 1
+        x >>= 1
+
+@InstructionDecoder(4, 0, '100PUEwynnnnrrrrrrrrrrrrrrrr')
+def loadStoreMultipleInstructionDecoder_ARM(res, encoding, condition):
+    instrCls = LDMInstruction if res.y else STMInstruction
+    rl = RegisterList(*_parseRegList(res.r))
+    return instrCls(encoding, 4, 0, res.n, rl,
+                    writeBack=res.w, inc=res.U, before=res.P, excMode=res.E)
+
+@InstructionDecoder(2, 1, '1100ynnnrrrrrrrr')
+def loadStoreMultipleInstructionDecoder_Thumb16(res, encoding, condition):
+    isLDM = res.y
+    instrCls = LDMInstruction if isLDM else STMInstruction
+    rl = RegisterList(*_parseRegList(res.r))
+    return instrCls(encoding, 2, 1, res.n, rl,
+                    writeBack=True, inc=isLDM, before=not isLDM)
+
+@InstructionDecoder(2, 1, '1011y10Mrrrrrrrr')
+def loadStoreMultipleInstructionDecoder_Thumb16PushPop(res, encoding, condition):
+    isLDM = res.y
+    instrCls = LDMInstruction if isLDM else STMInstruction
+    rnumlist = _parseRegList(res.r)
+    if res.M:
+        firstReg = REG_PC if isLDM else REG_LR
+        rl = RegisterList(firstReg, *rnumlist)
+    else:
+        rl = RegisterList(*rnumlist)
+    return instrCls(encoding, 2, 1, REG_SP, rl,
+                    writeBack=True, inc=isLDM, before=not isLDM)
+
+@InstructionDecoder(4, 1, '1110100PU0wynnnn rrrrrrrrrrrrrrrr')
+def loadStoreMultipleInstructionDecoder_Thumb32(res, encoding, condition):
+    isInc = res.U
+    isBefore = res.P
+    if isInc == isBefore:        # these are 'srs' and 'rfe' instructions.
+        return None
+    instrCls = LDMInstruction if res.y else STMInstruction
+    rl = RegisterList(*_parseRegList(res.r))
+    return instrCls(encoding, 4, 1, res.n, rl,
+                    writeBack=res.w, inc=isInc, before=isBefore).forceWide()

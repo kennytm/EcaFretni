@@ -18,7 +18,7 @@
 
 
 from abc import ABCMeta, abstractmethod
-from cpu.arm.functions import REG_SP, REG_LR, REG_PC, Shift
+from cpu.arm.functions import REG_SP, REG_LR, REG_PC, Shift, fixPCAddrLoad
 from collections import defaultdict
 
 class Operand(metaclass=ABCMeta):
@@ -310,6 +310,8 @@ class RegisterList(MutableOperand):
     
     def set(self, thread, values):
         for rn, val in zip(self.registers, values):
+            if rn.rnum == REG_PC:
+                (val, thread.cpsr.T) = fixPCAddrLoad(val, thread.cpsr.T)
             rn.set(thread, val)
     
     def __str__(self):
@@ -339,6 +341,13 @@ class RegisterList(MutableOperand):
     
     def __hash__(self):
         return hash(self.registers)
-        
+    
+    def __len__(self):
+        'Return the length of registers.'
+        return len(self.registers)
+    
+    def __iter__(self):
+        'Return an iterator of the registers.'
+        return iter(self.registers)
     
 

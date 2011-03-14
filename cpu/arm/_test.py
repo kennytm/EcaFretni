@@ -20,7 +20,7 @@
 from unittest import main, TestCase
 import cpu.arm.instructions.core
 from cpu.arm.instruction import Condition
-from cpu.arm.operand import Constant, Register, Indirect
+from cpu.arm.operand import Constant, Register, Indirect, RegisterList
 from cpu.arm.status import Status
 from cpu.memory import SimulatedROM
 from cpu.arm.thread import Thread
@@ -270,6 +270,44 @@ class OperandTestCase(TestCase):
         indir = Indirect(Register(REG_PC), Constant(8), positive=False)
         self.assertEqual(indir.get(thread, align=~3), 0x01234567)
 
+    def test_register_list_str(self):
+        rl = RegisterList(0, 1, 2, 3)
+        self.assertEqual(str(rl), '{r0-r3}')
+        
+        rl = RegisterList(0, 2, 3)
+        self.assertEqual(str(rl), '{r0, r2-r3}')
+
+        rl = RegisterList(0, 2, 4)
+        self.assertEqual(str(rl), '{r0, r2, r4}')
+
+        rl = RegisterList(7)
+        self.assertEqual(str(rl), '{r7}')
+
+        rl = RegisterList()
+        self.assertEqual(str(rl), '{}')
+
+        rl = RegisterList(10, 11, 12, REG_SP, REG_LR, REG_PC)
+        self.assertEqual(str(rl), '{r10-r11, ip, sp, lr, pc}')
+        
+    def test_register_list_getset(self):
+        srom = SimulatedROM(bytes(), vmaddr=0x1000)
+        thread = Thread(srom)
+        thread.r[0] = 15
+        thread.r[1] = 20
+        thread.r[2] = 25
+        thread.r[3] = 30
+        thread.r[4] = 35
+        
+        rl = RegisterList(0, 1, REG_SP, 3, 4)
+        self.assertEqual(list(rl.get(thread)), [15, 20, 30, 35, StackPointer(0)])
+        self.assertEqual(rl.registers, (Register(0), Register(1), Register(3), Register(4), Register(REG_SP)))
+        rl.set(thread, [2, 4, 6, 8, StackPointer(10)])
+        self.assertEqual(thread.r[0], 2)
+        self.assertEqual(thread.r[1], 4)
+        self.assertEqual(thread.r[2], 25)
+        self.assertEqual(thread.r[3], 6)
+        self.assertEqual(thread.r[4], 8)
+        self.assertEqual(thread.sp, StackPointer(10))
 
 class DataProcTestCase(TestCase):
     def test_arm_adc(self):
@@ -1277,7 +1315,7 @@ class LoadStoreTestCase(TestCase):
         self.assertEqual(str(instr), 'ldr\tpc, [r2, r5, lsl #3]')
         self.assertEqual(thread.pcRaw, 0x2fd0)
 
-    def test_extra(self):
+    def test_thumb_extra(self):
         program = bytes.fromhex(
             '0010e0e3'  # mvn   r1, #0x0
             '0010ade4'  # strt  r1, [sp]
@@ -1423,8 +1461,162 @@ class LoadStoreTestCase(TestCase):
         self.assertEqual(str(instr), 'str\tr6, [r2], #-0x4')
         self.assertEqual(thread.r[2], StackPointer(4))
         self.assertEqual(thread.memory.get(StackPointer(8)), 0xff)
-
+    
+    def test_arm_multiple(self):
+        program = bytes.fromhex(
+            '10808fe2'  # add   r8, pc, #0x10
+            '0f00b8e9'  # ldmib r8!, {r0-r3}
+            '0f002de9'  # push  {r0-r3}
+            '001e9de8'  # ldmia sp, {r9-r11, ip}
+            'f000bde8'  # pop   {r4-r7}
+            '550018e8'  # ldmda r8, {r0, r2, r4, r6}
+            '00000000 78563412 f0debc9a e0ac6824 df9b5713'
+                        # .word 0, 0x12345678, 0x9abcdef0, 0x2468ace0, 0x13579bdf
+        )
+        srom = SimulatedROM(program, vmaddr=0x2fd4)
+        thread = Thread(srom)
+        thread.pc = 0x2fd4
         
+        instr = thread.execute()    # add r8, pc, #0x10
+        self.assertEqual(thread.r[8], 0x2fec)
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'ldmib\tr8!, {r0-r3}')
+        self.assertEqual(thread.r[0], 0x12345678)
+        self.assertEqual(thread.r[1], 0x9abcdef0)
+        self.assertEqual(thread.r[2], 0x2468ace0)
+        self.assertEqual(thread.r[3], 0x13579bdf)
+        self.assertEqual(thread.r[8], 0x2ffc)
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'push\t{r0-r3}')
+        self.assertEqual(thread.memory.get(StackPointer(-16)), 0x12345678)
+        self.assertEqual(thread.memory.get(StackPointer(-12)), 0x9abcdef0)
+        self.assertEqual(thread.memory.get(StackPointer(-8)), 0x2468ace0)
+        self.assertEqual(thread.memory.get(StackPointer(-4)), 0x13579bdf)
+        self.assertEqual(thread.sp, StackPointer(-16))
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'ldmia\tsp, {r9-r11, ip}')
+        self.assertEqual(thread.r[9], 0x12345678)
+        self.assertEqual(thread.r[10], 0x9abcdef0)
+        self.assertEqual(thread.r[11], 0x2468ace0)
+        self.assertEqual(thread.ip, 0x13579bdf)
+        self.assertEqual(thread.sp, StackPointer(-16))
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'pop\t{r4-r7}')
+        self.assertEqual(thread.r[4], 0x12345678)
+        self.assertEqual(thread.r[5], 0x9abcdef0)
+        self.assertEqual(thread.r[6], 0x2468ace0)
+        self.assertEqual(thread.r[7], 0x13579bdf)
+        self.assertEqual(thread.sp, StackPointer(0))
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'ldmda\tr8, {r0, r2, r4, r6}')
+        self.assertEqual(thread.r[0], 0x12345678)
+        self.assertEqual(thread.r[2], 0x9abcdef0)
+        self.assertEqual(thread.r[4], 0x2468ace0)
+        self.assertEqual(thread.r[6], 0x13579bdf)
+        self.assertEqual(thread.r[8], 0x2ffc)
+
+    def test_thumb_multiple(self):
+        program = bytes.fromhex(
+            '04a7'      # add   r7, pc, #0x10
+            '0fcf'      # ldmia r7!, {r0-r3}
+            '0fb4'      # push  {r0-r3}
+            '9de8 001e' # ldmia.w sp, {r9-r11, ip}
+            'bde8 7001' # pop.w {r4-r6, r8}
+            '17e9 5500' # ldmdb.w r7, {r0, r2, r4, r6}
+            '00bf'      # nop
+            '78563412 f0debc9a e0ac6824 df9b5713'
+                        # .word 0x12345678, 0x9abcdef0, 0x2468ace0, 0x13579bdf
+        )
+        srom = SimulatedROM(program, vmaddr=0x2fdc)
+        thread = Thread(srom)
+        thread.instructionSet = 1
+        thread.pc = 0x2fdc
+        
+        instr = thread.execute()    # add r7, pc, #0x10
+        self.assertEqual(thread.r[7], 0x2ff0)
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'ldmia\tr7!, {r0-r3}')
+        self.assertEqual(thread.r[0], 0x12345678)
+        self.assertEqual(thread.r[1], 0x9abcdef0)
+        self.assertEqual(thread.r[2], 0x2468ace0)
+        self.assertEqual(thread.r[3], 0x13579bdf)
+        self.assertEqual(thread.r[7], 0x3000)
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'push\t{r0-r3}')
+        self.assertEqual(thread.memory.get(StackPointer(-16)), 0x12345678)
+        self.assertEqual(thread.memory.get(StackPointer(-12)), 0x9abcdef0)
+        self.assertEqual(thread.memory.get(StackPointer(-8)), 0x2468ace0)
+        self.assertEqual(thread.memory.get(StackPointer(-4)), 0x13579bdf)
+        self.assertEqual(thread.sp, StackPointer(-16))
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'ldmia.w\tsp, {r9-r11, ip}')
+        self.assertEqual(thread.r[9], 0x12345678)
+        self.assertEqual(thread.r[10], 0x9abcdef0)
+        self.assertEqual(thread.r[11], 0x2468ace0)
+        self.assertEqual(thread.ip, 0x13579bdf)
+        self.assertEqual(thread.sp, StackPointer(-16))
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'pop.w\t{r4-r6, r8}')
+        self.assertEqual(thread.r[4], 0x12345678)
+        self.assertEqual(thread.r[5], 0x9abcdef0)
+        self.assertEqual(thread.r[6], 0x2468ace0)
+        self.assertEqual(thread.r[8], 0x13579bdf)
+        self.assertEqual(thread.sp, StackPointer(0))
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'ldmdb.w\tr7, {r0, r2, r4, r6}')
+        self.assertEqual(thread.r[0], 0x12345678)
+        self.assertEqual(thread.r[2], 0x9abcdef0)
+        self.assertEqual(thread.r[4], 0x2468ace0)
+        self.assertEqual(thread.r[6], 0x13579bdf)
+        self.assertEqual(thread.r[7], 0x3000)
+
+    def test_thumb_multiple_extra(self):
+        program = bytes.fromhex(
+            '0420'      # movs  r0, #0x4
+            '6946'      # mov   r1, sp
+            '21e9 0500' # stmdb.w r1!, {r0, r2}
+            '01b5'      # push  {r0, lr}
+            '0720'      # movs  r0, #0x7
+            '01bd'      # pop   {r0, pc}
+        )
+        srom = SimulatedROM(program, vmaddr=0x1000)
+        thread = Thread(srom)
+        thread.pc = 0x1000
+        thread.instructionSet = 1
+        
+        thread.execute()    # movs r0, #0x4
+        thread.execute()    # mov r1, sp
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'stmdb.w\tr1!, {r0, r2}')
+        self.assertEqual(thread.r[1], StackPointer(-8))
+        self.assertEqual(thread.memory.get(StackPointer(-8)), 4)
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'push\t{r0, lr}')
+        self.assertEqual(thread.sp, StackPointer(-8))
+        self.assertEqual(thread.memory.get(StackPointer(-4)), Return)
+        self.assertEqual(thread.memory.get(StackPointer(-8)), 4)
+        
+        thread.execute()    # movs r0, #0x7
+        self.assertEqual(thread.r[0], 7)
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'pop\t{r0, pc}')
+        self.assertEqual(thread.sp, StackPointer(0))
+        self.assertEqual(thread.r[0], 4)
+        self.assertEqual(thread.pcRaw, Return)
+
 
 class MiscInstrTestCase(TestCase):
     def test_arm_special_move(self):

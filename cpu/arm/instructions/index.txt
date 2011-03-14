@@ -195,22 +195,22 @@ INDEX
 
 ::LDM:LDMIA:LDMFD:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.53 - T1: ?
-             T2: ?
-             A1: ?
+   A8.6.53 - T1: loadStoreMultipleInstructionDecoder_Thumb16
+             T2: loadStoreMultipleInstructionDecoder_Thumb32
+             A1: loadStoreMultipleInstructionDecoder_ARM
 
 ::LDMDA:LDMFA:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.54 - A1: ?
+   A8.6.54 - A1: loadStoreMultipleInstructionDecoder_ARM
 
 ::LDMDB:LDMEA:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.55 - T1: ?
-             A1: ?
+   A8.6.55 - T1: loadStoreMultipleInstructionDecoder_Thumb32
+             A1: loadStoreMultipleInstructionDecoder_ARM
 
 ::LDMIB:LDMED:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.56 - A1: ?
+   A8.6.56 - A1: loadStoreMultipleInstructionDecoder_ARM
 
 ::LDR:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -474,19 +474,19 @@ INDEX
 
 ::POP:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.121 - T1: ?
-              T2: ?
-              T3: ?
-              A1: ?
-              A2: ?
+   A8.6.121 - T1: loadStoreMultipleInstructionDecoder_Thumb16PushPop
+              T2: loadStoreMultipleInstructionDecoder_Thumb32
+              T3: loadStoreInstructionDecoder_Thumb32Immediate8
+              A1: loadStoreMultipleInstructionDecoder_ARM
+              A2: loadStoreInstructionDecoder_ARMImmediate
 
 ::PUSH::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.122 - T1: ?
-              T2: ?
-              T3: ?
-              A1: ?
-              A2: ?
+   A8.6.122 - T1: loadStoreMultipleInstructionDecoder_Thumb16PushPop
+              T2: loadStoreMultipleInstructionDecoder_Thumb32
+              T3: loadStoreInstructionDecoder_Thumb32Immediate8
+              A1: loadStoreMultipleInstructionDecoder_ARM
+              A2: loadStoreInstructionDecoder_ARMImmediate
 
 ::QADD::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
@@ -782,22 +782,22 @@ INDEX
 
 ::STM:STMIA:STMEA:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.188 - T1: ?
-              T2: ?
-              A1: ?
+   A8.6.188 - T1: loadStoreMultipleInstructionDecoder_Thumb16
+              T2: loadStoreMultipleInstructionDecoder_Thumb32
+              A1: loadStoreMultipleInstructionDecoder_ARM
 
 ::STMDA:STMED:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.189 - A1: ?
+   A8.6.189 - A1: loadStoreMultipleInstructionDecoder_ARM
 
 ::STMDB:STMFD:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.190 - T1: ?
-              A1: ?
+   A8.6.190 - T1: loadStoreMultipleInstructionDecoder_Thumb32
+              A1: loadStoreMultipleInstructionDecoder_ARM
 
 ::STMIB:STMFA:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-   A8.6.191 - A1: ?
+   A8.6.191 - A1: loadStoreMultipleInstructionDecoder_ARM
 
 ::STR:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
