@@ -290,3 +290,55 @@ class Indirect(MutableOperand):
         
     def __hash__(self):
         return hash(self._toTuple())
+
+
+class RegisterList(MutableOperand):
+    '''
+    The class represents an register list structure used in the ``stm`` and
+    ``ldm`` instructions.
+    
+    .. attribute:: registers
+    
+        The list of :class:`Register`\s included in this list.
+    
+    '''
+    def __init__(self, *rnums):
+        self.registers = tuple(map(Register, sorted(rnums)))
+    
+    def get(self, thread):
+        return (rn.get(thread) for rn in self.registers)
+    
+    def set(self, thread, values):
+        for rn, val in zip(self.registers, values):
+            rn.set(thread, val)
+    
+    def __str__(self):
+        def getRegRange(regs):
+            it = iter(regs)
+            firstR = next(it)
+            lastR = firstR
+            for r in it:
+                rnum = r.rnum
+                if rnum in _register_names or rnum - lastR.rnum > 1:
+                    yield (firstR, lastR)
+                    firstR = r
+                lastR = r
+            yield (firstR, lastR)
+        
+        def stringify(regs):
+            for firstR, lastR in getRegRange(regs):
+                if firstR == lastR:
+                    yield str(firstR)
+                else:
+                    yield '{0}-{1}'.format(firstR, lastR)
+        
+        return '{' + ', '.join(stringify(self.registers)) + '}'
+    
+    def __eq__(self, other):
+        return isinstance(other, type(self)) and self.registers == other.registers
+    
+    def __hash__(self):
+        return hash(self.registers)
+        
+    
+
