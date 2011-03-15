@@ -220,7 +220,7 @@ class HeapPointer(SpecialPointer):
         else:
             return NotImplemented
     def __repr__(self):
-        return 'HeapPointer({0}, offset={1})'.format(self.hande, self.offset)
+        return 'HeapPointer({0}, offset={1})'.format(self.handle, self.offset)
 
 
 def isStackPointer(obj):
@@ -231,3 +231,69 @@ def isStackPointer(obj):
 def isHeapPointer(obj):
     'Check if *obj* is a heap pointer.'
     return isinstance(obj, HeapPointer)
+
+
+class Parameter(object):
+    '''This class is a wrapper to identify an unmodified input parameter. You
+    could use this class to keep track of parameter to a function. Note that any
+    non-identity operation on its instance will decay it back to the underlying
+    type.
+    
+    .. attribute:: name
+    
+        The name of the parameter.
+    
+    .. attribute:: value
+    
+        The value of this parameter.
+    '''
+    
+    def __init__(self, name, value=0):
+        self.name = name
+        self.value = value
+    def __repr__(self):
+        return 'Parameter({0!r}, {1!r})'.format(self.name, self.value)
+    
+    def __lt__(self, other): return self.value < other
+    def __le__(self, other): return self.value <= other
+    def __eq__(self, other): return self.value == other
+    def __ne__(self, other): return self.value != other
+    def __gt__(self, other): return self.value > other
+    def __ge__(self, other): return self.value >= other
+    def __hash__(self): return hash(self.value)
+    def __bool__(self): return bool(self.value)
+    
+    def __add__(self, other): return self.value + other if other else self
+    def __sub__(self, other): return self.value - other if other else self
+    def __mul__(self, other): return self.value * other if other != 1 else self
+    def __truediv__(self, other): return self.value / other if other != 1 else self
+    def __floordiv__(self, other): return self.value // other if other != 1 else self
+    def __mod__(self, other): return self.value % other
+    def __divmod__(self, other): return divmod(self.value, other)
+    def __lshift__(self, other): return self.value << other if other else self
+    def __rshift__(self, other): return self.value >> other if other else self
+    def __and__(self, other):
+        retval = self.value & other
+        if (other & 0xffffffff) == 0xffffffff:
+            return Parameter(self.name, retval)
+        else:
+            return retval
+    def __or__(self, other): return self.value | other if other else self
+    def __xor__(self, other): return self.value ^ other if other else self
+
+    def __rsub__(self, other): return other - self.value
+    def __rtruediv__(self, other): return other / self.value
+    def __rfloordiv__(self, other): return other // self.value
+    def __rmod__(self, other): return other % self.value
+    def __rdivmod__(self, other): return divmod(other, self.value)
+    def __rlshift__(self, other): return other >> self.value
+    def __rrshift__(self, other): return other << self.value
+
+    def __neg__(self): return -self.value
+    def __abs__(self): return abs(self.value)
+    def __invert__(self): return ~self.value
+    
+def isParameter(obj, name):
+    'Check if *obj* is a :class:`Parameter` with the given *name*.'
+    return isinstance(obj, Parameter) and obj.name == name
+
