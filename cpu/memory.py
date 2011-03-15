@@ -43,9 +43,10 @@ from struct import Struct
 from itertools import repeat
 from cpu.pointers import isStackPointer, isHeapPointer, HeapPointer, StackPointer
 from copy import deepcopy
+from abc import ABCMeta, abstractmethod
 
 _strus = (None, Struct('<B'), Struct('<H'), None, Struct('<I'), None, None, None, Struct('<Q'))
-
+_best_length = (1, 1, 2, 4, 4, 8, 8, 8, 8)
 
 class Memory(object):
     '''The complete memory model. This consists of a :class:`RAM`, a
@@ -120,15 +121,18 @@ class Memory(object):
         self.heap.free(pointer.handle)
         
 
-
-
-def decompose(obj, offset, length):
+def decompose(obj, offset, length=-1):
     '''Decompose *obj* into bytes in little-endian, then return the value at
     *offset* with length *length*. For example,
     
     >>> decompose(0x12345678, 2, 1)
     0x34
+
+    A negative length (the default) is equivalent to infinite length.
     
+    >>> decompose(0x12345678, 2)
+    0x1234
+
     This function is defined for integers only, but other classes could declare
     their ``decompose`` method to make this work too. The signature must be:: 
     
@@ -139,12 +143,15 @@ def decompose(obj, offset, length):
     '''
     if isinstance(obj, int):
         rightShift = offset * 8
-        mask = (1 << (length * 8)) - 1
-        return (obj >> rightShift) & mask
+        if length >= 0:
+            mask = ~(-1 << (length * 8))
+            return (obj >> rightShift) & mask
+        else:
+            return obj >> rightShift
     else:
         return obj.decompose(offset, length)
 
-def replaceDecomposed(obj, offset, value, length):
+def replaceDecomposed(obj, offset, value, length=-1):
     '''Decompose *obj* into bytes in little-endian, then replace the value at
     *offset* with length *length* by *value*. Return the new object containing
     the change as a result. For example,
@@ -153,6 +160,11 @@ def replaceDecomposed(obj, offset, value, length):
     0x12ff5678
     
     It is possible that *obj* be mutated when calling this function.
+    
+    A negative length (the default) is equivalent to infinite length.
+    
+    >>> replaceDecomposed(0x12345678, 2, 0xee)
+    0xee5678
     
     This function is defined for integers only, but other classes could declare
     their ``replaceDecomposed`` method to make this work too. The signature must
@@ -163,8 +175,11 @@ def replaceDecomposed(obj, offset, value, length):
     '''
     if isinstance(obj, int):
         rightShift = offset * 8
-        mask = (1 << (length * 8)) - 1
-        obj &= ~(mask << rightShift)
+        if length >= 0:
+            mask = ~(-1 << (length * 8))
+            obj &= ~(mask << rightShift)
+        else:
+            obj &= ~(-1 << rightShift)
         obj |= value << rightShift
         return obj
     else:
@@ -196,7 +211,111 @@ class SimulatedROM(object):
         return self.content[offset:offset+length]
 
 
-class RAM(object):
+# So, the general scheme of get/set functions are:
+#
+#   get(addr, length):
+#       if addr is not aligned:
+#           get the pre-excess part.
+#           combine with get(addr+extraBytes, length-extraBytes)
+#           return
+#       else if length == align:
+#           return getCore(item)
+#       
+class AlignedStorage(metaclass=ABCMeta):
+    '''The abstract base class of all continuous mutable storages (:class:`RAM`
+    and :class:`Stack`). The class defines the skeleton of how unaligned access
+    should be performed.
+    
+    .. attribute:: align
+    
+        The native pointer width in bytes.
+    '''
+    
+    def __init__(self, align=4):
+        self.align = align
+        self._rightShift = (align-1).bit_length()
+    
+    @abstractmethod
+    def getItem(self, item, minLength):    # pragma: no cover
+        '''Get an aligned item of the given index with at least *minLength*
+        bytes. The value of item is related to the address by
+        ``address == item * align``.
+        
+        This is an abstract method. All subclasses should override this method.
+        '''
+    
+    @abstractmethod
+    def setItem(self, item, value, minLength):    # pragma: no cover
+        '''Set an aligned item by the given index with at least *minLength*
+        bytes. The value of item is related to the address by
+        ``address == item * align``.
+        
+        This is an abstract method. All subclasses should override this method.
+        '''
+    
+    def get(self, offset, length=0):
+        'Get an unsigned integer with the given number of bytes at *offset*.'
+        align = self.align
+        if not length:
+            length = align
+    
+        item = offset >> self._rightShift
+        unaligned = offset & (align-1)
+        
+        if unaligned:            
+            bytesCount = min(align - unaligned, length)
+            wholeObj = self.getItem(item, unaligned + bytesCount)
+            alignedBytes = length - bytesCount
+            obj = decompose(wholeObj, unaligned, bytesCount)
+            if alignedBytes:
+                higherObj = self.get(offset + bytesCount, alignedBytes)
+                return replaceDecomposed(obj, bytesCount, higherObj)
+            else:
+                return obj
+        
+        elif length == align:
+            return self.getItem(item, align)
+        elif length < align:
+            obj = self.getItem(item, length)
+            return decompose(obj, 0, length)
+        else:
+            lowerObj = self.getItem(item, align)
+            higherObj = self.get(offset + align, length - align)
+            return replaceDecomposed(lowerObj, align, higherObj)
+
+    def set(self, offset, value, length=0):
+        'Set an unsigned integer with the given number of bytes at *offset* to *value*.'
+        align = self.align
+        if not length:
+            length = align
+    
+        item = offset >> self._rightShift
+        unaligned = offset & (align-1)
+
+        if not unaligned:
+            if length == align:
+                self.setItem(item, value)
+                return
+            elif length > align:
+                lowerObj = decompose(value, 0, align)
+                higherObj = decompose(value, align)
+                self.setItem(item, lowerObj)
+                self.set(offset + align, higherObj, length - align)
+                return
+        
+        bytesCount = min(align - unaligned, length)
+        origObj = self.getItem(item, align)
+        alignedBytes = length - bytesCount
+        lowerObj = decompose(value, 0, bytesCount)
+        newObj = replaceDecomposed(origObj, unaligned, lowerObj, bytesCount)
+        self.setItem(item, newObj)
+        if alignedBytes:
+            higherObj = decompose(value, bytesCount)
+            self.set(offset + bytesCount, higherObj, length - bytesCount)
+            
+
+
+class RAM(AlignedStorage):
     '''
     The class represents a RAM.
     
@@ -211,18 +330,13 @@ class RAM(object):
         where *vmaddr* is the VM address to dereference, and *length* is the
         number of bytes to get. It should return a buffer object.
     
-    .. attribute:: align
-    
-        The native pointer width. 
-        
     '''
     
     def __init__(self, ROM, align=4):
         assert hasattr(ROM, 'derefBytes')
+        super().__init__(align)
         self._cowlayer = {}
         self.ROM = ROM
-        self.align = align
-        self._rightShift = (align-1).bit_length()
         
     def copyFrom(self, otherRAM):
         'Copy modified data from another RAM, which is backed by the same ROM.'
@@ -230,51 +344,20 @@ class RAM(object):
             raise ValueError('Cannot copy data from a RAM backed by another ROM.')
         self._cowlayer = deepcopy(otherRAM._cowlayer)
         
-    def get(self, vmaddr, length=0):
-        'Get an unsigned integer with the given number of bytes at *vmaddr*.'
-        align = self.align
+    def getItem(self, item, minLength):
         cow = self._cowlayer
-        if not length:
-            length = align
-        item = vmaddr >> self._rightShift
         if item in cow:
-            obj = cow[item]
-            if length == align:
-                return obj
-            elif length < align:
-                return decompose(obj, vmaddr & (align-1), length)
-            else:
-                nextVal = self.get(vmaddr + align, length - align)
-                return obj | nextVal << (align * 8)
+            return cow[item]
         else:
-            bs = self.ROM.derefBytes(vmaddr, length)
-            return _strus[length].unpack(bs)[0]
+            bestLength = _best_length[minLength]
+            bs = self.ROM.derefBytes(item * self.align, bestLength)
+            return _strus[bestLength].unpack(bs)[0]
             
-    def set(self, vmaddr, value, length=0):
-        'Set an unsigned integer with the given number of bytes at *vmaddr* to *value*.'
-        align = self.align
-        cow = self._cowlayer
-        if not length:
-            length = align
-        item = vmaddr >> self._rightShift
-        if item not in cow:
-            lastItem = (vmaddr + length-1) >> self._rightShift
-            sRdB = self.ROM.derefBytes
-            sau = _strus[align].unpack
-            for i in range(item, lastItem+1):
-                bs = sRdB(i << self._rightShift, align)
-                cow[i] = sau(bs)[0]
-        if length == align:
-            cow[item] = value
-        elif length < align:
-            cow[item] = replaceDecomposed(cow[item], vmaddr & (align-1), value, length)
-        else:
-            mask = (1 << (align*8)) - 1
-            cow[item] = value & mask
-            self.set(vmaddr + align, value >> (align*8), length - align)
+    def setItem(self, item, value):
+        self._cowlayer[item] = value
             
 
-class Stack(object):
+class Stack(AlignedStorage):
     '''
     The class represents a stack.
     
@@ -284,11 +367,10 @@ class Stack(object):
     '''
     
     def __init__(self, align=4):
+        super().__init__(align)
         self.content = deque()
         self.positiveLength = -1
         self.negativeLength = 0
-        self.align = align
-        self._rightShift = (align-1).bit_length()
         
     def __ensureItemExists(self, item):
         if item > self.positiveLength:
@@ -298,38 +380,13 @@ class Stack(object):
             self.content.extendleft(repeat(0, self.negativeLength - item + 1))
             self.negativeLength = item - 1
 
-    def get(self, offset, length=0):
-        'Get an unsigned integer with the given number of bytes at *offset*.'
-        align = self.align
-        if not length:
-            length = align
-        item = offset >> self._rightShift
+    def getItem(self, item, minLength):
         self.__ensureItemExists(item)
-        obj = self.content[item - self.negativeLength]
-        if length == align:
-            return obj
-        elif length < align:
-            return decompose(obj, offset & (align-1), length)
-        else:
-            nextVal = self.get(offset + align, length - align)
-            return obj | (nextVal << (align * 8))
-        
-    def set(self, offset, value, length=0):
-        'Set an unsigned integer with the given number of bytes at *offset* to *value*.'
-        align = self.align
-        if not length:
-            length = align
-        item = offset >> self._rightShift
+        return self.content[item - self.negativeLength]
+    
+    def setItem(self, item, value):
         self.__ensureItemExists(item)
-        index = item - self.negativeLength
-        if length == align:
-            self.content[index] = value
-        elif length < align:
-            self.content[index] = replaceDecomposed(self.content[item], offset & (align-1), value, length)
-        else:
-            mask = (1 << (align*8)) - 1
-            self.content[index] = value & mask
-            self.set(offset + align, value >> (align*8), length - align)
+        self.content[item - self.negativeLength] = value
 
 
 class Heap(object):
@@ -371,6 +428,9 @@ if __name__ == '__main__':
     assert decompose(0x12345678, 3, 1) == 0x12
     assert decompose(0x12345678, 0, 2) == 0x5678
     assert decompose(0x12345678, 2, 2) == 0x1234
+    assert decompose(0x12345678, 0) == 0x12345678
+    assert decompose(0x12345678, 1) == 0x123456
+    assert decompose(0x12345678, 2) == 0x1234
 
     assert replaceDecomposed(0x12345678, 0, 0xff, 1) == 0x123456ff
     assert replaceDecomposed(0x12345678, 1, 0xff, 1) == 0x1234ff78
@@ -378,6 +438,12 @@ if __name__ == '__main__':
     assert replaceDecomposed(0x12345678, 3, 0xff, 1) == 0xff345678
     assert replaceDecomposed(0x12345678, 0, 0xff, 2) == 0x123400ff
     assert replaceDecomposed(0x12345678, 2, 0xff, 2) == 0x00ff5678
+    assert replaceDecomposed(0x12345678, 0, 0xff) == 0xff
+    assert replaceDecomposed(0x12345678, 1, 0xff) == 0xff78
+    assert replaceDecomposed(0x12345678, 2, 0xff) == 0xff5678
+    assert replaceDecomposed(0x12345678, 3, 0xff) == 0xff345678
+    assert replaceDecomposed(0x12345678, 4, 0xffff) == 0xffff12345678
+    assert replaceDecomposed(0x12345678, 5, 0xabc) == 0xabc0012345678
     
     romData = b'\x90\xef\xcd\xab\x78\x56\x34\x12'
     srom = SimulatedROM(romData, 0x1000)
