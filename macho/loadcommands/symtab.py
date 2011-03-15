@@ -45,9 +45,10 @@ class SymtabCommand(LoadCommand):
 			libord = (desc >> 8) & 0xff  # GET_LIBRARY_ORDINAL
 			extern = bool(typ & 1)       # N_EXT
 			symtype = SYMTYPE_GENERIC if (typ & 0xe) else SYMTYPE_UNDEFINED
-			if desc & 8:	# N_ARM_THUMB_DEF
+			isThumb = bool(desc & 8)	 # N_ARM_THUMB_DEF
+			if isThumb:
 				value &= ~1
-			symbol = Symbol(string, value, symtype, ordinal, libord, extern)
+			symbol = Symbol(string, value, symtype, ordinal, libord, extern, isThumb)
 			symbols.append(symbol)
 		
 		# add those symbols back into the Mach-O.

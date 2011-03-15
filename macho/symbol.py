@@ -55,6 +55,7 @@ class MachO_SymbolPatches(MachO):
                 (3002, 0x8e218),
                 ...
             ])
+        
         '''
         
         self_symbols = self.symbols

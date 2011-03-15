@@ -391,6 +391,16 @@ class ITInstruction(Instruction):
 #
 #===============================================================================
 
+def isBLInstruction(instruction):
+    'Check if *instruction* is a ``bl`` or ``blx`` instruction.'
+    if isinstance(instruction, BLInstruction):
+        return True
+    elif isinstance(instruction, BXInstruction):
+        return instruction.link
+    else:
+        return False
+    
+
 class BInstruction(Instruction):
     'The ``b`` (branch) instruction.'
     def __init__(self, encoding, length, instructionSet, target):
