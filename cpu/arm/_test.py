@@ -1220,7 +1220,45 @@ class BranchTestCase(TestCase):
             (0x2ff2, 0x2fea),
             (0x2fea, Return)
         ])
+    
+    def test_thumb_cbz(self):
+        program = bytes.fromhex(
+            '0020'  # movs  r0, #0x0
+            '0121'  # movs  r1, #0x1
+            '09b1'  # cbz   r1, 0x2ff2
+            '00b9'  # cbnz  r0, 0x2ff2
+            '09b9'  # cbnz  r1, 0x2ff6
+            '0222'  # movs  r2, #0x2
+            '7047'  # bx    lr
+            '00b1'  # cbz   r0, 0x2ffa
+            'fbe7'  # b     0x2ff2
+            '0322'  # movs  r2, #0x3
+            '7047'  # bx    lr
+        )
+        srom = SimulatedROM(program, vmaddr=0x2fe8)
+        thread = Thread(srom)
+        thread.pc = 0x2fe8
+        thread.instructionSet = 1
         
+        thread.execute()    # movs r0, #0x0
+        self.assertEqual(thread.r[0], 0)
+        thread.execute()    # movs r1, #0x1
+        self.assertEqual(thread.r[1], 1)
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'cbz\tr1, pc+0x2')
+        self.assertEqual(thread.pcRaw, 0x2fee)
+        
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'cbnz\tr0, pc+0x0')
+        self.assertEqual(thread.pcRaw, 0x2ff0)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'cbnz\tr1, pc+0x2')
+        self.assertEqual(thread.pcRaw, 0x2ff6)
+
+        instr = thread.execute()
+        self.assertEqual(str(instr), 'cbz\tr0, pc+0x0')
+        self.assertEqual(thread.pcRaw, 0x2ffa)
         
 
 class LoadStoreTestCase(TestCase):

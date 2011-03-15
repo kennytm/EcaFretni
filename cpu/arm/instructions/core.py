@@ -475,6 +475,29 @@ class BXInstruction(Instruction):
                 thread.lr = pc - 4
         (thread.pc, cpsr.T) = fixPCAddrBX(self.target.get(thread))
 
+
+class CBZInstruction(Instruction):
+    '''The ``cbz`` (compare and branch on zero) and ``cbnz`` (compare and branch
+    on nonzero) instructions.'''
+    
+    def __init__(self, encoding, length, instructionSet, srcReg, target, nonzero):
+        super().__init__(encoding, length, instructionSet)
+        self.srcReg = srcReg
+        self.target = target
+        self.nonzero = nonzero
+    
+    @property
+    def operands(self):
+        return [Register(self.srcReg), self.target]
+    
+    def mainOpcode(self):
+        return 'cbnz' if self.nonzero else 'cbz'
+    
+    def exec(self, thread):
+        if self.nonzero == (not not thread.r[self.srcReg]):
+            thread.pc = fixPCAddrB(self.target.get(thread), thread.cpsr.T)
+
+
 #===============================================================================
 # Load/store instructions
 # 
@@ -606,7 +629,6 @@ class LDMInstruction(Instruction):
             return newStr
     
     def exec(self, thread):
-
         srcReg = self.srcReg
         rl = self.targetRegList
         offset = len(rl)*4
@@ -669,7 +691,6 @@ class STMInstruction(Instruction):
         
         if self.writeBack:
             thread.r[targetReg] = newAddress
-
 
 
 ################################################################################
@@ -1043,6 +1064,12 @@ def branchInstructionDecoder_Thumb16Register(res, encoding, condition):
     instrType = 2 * res.x + 1
     target = Register(res.m)
     return BXInstruction(encoding, 2, 1, target, instrType)
+
+# Sect A6.2.5/A8.6.27
+@InstructionDecoder(2, 1, '1011x0i1iiiiinnn')
+def branchInstructionDecoder_Thumb16CBZ(res, encoding, condition):
+    'Decode 16-bit Thumb ``cbz`` and ``cbnz`` instructions.'
+    return CBZInstruction(encoding, 2, 1, res.n, PCRelative(res.i*2), res.x)
 
 # Sect A6.3.4
 @InstructionDecoder(4, 1, '11110Scccciiiiii 10J0jiiiiiiiiiii')
