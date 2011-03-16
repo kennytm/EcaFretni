@@ -46,7 +46,8 @@ class MachO_SymbolPatches(MachO):
             self_symbols_append(sym, name=sym.name, addr=sym.addr, ordinal=sym.ordinal)
     
     def provideAddresses(self, ordinalsAndAddresses, columnName='ordinal'):
-        '''Provide extra addresses to the symbols. The *ordinalsAndAddresses*
+        '''
+        Provide extra addresses to the symbols. The *ordinalsAndAddresses*
         parameter should be an iterable of (ordinal, address) tuple, e.g.::
         
             machO.provideAddresses([
@@ -55,7 +56,7 @@ class MachO_SymbolPatches(MachO):
                 (3002, 0x8e218),
                 ...
             ])
-        
+            
         '''
         
         self_symbols = self.symbols

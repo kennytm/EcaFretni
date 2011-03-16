@@ -92,6 +92,8 @@ class DyldSharedCache(object):
         
         * ``'name'`` (unique, string, the filename of this image after deleting
           all extensions, e.g. 'UIKit' or 'libxml2'.)
+        
+        * ``'path'`` (unique, string, the exact path of this image.)
 
     '''
     
@@ -157,16 +159,17 @@ class DyldSharedCache(object):
         self.mappings = MappingSet(self.__analyzeMappings(mappingOffset, mappingCount))
         self.mappings.freeze()
         
-        images = DataTable('!address', '!name')
+        images = DataTable('!address', '!name', '!path')
         for image in self.__analyzeImages(imagesOffset, imagesCount):
-            bn = basename(image.path);
+            path = images.path
+            bn = basename(path)
             while True:
                 (stem, ext) = splitext(bn)
                 if not ext:
                     break
                 bn = stem
                 
-            images.append(image, address=image.address, name=bn)
+            images.append(image, address=image.address, name=bn, path=path)
             
         self.images = images
         
