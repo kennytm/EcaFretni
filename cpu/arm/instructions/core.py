@@ -424,7 +424,7 @@ class BLInstruction(Instruction):
         super().__init__(encoding, length, instructionSet)
         self.target = target
         self._mainOpcode = ('bl', 'blx')[exchange]
-        self.toThumb = (encoding & 1) != exchange
+        self.toThumb = (instructionSet & 1) != exchange
     
     @property
     def operands(self):
@@ -1098,7 +1098,7 @@ def branchInstructionDecoder_Thumb32Unconditional(res, encoding, condition):
     if x == 1:
         instr = BInstruction(encoding, 4, 1, target)
     else:
-        instr = BLInstruction(encoding, 4, 1, target, exchange=(x==3))
+        instr = BLInstruction(encoding, 4, 1, target, exchange=(x==2))
     return instr.forceWide()
 
 # Sect A8.6.26

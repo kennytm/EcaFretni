@@ -1175,7 +1175,8 @@ class BranchTestCase(TestCase):
         thread.execute()    # bx lr
         
         self.assertEqual(thread.pcRaw, 0x2fea)
-        thread.execute()    # bl 0x2fee
+        instr = thread.execute()    # bl 0x2fee
+        self.assertEqual(instr.mainOpcode(), 'bl')
         
         self.assertEqual(thread.pcRaw, 0x2fee)
         thread.execute()    # blx 0x2ffc
@@ -1259,6 +1260,17 @@ class BranchTestCase(TestCase):
         instr = thread.execute()
         self.assertEqual(str(instr), 'cbz\tr0, pc+0x0')
         self.assertEqual(thread.pcRaw, 0x2ffa)
+        
+    def test_coremedia_branch(self):
+        program = bytes.fromhex('7844 d2f773fa 0646')
+        srom = SimulatedROM(program, vmaddr=0x31a6eb34)
+        thread = Thread(srom)
+        thread.pc = 0x31a6eb36
+        thread.instructionSet = 1
+        
+        thread.execute()
+        self.assertEqual(thread.pcRaw, 0x31a41020)
+        
         
 
 class LoadStoreTestCase(TestCase):
