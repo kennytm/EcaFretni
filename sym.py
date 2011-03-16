@@ -73,22 +73,29 @@ class Symbol(object):
         | :const:`SYMTYPE_OBJC_SEL`  | Objective-C selector.             |
         +----------------------------+-----------------------------------+
     
+    .. attribute:: isThumb
+    
+        Whether this symbol is in Thumb. This is meaningful for ARM architecture
+        only.
+    
     """
     
-    def __init__(self, name, addr, symtype, ordinal=-1, libord=0, extern=False):
+    def __init__(self, name, addr, symtype, ordinal=-1, libord=0, extern=False, isThumb=False):
         self.name = name
         self.addr = addr
         self.symtype = symtype
         self.ordinal = ordinal
         self.libord = libord
         self.extern = extern
+        self.isThumb = isThumb
     
-    def copy(self):
+    def __copy__(self):
         '''Create a copy of this symbol.'''
-        return type(self)(self.name, self.addr, self.symtype, self.ordinal, self.libord, self.extern)
+        return type(self)(*self._toTuple())
+    copy = __copy__
     
     def _toTuple(self):
-        return (self.name, self.addr, self.symtype, self.ordinal, self.libord, self.extern)
+        return (self.name, self.addr, self.symtype, self.ordinal, self.libord, self.extern, self.isThumb)
 
     def __eq__(self, other):
         "Check whether two symbols are equivalent."
@@ -104,11 +111,14 @@ class Symbol(object):
         
     def __repr__(self):
         args = [repr(self.name), '0x{:x}'.format(self.addr), _symtypeNames[self.symtype]]
+        args_app = args.append
         if self.ordinal >= 0:
-            args.append('ordinal={!r}'.format(self.ordinal))
+            args_app('ordinal={!r}'.format(self.ordinal))
         if self.libord:
-            args.append('libord={!r}'.format(self.libord))
+            args_app('libord={!r}'.format(self.libord))
         if self.extern:
-            args.append('extern=True')
+            args_app('extern=True')
+        if self.isThumb:
+            args_app('isThumb=True')
         return 'Symbol({})'.format(', '.join(args))
 

@@ -1,0 +1,973 @@
+INDEX
+
+::ADC:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.1 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb32Immediate
+                          A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.2 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16Register
+                          T2: dataProcessingInstructionDecoder_Thumb32Register
+                          A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.3 - (reg-shift) - A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::ADD:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.4 - (imm Thumb) - T1: dataProcessingInstructionDecoder_Thumb16AddSub3BitImmediate
+                          T2: dataProcessingInstructionDecoder_Thumb16_8BitImmediate
+                          T3: dataProcessingInstructionDecoder_Thumb32Immediate
+                          T4: dataProcessingInstructionDecoder_Thumb32ImmediateW
+   A8.6.5 - (imm ARM)   - A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.6 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16AddSubRegister
+                          T2: dataProcessingInstructionDecoder_Thumb16HighRegister
+                          T3: dataProcessingInstructionDecoder_Thumb32Register
+                          A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.7 - (reg-shift) - A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+   A8.6.8 - (SP + imm)  - T1: dataProcessingInstructionDecoder_Thumb16AddSP
+                          T2: dataProcessingInstructionDecoder_Thumb16AddSubSP
+                          T3: dataProcessingInstructionDecoder_Thumb32Immediate
+                          T4: dataProcessingInstructionDecoder_Thumb32ImmediateW
+                          A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.9 - (SP + reg)  - T1: dataProcessingInstructionDecoder_Thumb16HighRegister
+                          T2: dataProcessingInstructionDecoder_Thumb16HighRegister
+                          T3: dataProcessingInstructionDecoder_Thumb32Register
+                          A1: dataProcessingInstructionDecoder_ARMRegister
+
+::ADR:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.10 - T1: ADRInstructionDecoder_Thumb16
+             T2: dataProcessingInstructionDecoder_Thumb32ImmediateW
+             T3: dataProcessingInstructionDecoder_Thumb32ImmediateW
+             A1: dataProcessingInstructionDecoder_ARMImmediate
+             A2: dataProcessingInstructionDecoder_ARMImmediate
+
+::AND:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.11 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb32Immediate
+                           A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.12 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16Register
+                           T2: dataProcessingInstructionDecoder_Thumb32Register
+                           A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.13 - (reg-shift) - A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::ASR:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.14 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb16ShiftImmediate
+                           T2: dataProcessingInstructionDecoder_Thumb32Register
+                           A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.15 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16Register
+                           T2: dataProcessingInstructionDecoder_Thumb32RegisterShiftInstr
+                           A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::B:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.16 - T1: branchInstructionDecoder_Thumb16Conditional
+             T2: branchInstructionDecoder_Thumb16Unconditional
+             T3: branchInstructionDecoder_Thumb32Conditional
+             T4: branchInstructionDecoder_Thumb32Unconditional
+             A1: branchInstructionDecoder_ARMLocal
+
+::BFC:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.17 - T1: ?
+             A1: ?
+
+::BFI:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.18 - T1: ?
+             A1: ?
+
+::BIC:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.19 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb32Immediate
+                           A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.20 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16Register
+                           T2: dataProcessingInstructionDecoder_Thumb32Register
+                           A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.21 - (reg-shift) - A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::BKPT::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.22 - T1: ?
+             A1: ?
+
+::BL:BLX::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.23 - (immediate) - T1: branchInstructionDecoder_Thumb32Unconditional
+                           T2: branchInstructionDecoder_Thumb32Unconditional
+                           A1: branchInstructionDecoder_ARMLocal
+                           A2: branchInstructionDecoder_ARMExchange
+   A8.6.24 - (register)  - T1: branchInstructionDecoder_Thumb16Register
+                           A1: branchInstructionDecoder_ARMRegister
+
+::BX::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.25 - T1: branchInstructionDecoder_Thumb16Register
+             A1: branchInstructionDecoder_ARMRegister
+
+::BXJ:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.26 - T1: branchInstructionDecoder_Thumb32BXJ
+             A1: branchInstructionDecoder_ARMRegister
+
+::CBNZ:CBZ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.27 - T1: branchInstructionDecoder_Thumb16CBZ
+
+::CDP:CDP2::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.28 - T1: ?
+             A1: ?
+             T2: ?
+             A2: ?
+
+::CLREX:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.30 - T1: ?
+             A1: ?
+
+::CLZ:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.31 - T1: ?
+             A1: ?
+
+::CMN:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.32 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb32Immediate
+                           A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.33 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16Register
+                           T2: dataProcessingInstructionDecoder_Thumb32Register
+                           A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.34 - (reg-shift) - A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::CMP:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.35 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb16_8BitImmediate
+                           T2: dataProcessingInstructionDecoder_Thumb32Immediate
+                           A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.36 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16Register
+                           T2: dataProcessingInstructionDecoder_Thumb16HighRegister
+                           T3: dataProcessingInstructionDecoder_Thumb32Register
+                           A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.37 - (reg-shift) - A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::DBG:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.40 - T1: ?
+             A1: ?
+
+::DMB:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.41 - T1: ?
+             A1: ?
+
+::DSB:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.42 - T1: ?
+             A1: ?
+
+::EOR:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.44 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb32Immediate
+                           A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.45 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16Register
+                           T2: dataProcessingInstructionDecoder_Thumb32Register
+                           A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.46 - (reg-shift) - A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::ISB:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.49 - T1: ?
+             A1: ?
+
+::IT::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.50 - T1: ITInstructionDecoder_Thumb16
+
+::LDC:LDC2::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.51 - (immediate) - T1: ?
+                           A1: ?
+                           T2: ?
+                           A2: ?
+   A8.6.52 - (literal)   - T1: ?
+                           A1: ?
+                           T2: ?
+                           A2: ?
+
+::LDM:LDMIA:LDMFD:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.53 - T1: loadStoreMultipleInstructionDecoder_Thumb16
+             T2: loadStoreMultipleInstructionDecoder_Thumb32
+             A1: loadStoreMultipleInstructionDecoder_ARM
+
+::LDMDA:LDMFA:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.54 - A1: loadStoreMultipleInstructionDecoder_ARM
+
+::LDMDB:LDMEA:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.55 - T1: loadStoreMultipleInstructionDecoder_Thumb32
+             A1: loadStoreMultipleInstructionDecoder_ARM
+
+::LDMIB:LDMED:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.56 - A1: loadStoreMultipleInstructionDecoder_ARM
+
+::LDR:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.57 - (imm Thumb) - T1: loadStoreInstructionDecoder_Thumb16Immediate
+                           T2: loadStoreInstructionDecoder_Thumb16SPRelative
+                           T3: loadStoreInstructionDecoder_Thumb32Immediate12
+                           T4: loadStoreInstructionDecoder_Thumb32Immediate8
+   A8.6.58 - (imm ARM)   - A1: loadStoreInstructionDecoder_ARMImmediate
+   A8.6.59 - (literal)   - T1: loadStoreInstructionDecoder_Thumb16PCRelative
+                           T2: loadStoreInstructionDecoder_Thumb32Immediate12
+                           A1: loadStoreInstructionDecoder_ARMImmediate
+   A8.6.60 - (register)  - T1: loadStoreInstructionDecoder_Thumb16Register
+                           T2: loadStoreInstructionDecoder_Thumb32Register
+                           A1: loadStoreInstructionDecoder_ARMRegister
+
+::LDRB::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.61 - (imm Thumb) - T1: loadStoreInstructionDecoder_Thumb16Immediate
+                           T2: loadStoreInstructionDecoder_Thumb32Immediate12
+                           T3: loadStoreInstructionDecoder_Thumb32Immediate8
+   A8.6.62 - (imm ARM)   - A1: loadStoreInstructionDecoder_ARMImmediate
+   A8.6.63 - (literal)   - T1: loadStoreInstructionDecoder_Thumb32Immediate12
+                           A1: loadStoreInstructionDecoder_ARMImmediate
+   A8.6.64 - (register)  - T1: loadStoreInstructionDecoder_Thumb16Register
+                           T2: loadStoreInstructionDecoder_Thumb32Register
+                           A1: loadStoreInstructionDecoder_ARMRegister
+
+::LDRBT:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.65 - T1: loadStoreInstructionDecoder_Thumb32Immediate8
+             A1: loadStoreInstructionDecoder_ARMImmediate
+             A2: loadStoreInstructionDecoder_ARMRegister
+
+::LDRD::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.66 - (immediate) - T1: ?
+                           A1: ?
+   A8.6.67 - (literal)   - T1: ?
+                           A1: ?
+   A8.6.68 - (register)  - A1: ?
+
+::LDREX:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.69 - T1: ?
+             A1: ?
+
+::LDREXB::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.70 - T1: ?
+             A1: ?
+
+::LDREXD::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.71 - T1: ?
+             A1: ?
+
+::LDREXH::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.72 - T1: ?
+             A1: ?
+
+::LDRH::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.73 - (imm Thumb) - T1: loadStoreInstructionDecoder_Thumb16Immediate
+                           T2: loadStoreInstructionDecoder_Thumb32Immediate12
+                           T3: loadStoreInstructionDecoder_Thumb32Immediate8
+   A8.6.74 - (imm ARM)   - A1: ?
+   A8.6.75 - (literal)   - T1: loadStoreInstructionDecoder_Thumb32Immediate12
+                           A1: ?
+   A8.6.76 - (register)  - T1: loadStoreInstructionDecoder_Thumb16Register
+                           T2: loadStoreInstructionDecoder_Thumb32Register
+                           A1: ?
+
+::LDRHT:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.77 - T1: ?
+             A1: ?
+             A2: ?
+
+::LDRSB:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.78 - (immediate) - T1: loadStoreInstructionDecoder_Thumb32Immediate12
+                           T2: loadStoreInstructionDecoder_Thumb32Immediate8
+                           A1: ?
+   A8.6.79 - (literal)   - T1: loadStoreInstructionDecoder_Thumb32Immediate12
+                           A1: ?
+   A8.6.80 - (register)  - T1: loadStoreInstructionDecoder_Thumb16Register
+                           T2: loadStoreInstructionDecoder_Thumb32Register
+                           A1: ?
+
+::LDRSBT::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.81 - T1: loadStoreInstructionDecoder_Thumb32Immediate8
+             A1: ?
+             A2: ?
+
+::LDRSH:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.82 - (immediate) - T1: loadStoreInstructionDecoder_Thumb32Immediate12
+                           T2: loadStoreInstructionDecoder_Thumb32Immediate8
+                           A1: ?
+   A8.6.83 - (literal)   - T1: loadStoreInstructionDecoder_Thumb32Immediate12
+                           A1: ?
+   A8.6.84 - (register)  - T1: loadStoreInstructionDecoder_Thumb16Register
+                           T2: loadStoreInstructionDecoder_Thumb32Register
+                           A1: ?
+
+::LDRSHT::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.85 - T1: loadStoreInstructionDecoder_Thumb32Immediate8
+             A1: ?
+             A2: ?
+
+::LDRT::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.86 - T1: loadStoreInstructionDecoder_Thumb32Immediate8
+             A1: loadStoreInstructionDecoder_ARMImmediate
+             A2: loadStoreInstructionDecoder_ARMRegister
+
+::LSL:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.88 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb16ShiftImmediate
+                           T2: dataProcessingInstructionDecoder_Thumb32Register
+                           A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.89 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16Register
+                           T2: dataProcessingInstructionDecoder_Thumb32RegisterShiftInstr
+                           A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::LSR:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.90 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb16ShiftImmediate
+                           T2: dataProcessingInstructionDecoder_Thumb32Register
+                           A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.91 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16Register
+                           T2: dataProcessingInstructionDecoder_Thumb32RegisterShiftInstr
+                           A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::MCR:MCR2::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.92 - T1: ?
+             A1: ?
+             T2: ?
+             A2: ?
+
+::MCRR:MCRR2::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.93 - T1: ?
+             A1: ?
+             T2: ?
+             A2: ?
+
+::MLA:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.94 - T1: ?
+             A1: ?
+
+::MLS:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.95 - T1: ?
+             A1: ?
+
+::MOV:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.96 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb16_8BitImmediate
+                           T2: dataProcessingInstructionDecoder_Thumb32Immediate
+                           T3: specialMoveInstructionDecoder_Thumb32
+                           A1: dataProcessingInstructionDecoder_ARMImmediate
+                           A2: specialMoveInstructionDecoder_ARM
+   A8.6.97 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16HighRegister
+                           T2: dataProcessingInstructionDecoder_Thumb16ShiftImmediate
+                           T3: dataProcessingInstructionDecoder_Thumb32Register
+                           A1: dataProcessingInstructionDecoder_ARMRegister
+
+::MOVT::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.99 - T1: specialMoveInstructionDecoder_Thumb32
+             A1: specialMoveInstructionDecoder_ARM
+
+::MRC:MRC2::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.100 - T1: ?
+              A1: ?
+              T2: ?
+              A2: ?
+
+::MRRC:MRRC2::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.101 - T1: ?
+              A1: ?
+              T2: ?
+              A2: ?
+
+::MRS:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.102 - T1: ?
+              A1: ?
+
+::MSR:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.103 - (immediate) - A1: ?
+   A8.6.104 - (register)  - T1: ?
+                            A1: ?
+
+::MUL:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.105 - T1: ?
+              T2: ?
+              A1: ?
+
+::MVN:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.106 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb32Immediate
+                            A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.107 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16Register
+                            T2: dataProcessingInstructionDecoder_Thumb32Register
+                            A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.108 - (reg-shift) - A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::NOP:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.110 - T1: hintInstructionDecoder_Thumb16
+              T2: hintInstructionDecoder_Thumb32
+              A1: hintInstructionDecoder_ARM
+
+::ORN:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.111 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb32Immediate
+   A8.6.112 - (register)  - T1: dataProcessingInstructionDecoder_Thumb32Register
+
+::ORR:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.113 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb32Immediate
+                            A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.114 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16Register
+                            T2: dataProcessingInstructionDecoder_Thumb32Register
+                            A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.115 - (reg-shift) - A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::PKH:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.116 - T1: dataProcessingInstructionDecoder_Thumb32Register
+              A1: ?
+
+::PLD:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.117 - (imm lit)  - T1: ?
+                           T2: ?
+                           T3: ?
+                           A1: ?
+   A8.6.118 - (register) - T1: ?
+                           A1: ?
+
+::PLI:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.119 - (imm lit)  - T1: ?
+                           T2: ?
+                           T3: ?
+                           A1: ?
+   A8.6.120 - (register) - T1: ?
+                           A1: ?
+
+::POP:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.121 - T1: loadStoreMultipleInstructionDecoder_Thumb16PushPop
+              T2: loadStoreMultipleInstructionDecoder_Thumb32
+              T3: loadStoreInstructionDecoder_Thumb32Immediate8
+              A1: loadStoreMultipleInstructionDecoder_ARM
+              A2: loadStoreInstructionDecoder_ARMImmediate
+
+::PUSH::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.122 - T1: loadStoreMultipleInstructionDecoder_Thumb16PushPop
+              T2: loadStoreMultipleInstructionDecoder_Thumb32
+              T3: loadStoreInstructionDecoder_Thumb32Immediate8
+              A1: loadStoreMultipleInstructionDecoder_ARM
+              A2: loadStoreInstructionDecoder_ARMImmediate
+
+::QADD::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.123 - T1: ?
+              A1: ?
+
+::QADD16::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.124 - T1: ?
+              A1: ?
+
+::QADD8:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.125 - T1: ?
+              A1: ?
+
+::QASX::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.126 - T1: ?
+              A1: ?
+
+::QDADD:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.127 - T1: ?
+              A1: ?
+
+::QDSUB:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.128 - T1: ?
+              A1: ?
+
+::QSAX::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.129 - T1: ?
+              A1: ?
+
+::QSUB::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.130 - T1: ?
+              A1: ?
+
+::QSUB16::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.131 - T1: ?
+              A1: ?
+
+::QSUB8:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.132 - T1: ?
+              A1: ?
+
+::RBIT::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.133 - T1: ?
+              A1: ?
+
+::REV:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.134 - T1: ?
+              T2: ?
+              A1: ?
+
+::REV16:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.135 - T1: ?
+              T2: ?
+              A1: ?
+
+::REVSH:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.134 - T1: ?
+              T2: ?
+              A1: ?
+
+::ROR:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.138 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb32Register
+                            A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.139 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16Register
+                            T2: dataProcessingInstructionDecoder_Thumb32RegisterShiftInstr
+                            A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::RRX:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.140 - T1: dataProcessingInstructionDecoder_Thumb32Register
+              A1: dataProcessingInstructionDecoder_ARMRegister
+
+::RSB:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.141 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb16Register
+                            T2: dataProcessingInstructionDecoder_Thumb32Immediate
+                            A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.142 - (register)  - T1: dataProcessingInstructionDecoder_Thumb32Register
+                            A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.143 - (reg-shift) - A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::RSC:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.144 - (immediate) - A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.145 - (register)  - A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.146 - (reg-shift) - A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::SADD16::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.147 - T1: ?
+              A1: ?
+
+::SADD8:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.148 - T1: ?
+              A1: ?
+
+::SASX::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.149 - T1: ?
+              A1: ?
+
+::SBC:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.150 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb32Immediate
+                            A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.151 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16Register
+                            T2: dataProcessingInstructionDecoder_Thumb32Register
+                            A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.152 - (reg-shift) - A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::SBFX::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.153 - T1: ?
+              A1: ?
+
+::SDIV::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.154 - T1: ?
+
+::SEL:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.155 - T1: ?
+              A1: ?
+
+::SETEND::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.156 - T1: ?
+              A1: ?
+
+::SEV:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.157 - T1: hintInstructionDecoder_Thumb16
+              T2: hintInstructionDecoder_Thumb32
+              A1: hintInstructionDecoder_ARM
+
+::SHADD16:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.158 - T1: ?
+              A1: ?
+
+::SHADD8::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.159 - T1: ?
+              A1: ?
+
+::SHASX:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.160 - T1: ?
+              A1: ?
+
+::SHSAX:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.161 - T1: ?
+              A1: ?
+
+::SHSUB16:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.162 - T1: ?
+              A1: ?
+
+::SHSUB8::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.163 - T1: ?
+              A1: ?
+
+::SMLABB:SMLABT:SMLATB:SMLATT:::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.165 - T1: ?
+              A1: ?
+
+::SMLAD:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.166 - T1: ?
+              A1: ?
+
+::SMLAL:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.167 - T1: ?
+              A1: ?
+
+::SMLALBB:SMLALBT:SMLALTB:SMLALTT:::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.168 - T1: ?
+              A1: ?
+
+::SMLALD::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.169 - T1: ?
+              A1: ?
+
+::SMLAWB:SMLAWT:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.170 - T1: ?
+              A1: ?
+
+::SMLSD:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.171 - T1: ?
+              A1: ?
+
+::SMLSLD::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.172 - T1: ?
+              A1: ?
+
+::SMMLA:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.173 - T1: ?
+              A1: ?
+
+::SMMLS:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.174 - T1: ?
+              A1: ?
+
+::SMMUL:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.175 - T1: ?
+              A1: ?
+
+::SMUAD:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.176 - T1: ?
+              A1: ?
+
+::SMULBB:SMULBT:SMULTB:SMULTT:::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.177 - T1: ?
+              A1: ?
+
+::SMULL:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.178 - T1: ?
+              A1: ?
+
+::SMULWB:SMULWT:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.179 - T1: ?
+              A1: ?
+
+::SMUSD:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.180 - T1: ?
+              A1: ?
+
+::SSAT::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.182 - T1: ?
+              A1: ?
+
+::SSAT16::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.183 - T1: ?
+              A1: ?
+
+::SSAX::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.184 - T1: ?
+              A1: ?
+
+::SSUB16::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.185 - T1: ?
+              A1: ?
+
+::SSUB8:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.186 - T1: ?
+              A1: ?
+
+::STC:STC2::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.187 - T1: ?
+              A1: ?
+              T2: ?
+              A2: ?
+
+::STM:STMIA:STMEA:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.188 - T1: loadStoreMultipleInstructionDecoder_Thumb16
+              T2: loadStoreMultipleInstructionDecoder_Thumb32
+              A1: loadStoreMultipleInstructionDecoder_ARM
+
+::STMDA:STMED:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.189 - A1: loadStoreMultipleInstructionDecoder_ARM
+
+::STMDB:STMFD:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.190 - T1: loadStoreMultipleInstructionDecoder_Thumb32
+              A1: loadStoreMultipleInstructionDecoder_ARM
+
+::STMIB:STMFA:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.191 - A1: loadStoreMultipleInstructionDecoder_ARM
+
+::STR:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.192 - (imm Thumb) - T1: loadStoreInstructionDecoder_Thumb16Immediate
+                            T2: loadStoreInstructionDecoder_Thumb16SPRelative
+                            T3: loadStoreInstructionDecoder_Thumb32Immediate12
+                            T4: loadStoreInstructionDecoder_Thumb32Immediate8
+   A8.6.193 - (imm ARM)   - A1: loadStoreInstructionDecoder_ARMImmediate
+   A8.6.194 - (register)  - T1: loadStoreInstructionDecoder_Thumb16Register
+                            T2: loadStoreInstructionDecoder_Thumb32Register
+                            A1: loadStoreInstructionDecoder_ARMRegister
+
+::STRB::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.195 - (imm Thumb) - T1: loadStoreInstructionDecoder_Thumb16Immediate
+                            T2: loadStoreInstructionDecoder_Thumb32Immediate12
+                            T3: loadStoreInstructionDecoder_Thumb32Immediate8
+   A8.6.196 - (imm ARM)   - A1: loadStoreInstructionDecoder_ARMImmediate
+   A8.6.197 - (register)  - T1: loadStoreInstructionDecoder_Thumb16Register
+                            T2: loadStoreInstructionDecoder_Thumb32Register
+                            A1: loadStoreInstructionDecoder_ARMRegister
+
+::STRBT:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.198 - T1: loadStoreInstructionDecoder_Thumb32Immediate8
+              A1: loadStoreInstructionDecoder_ARMImmediate
+              A2: loadStoreInstructionDecoder_ARMRegister
+
+::STRD::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.199 - (immediate) - T1: ?
+                            A1: ?
+   A8.6.200 - (register)  - A1: ?
+
+::STREX:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.201 - T1: ?
+              A1: ?
+
+::STREXB::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.202 - T1: ?
+              A1: ?
+
+::STREXD::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.203 - T1: ?
+              A1: ?
+
+::STREXH::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.204 - T1: ?
+              A1: ?
+
+::STRH::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.205 - (imm Thumb) - T1: loadStoreInstructionDecoder_Thumb16Immediate
+                            T2: loadStoreInstructionDecoder_Thumb32Immediate12
+                            T3: loadStoreInstructionDecoder_Thumb32Immediate8
+   A8.6.206 - (imm ARM)   - A1: ?
+   A8.6.207 - (register)  - T1: loadStoreInstructionDecoder_Thumb16Register
+                            T2: loadStoreInstructionDecoder_Thumb32Register
+                            A1: ?
+
+::STRHT:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.208 - T1: loadStoreInstructionDecoder_Thumb32Immediate8
+              A1: ?
+              A2: ?
+
+::STRT::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.209 - T1: loadStoreInstructionDecoder_Thumb32Immediate8
+              A1: loadStoreInstructionDecoder_ARMImmediate
+              A2: loadStoreInstructionDecoder_ARMRegister
+
+::SUB:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.210 - (imm Thumb) - T1: dataProcessingInstructionDecoder_Thumb16AddSub3BitImmediate
+                            T2: dataProcessingInstructionDecoder_Thumb16_8BitImmediate
+                            T3: dataProcessingInstructionDecoder_Thumb32Immediate
+                            T4: dataProcessingInstructionDecoder_Thumb32ImmediateW
+   A8.6.211 - (imm ARM)   - A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.212 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16AddSubRegister
+                            T2: dataProcessingInstructionDecoder_Thumb32Register
+                            A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.213 - (reg-shift) - A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+   A8.6.214 - (sp - imm)  - T1: dataProcessingInstructionDecoder_Thumb16AddSubSP
+                            T2: dataProcessingInstructionDecoder_Thumb32Immediate
+                            T3: dataProcessingInstructionDecoder_Thumb32ImmediateW
+                            A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.215 - (sp - reg)  - T1: dataProcessingInstructionDecoder_Thumb32Register
+                            A1: dataProcessingInstructionDecoder_ARMRegister
+
+::SVC:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.217 - T1: ?
+              A1: ?
+
+::SWP:SWPB::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.218 - A1: ?
+
+::SXTAB:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.219 - T1: ?
+              A1: ?
+
+::SXTAB16:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.220 - T1: ?
+              A1: ?
+
+::SXTAH:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.221 - T1: ?
+              A1: ?
+
+::SXTB::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.222 - T1: ?
+              A1: ?
+
+::SXTB16::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.223 - T1: ?
+              A1: ?
+
+::SXTH::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.224 - T1: ?
+              A1: ?
+
+::TBB:TBH:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.225 - T1: ?
+
+::TEQ:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.226 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb32Immediate
+                            A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.227 - (register)  - T1: dataProcessingInstructionDecoder_Thumb32Register
+                            A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.228 - (reg-shift) - A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::TST:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.229 - (immediate) - T1: dataProcessingInstructionDecoder_Thumb32Immediate
+                            A1: dataProcessingInstructionDecoder_ARMImmediate
+   A8.6.230 - (register)  - T1: dataProcessingInstructionDecoder_Thumb16Register
+                            T2: dataProcessingInstructionDecoder_Thumb32Register
+                            A1: dataProcessingInstructionDecoder_ARMRegister
+   A8.6.231 - (reg-shift) - A1: dataProcessingInstructionDecoder_ARMRegisterShiftRegister
+
+::WFE:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.408 - T1: hintInstructionDecoder_Thumb16
+              T2: hintInstructionDecoder_Thumb32
+              A1: hintInstructionDecoder_ARM
+
+::WFI:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.409 - T1: hintInstructionDecoder_Thumb16
+              T2: hintInstructionDecoder_Thumb32
+              A1: hintInstructionDecoder_ARM
+
+::YIELD:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+   A8.6.410 - T1: hintInstructionDecoder_Thumb16
+              T2: hintInstructionDecoder_Thumb32
+              A1: hintInstructionDecoder_ARM
+
+(the rest are ignored for the moment)

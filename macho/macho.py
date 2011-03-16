@@ -115,7 +115,7 @@ class MachO(object):
     def __exit__(self, exc_type, exc_value, traceback):
         return self.close(exc_type, exc_value, traceback)
 
-    def __init__(self, filename, arch="armv6", lenientArchMatching=False):
+    def __init__(self, filename, arch="armv7", lenientArchMatching=False):
         from .vmaddr import MappingSet
     
         self.filename = filename
