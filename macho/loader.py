@@ -112,7 +112,7 @@ class MachOLoader(object):
     
     '''
     
-    def __init__(*filenames, **kwargs):
+    def __init__(self, *filenames, **kwargs):
         kg = kwargs.get
         arch = Arch(kg('arch', 'armv7'))
         sdk = kg('sdk', '/')
@@ -131,7 +131,7 @@ class MachOLoader(object):
                 if not isfile(cachePath):
                     cachePath = cache
             if cachePath:
-                cache = DyldSharedCache(cache, endian=kg('endian')).__enter__()
+                cache = DyldSharedCache(cachePath, endian=kg('endian')).__enter__()
 
         self._cache = cache
         self._lenientArchMatching = kg('lenientArchMatching', False)

@@ -161,7 +161,7 @@ class DyldSharedCache(object):
         
         images = DataTable('!address', '!name', '!path')
         for image in self.__analyzeImages(imagesOffset, imagesCount):
-            path = images.path
+            path = image.path
             bn = basename(path)
             while True:
                 (stem, ext) = splitext(bn)

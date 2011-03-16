@@ -93,7 +93,7 @@ class InstructionDecoder(object):
                 continue
             retval = decoder(encoding, cond)
             if retval:
-                #print ('Decoded',hex(encoding),'with',decoder)
+                retval.decoder = decoder
                 break
         else:   # pragma: no cover
             raise InstructionDecoderNotFoundError(encoding, length, instructionSet)
