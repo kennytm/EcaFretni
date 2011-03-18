@@ -96,7 +96,7 @@ def _recursiveProcessExportTrieNode(f, start, cur, end, prefix, symbols):
 			readULeb128(f)
 			addr = readULeb128(f)
 			symbols.append(Symbol(sym, addr, SYMTYPE_GENERIC, extern=True))
-		
+		f.seek(cur + termSize + 1)
 		childCount = f.read_byte()
 		for i in range(childCount):
 			suffix = readString(f)
