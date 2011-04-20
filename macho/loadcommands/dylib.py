@@ -53,7 +53,7 @@ class DylibCommand(LoadCommand):
 
 	def analyze(self, machO):
 		(offset, self.timestamp, self.version, self.minVersion) = peekStruct(machO.file, machO.makeStruct('4L'))
-		self.name = peekString(machO.file, position=offset + self.offset - 8)
+		self.name = peekString(machO.file, position=offset + machO.origin + self.offset - 8)
 			
 	def __str__(self):
 		return "<Dylib {!r}>".format(self.name)
