@@ -56,8 +56,13 @@ from factory import factory
 	LC_LAZY_LOAD_DYLIB,   # 0x20, delay load of dylib until first use
 	LC_ENCRYPTION_INFO,   # 0x21, encrypted segment information
 	LC_DYLD_INFO,         # 0x22, compressed dyld information
-	LC_LOAD_UPWARD_DYLIB  # 0x23, load upward dylib
-) = range(1, 0x24)
+	LC_LOAD_UPWARD_DYLIB, # 0x23, load upward dylib
+
+    LC_VERSION_MIN_MACOSX,      # 0x24, build for MacOSX min OS version
+    LC_VERSION_MIN_IPHONEOS,    # 0x25, build for iPhoneOS min OS version
+    LC_FUNCTION_STARTS,         # 0x26, compressed table of function start addresses
+    LC_DYLD_ENVIRONMENT,        # 0x27, string for dyld to treat like environment variable
+) = range(1, 0x28)
 
 @factory
 class LoadCommand(object):
@@ -135,7 +140,12 @@ class LoadCommand(object):
 		'LAZY_LOAD_DYLIB',   # 0x20, delay load of dylib until first use
 		'ENCRYPTION_INFO',   # 0x21, encrypted segment information
 		'DYLD_INFO',         # 0x22, compressed dyld information
-		'LOAD_UPWARD_DYLIB'  # 0x23, load upward dylib
+		'LOAD_UPWARD_DYLIB', # 0x23, load upward dylib
+
+        'VERSION_MIN_MACOSX',   # 0x24, build for MacOSX min OS version
+        'VERSION_MIN_IPHONEOS', # 0x25, build for iPhoneOS min OS version
+        'FUNCTION_STARTS',      # 0x26, compressed table of function start addresses
+        'DYLD_ENVIRONMENT',     # 0x27, string for dyld to treat like environment variable
 	]
 	__names_map = dict((j, i) for i, j in enumerate(__names))
 		
