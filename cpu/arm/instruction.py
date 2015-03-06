@@ -1,17 +1,17 @@
-#    
+#
 #    instruction.py ... ARM instructions
 #    Copyright (C) 2011  KennyTM~ <kennytm@gmail.com>
-#    
+#
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
-#    
+#
 #    This program is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
-#    
+#
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
@@ -37,19 +37,19 @@ def _formatShift(shiftType, shiftAmount):
 class Instruction(metaclass=ABCMeta):
     '''
     The base class for all ARM and Thumb instructions.
-    
+
     .. attribute:: encoding
-    
+
         The encoding (as a little-endian integer) of this instruction.
-    
+
     .. attribute:: length
-    
+
         The length of this instruction.
-    
+
     .. attribute:: instructionSet
-    
+
         The instruction set of this instruction.
-        
+
         +-------+-----------------+
         | Value | Instruction set |
         +=======+=================+
@@ -61,13 +61,13 @@ class Instruction(metaclass=ABCMeta):
         +-------+-----------------+
         | 3     | ThumbEE         |
         +-------+-----------------+
-        
+
     .. attribute:: condition
-    
+
         The :class:`Condition` of this instruction.
-        
+
     .. attribute:: width
-    
+
         The instruction width. This field only affects the disassembly.
 
         +----------+--------------+
@@ -79,12 +79,12 @@ class Instruction(metaclass=ABCMeta):
         +----------+--------------+
         | ``'.w'`` | Force wide   |
         +----------+--------------+
-        
+
     .. attribute:: shiftType
         shiftAmount
-    
+
         The shift type and amount to be applied to the last operand.
-        
+
         +--------------------------------------------+---------------------------------+
         | Shift type                                 | Meaning                         |
         +============================================+=================================+
@@ -98,9 +98,9 @@ class Instruction(metaclass=ABCMeta):
         +--------------------------------------------+---------------------------------+
         | :const:`~cpu.arm.functions.SRTYPE_RRX` (4) | Rotate bits right with carry    |
         +--------------------------------------------+---------------------------------+
-                
+
     '''
-            
+
     def __init__(self, encoding, length, instructionSet):
         self.length = length
         self.encoding = encoding
@@ -109,26 +109,26 @@ class Instruction(metaclass=ABCMeta):
         self.width = ''
         self.shiftType = 0
         self.shiftAmount = Constant(0)
-    
+
     @abstractmethod
     def mainOpcode(self):   # pragma: no cover
         "Return the instruction's opcode without conditions."
         return '<unk{0:0{1}x}>'.format(self.encoding, self.length*2)
-        
+
     @property
     def opcode(self):
-        '''Return the instruction's opcode (including condition code). 
-        
+        '''Return the instruction's opcode (including condition code).
+
         Subclasses should overload the :meth:`mainOpcode` method to provide the
         actual opcode.'''
         return self.mainOpcode() + str(self.condition) + self.width
-        
+
     def forceWide(self):
         '''Force the ".w" qualifier to show in the disassembly of this
         instruction. Returns ``self``.'''
         self.width = '.w'
         return self
-    
+
     def setShift(self, shiftTypeAndAmount):
         'Set the :attr:`shiftType` and :attr:`shiftAmount`. Returns ``self``.'
         self.shiftType = shiftTypeAndAmount[0]
@@ -148,26 +148,26 @@ class Instruction(metaclass=ABCMeta):
                 return
         thread.pc = location + self.length
 
-        
+
     @abstractmethod
     def exec(self, thread): # pragma: no cover
         '''Execute the instruction with a *thread* after passing the conditions.
-        
+
         Subclasses should override this method to provide the actual
         implementation of this instruction.'''
         assert False
-    
+
     @abstractproperty
     def operands(self): # pragma: no cover
         'Return a list of :class:`~cpu.arm.operand.Operand`\s of the instruction.'
         return []
-    
+
     def applyShift(self, thread, value, carry):
         'Apply shift to an integer. Return the shifted value.'
         return Shift(0xffffffff, value, self.shiftType, self.shiftAmount.get(thread), carry)
-    
+
     def applyShift_C(self, thread, value, carry):
-        'Apply shift to an integer. Return the shifted value and carry.'        
+        'Apply shift to an integer. Return the shifted value and carry.'
         return Shift_C(0xffffffff, value, self.shiftType, self.shiftAmount.get(thread), carry)
 
     def __str__(self):
@@ -177,7 +177,7 @@ class Instruction(metaclass=ABCMeta):
         if self.shiftType or self.shiftAmount:
             operands += _formatShift(self.shiftType, self.shiftAmount)
         return '{0}\t{1}'.format(opcode, operands)
-        
+
 
 
 _condcodes = ['eq','ne','cs','cc','mi','pl','vs','vc','hi','ls','ge','lt','gt','le','','xx']
@@ -205,8 +205,8 @@ class Condition(Hashable):
     '''
     The condition code of an instruction. The code is a special feature of the
     ARM instruction set to reduce the number of branches. An instruction is
-    executed only when the specified condition is fulfilled. 
-    
+    executed only when the specified condition is fulfilled.
+
     .. data:: EQ
         NE
         CS
@@ -223,9 +223,9 @@ class Condition(Hashable):
         LE
         AL
         NV
-        
+
         These class constants specify the raw value of the condition codes.
-        
+
         +-------------+----------------+-----------------------------------------------+
         | Code        | Condition      | Meaning                                       |
         +=============+================+===============================================+
@@ -263,24 +263,24 @@ class Condition(Hashable):
         +-------------+----------------+-----------------------------------------------+
 
     .. attribute:: condition
-    
+
         The condition code of this instance.
 
     '''
 
-    (EQ, NE, CS, CC, MI, PL, VS, VC, HI, LS, GE, GT, GT, LE, AL, NV) = range(16)    
-    
+    (EQ, NE, CS, CC, MI, PL, VS, VC, HI, LS, GE, GT, GT, LE, AL, NV) = range(16)
+
     def __init__(self, condition):
         self.condition = condition
-    
+
     @property
     def inverse(self):
         'Get the inverse (negation) of this condition.'
         return Condition(self.condition ^ 1)
-        
+
     def __str__(self):
         return _condcodes[self.condition]
-    
+
     def __eq__(self, other):
         'Check if two conditions are the same.'
         return self.condition == other.condition

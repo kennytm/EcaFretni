@@ -1,17 +1,17 @@
-#    
+#
 #    core.py ... The core instructions
-#    Copyright (C) 2011  KennyTM~ <kennytm@gmail.com>
-#    
+#    Copyright (C) 2015  KennyTM~ <kennytm@gmail.com>
+#
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
-#    
+#
 #    This program is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
-#    
+#
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
@@ -26,7 +26,7 @@ import re
 
 #===============================================================================
 # Data processing instructions
-# 
+#
 #  adc, add, and, eor, sub, sbc, rsb, rsc, orr, mov (lsl, lsr, asr, ror, rrx),
 #  bic, mvn, orn, pkh, movt
 #
@@ -52,7 +52,7 @@ class DataProcInstruction(Instruction):
 
     def execCoreFlagged(self, op1, op2, cpsr):
         '''The core execution method for the set-flag variant.
-        
+
         It takes the decoded operands and the current status, and should return
         the result and modifer *cpsr* accordingly.'''
         return self.execCore(op1, op2, cpsr.C)
@@ -60,7 +60,7 @@ class DataProcInstruction(Instruction):
     @abstractmethod
     def execCore(self, op1, op2, carry):
         '''The core execution method.
-        
+
         It takes the decoded operands and the value of carry, and should return
         the result.'''
         assert False    # pragma: no cover
@@ -70,7 +70,7 @@ class DataProcInstruction(Instruction):
         carry = cpsr.C
         op1 = thread.r[self.srcReg]
         if self.isADR:
-            op1 &= ~3 
+            op1 &= ~3
         op2 = self.applyShift(thread, self.op2.get(thread), carry)
         targetReg = self.targetReg
         if self.setFlags:
@@ -82,8 +82,10 @@ class DataProcInstruction(Instruction):
         if targetReg == REG_PC:
             (res, cpsr.T) = fixPCAddrALU(res, cpsr.T)
         thread.r[targetReg] = res
+        if targetReg == REG_PC:
+            thread.adjustPcOffset()
 
-    
+
 
 class ADCInstruction(DataProcInstruction):
     'The ``adc`` (add with carry) instruction.'
@@ -191,11 +193,13 @@ class MOVInstruction(DataProcInstruction):
         if targetReg == REG_PC:
             (res, cpsr.T) = fixPCAddrALU(res, cpsr.T)
         thread.r[targetReg] = res
+        if targetReg == REG_PC:
+            thread.adjustPcOffset()
 
     @property
     def operands(self):
         return [Register(self.targetReg), self.op2]
-    
+
     def __str__(self):
         return _mov_renamer(r'\2\1, \3', super().__str__())
 
@@ -211,10 +215,10 @@ class MVNInstruction(DataProcInstruction):
     @property
     def operands(self):
         return [Register(self.targetReg), self.op2]
-    
+
     def execCore(self, op1, op2, carry):    # pragma: no cover
         return 0xffffffff & ~op2
-    
+
     def exec(self, thread):
         cpsr = thread.cpsr
         op2 = self.applyShift(thread, self.op2.get(thread), cpsr.C)
@@ -232,10 +236,10 @@ class MOVTInstruction(DataProcInstruction):
     @property
     def operands(self):
         return [Register(self.targetReg), self.op2]
-    
+
     def execCore(self, op1, op2, carry):    # pragma: no cover
         return (op1 & 0xffff) + (op2 * 0x10000)
-    
+
 
 class PKHInstruction(DataProcInstruction):
     'The ``pkh`` (pack halfword) instruction.'
@@ -244,7 +248,7 @@ class PKHInstruction(DataProcInstruction):
         loWord = (op2 if tbform else op1) & 0x0000ffff
         hiWord = (op1 if tbform else op2) & 0xffff0000
         return loWord + hiWord
-        
+
     def mainOpcode(self):
         return 'pkhtb' if self.shiftType else 'pkhbt'
 
@@ -254,7 +258,7 @@ class PKHInstruction(DataProcInstruction):
 
 #===============================================================================
 # Comparing instructions
-# 
+#
 #  tst, teq, cmp, cmn
 #
 #===============================================================================
@@ -277,7 +281,7 @@ class ComparingInstruction(Instruction):
     @abstractmethod
     def execCore(self, op1, op2, cpsr):
         '''The core execution method.
-        
+
         It takes the decoded operands and the current status, and should return
         the comparison result and modifer *cpsr* accordingly.'''
         assert False    # pragma: no cover
@@ -319,7 +323,7 @@ class CMNInstruction(ComparingInstruction):
 
 #===============================================================================
 # If-then and hints instructions
-# 
+#
 #  it, nop, yield, wfe, wfi, sev
 #
 #===============================================================================
@@ -331,7 +335,7 @@ class HintInstruction(Instruction):
     def __init__(self, encoding, length, instructionSet, mainOpcode):
         super().__init__(encoding, length, instructionSet)
         self._mainOpcode = mainOpcode
-    
+
     @property
     def operands(self):
         return []
@@ -367,26 +371,26 @@ class ITInstruction(Instruction):
     'The ``it`` (if-then) instruction.'
     def exec(self, thread):
         thread.cpsr.IT = self.itState
-    
+
     def __init__(self, encoding, length, instructionSet, cond, mask):
         super().__init__(encoding, length, instructionSet)
-    
+
         self.itState = cond * 16 + mask
         self._operands = [Condition(cond)]
-    
+
         opcodeIndex = mask if cond & 1 else 16 - mask
         self._mainOpcode = _it_opcodes[opcodeIndex]
-    
+
     @property
     def operands(self):
         return self._operands
-    
+
     def mainOpcode(self):
         return self._mainOpcode
 
 #===============================================================================
 # Branch instructions
-# 
+#
 #  b, bl, bx, blx
 #
 #===============================================================================
@@ -399,21 +403,21 @@ def isBLInstruction(instruction):
         return instruction.link
     else:
         return False
-    
+
 
 class BInstruction(Instruction):
     'The ``b`` (branch) instruction.'
     def __init__(self, encoding, length, instructionSet, target):
         super().__init__(encoding, length, instructionSet)
         self.target = target
-    
+
     @property
     def operands(self):
         return [self.target]
-    
+
     def mainOpcode(self):
         return 'b'
-    
+
     def exec(self, thread):
         thread.pc = fixPCAddrB(self.target.get(thread), thread.cpsr.T)
 
@@ -425,14 +429,14 @@ class BLInstruction(Instruction):
         self.target = target
         self._mainOpcode = ('bl', 'blx')[exchange]
         self.toThumb = (instructionSet & 1) != exchange
-    
+
     @property
     def operands(self):
         return [self.target]
-    
+
     def mainOpcode(self):
         return self._mainOpcode
-    
+
     def exec(self, thread):
         cpsr = thread.cpsr
         pc = thread.pc
@@ -445,6 +449,7 @@ class BLInstruction(Instruction):
             pc &= ~3
         cpsr.T = toThumb
         thread.pc = fixPCAddrB(self.target.delta + pc, toThumb)
+        thread.adjustPcOffset()
 
 class BXInstruction(Instruction):
     '''
@@ -457,14 +462,14 @@ class BXInstruction(Instruction):
         self.target = target
         self._mainOpcode = ('', 'bx', 'bxj', 'blx')[instrType]
         self.link = instrType == 3
-    
+
     @property
     def operands(self):
         return [self.target]
-    
+
     def mainOpcode(self):
         return self._mainOpcode
-    
+
     def exec(self, thread):
         cpsr = thread.cpsr
         pc = thread.pc
@@ -474,25 +479,26 @@ class BXInstruction(Instruction):
             else:
                 thread.lr = pc - 4
         (thread.pc, cpsr.T) = fixPCAddrBX(self.target.get(thread))
+        thread.adjustPcOffset()
 
 
 class CBZInstruction(Instruction):
     '''The ``cbz`` (compare and branch on zero) and ``cbnz`` (compare and branch
     on nonzero) instructions.'''
-    
+
     def __init__(self, encoding, length, instructionSet, srcReg, target, nonzero):
         super().__init__(encoding, length, instructionSet)
         self.srcReg = srcReg
         self.target = target
         self.nonzero = nonzero
-    
+
     @property
     def operands(self):
         return [Register(self.srcReg), self.target]
-    
+
     def mainOpcode(self):
         return 'cbnz' if self.nonzero else 'cbz'
-    
+
     def exec(self, thread):
         if self.nonzero == (not not thread.r[self.srcReg]):
             thread.pc = fixPCAddrB(self.target.get(thread), thread.cpsr.T)
@@ -500,7 +506,7 @@ class CBZInstruction(Instruction):
 
 #===============================================================================
 # Load/store instructions
-# 
+#
 #  ldr, str, ldrt, strt, ldrb, strb, ldrsb, strsb, ldrh, strh, ldrsh, strsh,
 #  ldrbt, strbt, ldrht, strht, ldrd, strd, ldrex, strex, ldrexb, strexb,
 #  ldrexh, strexh, ldrexd, strexd
@@ -517,14 +523,14 @@ class LDRInstruction(Instruction):
         self.align = align
         self._mainOpcode = 'ldr' + append
         self.signedNotMask = signedNotMask
-    
+
     @property
     def operands(self):
         return [Register(self.targetReg), self.op]
-    
+
     def mainOpcode(self):
         return self._mainOpcode
-    
+
     def exec(self, thread):
         val = self.op.get(thread, self.loadLen, self.align)
         t = self.targetReg
@@ -534,6 +540,9 @@ class LDRInstruction(Instruction):
         if snm:
             val = 0xffffffff & signed(snm, val)
         thread.r[t] = val
+        if t == REG_PC:
+            thread.adjustPcOffset()
+
 
 class STRInstruction(Instruction):
     'The ``str`` (store register)-related instructions.'
@@ -543,20 +552,20 @@ class STRInstruction(Instruction):
         self.op = op
         self.loadLen = loadLen
         self._mainOpcode = 'str' + append
-    
+
     @property
     def operands(self):
         return [Register(self.srcReg), self.op]
-    
+
     def mainOpcode(self):
         return self._mainOpcode
-    
+
     def exec(self, thread):
         self.op.set(thread, thread.r[self.srcReg], self.loadLen)
 
 #===============================================================================
 # Load/store multiple instruction decoder
-# 
+#
 #  ldmXX, stmXX
 #
 #===============================================================================
@@ -567,7 +576,7 @@ def _getLoadStoreMultipleInfo(startAddress, offset, isInc, before):
     #     sp+8 ==> r2                   sp+8 ==> r1
     #     sp+4 ==> r1                   sp+4 ==> r0
     #     sp   ==> r0                   sp
-    # 
+    #
     # ldmda:                        ldmdb:
     #     sp   ==> r2                   sp
     #     sp-4 ==> r1                   sp-4 ==> r2
@@ -585,13 +594,13 @@ def _getLoadStoreMultipleInfo(startAddress, offset, isInc, before):
     if before == isInc:    # fix for ***ib & ***da
         startAddress += 4
         endAddress += 4
-    
+
     addrs = []
     aa = addrs.append
     while startAddress != endAddress:
         aa(startAddress)
         startAddress += 4
-    
+
     return (newAddress, addrs)
 
 class LDMInstruction(Instruction):
@@ -606,17 +615,17 @@ class LDMInstruction(Instruction):
         self.before = before
         self.excMode = excMode
         self.isPop = srcReg == REG_SP and writeBack and inc and not before and not excMode
-    
+
     def mainOpcode(self):
         if self.isPop:
             return 'pop'
         else:
             return 'ldm' + ('i' if self.inc else 'd') + ('b' if self.before else 'a')
-    
+
     @property
     def operands(self):
         return [Register(self.srcReg), self.targetRegList]
-        
+
     def __str__(self):
         newStr = super().__str__()
         if self.isPop:
@@ -627,15 +636,15 @@ class LDMInstruction(Instruction):
             if self.excMode:
                 newStr += '^'
             return newStr
-    
+
     def exec(self, thread):
         srcReg = self.srcReg
         rl = self.targetRegList
         offset = len(rl)*4
-        
+
         startAddress = thread.r[srcReg]
         (newAddress, addresses) = _getLoadStoreMultipleInfo(startAddress, offset, self.inc, self.before)
-        
+
         values = map(thread.memory.get, addresses)
         rl.set(thread, values)
         if self.writeBack:
@@ -653,17 +662,17 @@ class STMInstruction(Instruction):
         self.before = before
         self.excMode = excMode
         self.isPush = targetReg == REG_SP and writeBack and not inc and before and not excMode
-    
+
     def mainOpcode(self):
         if self.isPush:
             return 'push'
         else:
             return 'stm' + ('i' if self.inc else 'd') + ('b' if self.before else 'a')
-    
+
     @property
     def operands(self):
         return [Register(self.targetReg), self.srcRegList]
-        
+
     def __str__(self):
         newStr = super().__str__()
         if self.isPush:
@@ -674,13 +683,13 @@ class STMInstruction(Instruction):
             if self.excMode:
                 newStr += '^'
             return newStr
-    
+
     def exec(self, thread):
         targetReg = self.targetReg
         rl = self.srcRegList
         offset = len(rl)*4
         isInc = self.inc
-        
+
         startAddress = thread.r[targetReg]
         (newAddress, addresses) = _getLoadStoreMultipleInfo(startAddress, offset, self.inc, self.before)
 
@@ -688,7 +697,7 @@ class STMInstruction(Instruction):
         tms = thread.memory.set
         for addr, val in zip(addresses, values):
             tms(addr, val)
-        
+
         if self.writeBack:
             thread.r[targetReg] = newAddress
 
@@ -743,7 +752,7 @@ class SVCInstruction(Instruction):
 
 #===============================================================================
 # Data processing instruction decoders
-# 
+#
 #  adc, add, and, eor, sub, sbc, rsb, rsc, orr, mov (lsl, lsr, asr, ror, rrx),
 #  bic, mvn, tst, teq, cmp, cmn, orn, pkh, movt
 #
@@ -849,7 +858,7 @@ def dataProcessingInstructionDecoder_Thumb16ShiftImmediate(res, encoding, condit
     op2 = Register(res.m)
     setFlags = condition == COND_NONE
     return createDataProcessingInstruction(encoding, 2, 1, _DPTYPE_MOV, res.d, res.d, op2, setFlags, shiftTnA)
-    
+
 
 # Sect A6.2.1
 @InstructionDecoder(2, 1, '000110xmmmnnnddd')
@@ -1007,7 +1016,7 @@ def specialMoveInstructionDecoder_Thumb32(res, encoding, condition):
 
 #===============================================================================
 # If-then and hints instruction decoder
-# 
+#
 #  it, nop, yield, wfe, wfi, sev
 #
 #===============================================================================
@@ -1049,7 +1058,7 @@ def ITInstructionDecoder_Thumb16(res, encoding, condition):
 
 #===============================================================================
 # Branch instruction decoder
-# 
+#
 #  b, bx, bl, blx
 #
 #===============================================================================
@@ -1137,7 +1146,7 @@ def branchInstructionDecoder_Thumb32Unconditional(res, encoding, condition):
     j ^= 3*(j<4)
     delta = signed(-1<<25, res.i*2 + j*0x400000)
     target = PCRelative(delta)
-    
+
     if x == 1:
         instr = BInstruction(encoding, 4, 1, target)
     else:
@@ -1152,7 +1161,7 @@ def branchInstructionDecoder_Thumb32BXJ(res, encoding, condition):
 
 #===============================================================================
 # Load/store instruction decoder
-# 
+#
 #  ldr, str, ldrt, strt, ldrb, strb, ldrsb, strsb, ldrh, strh, ldrsh, strsh,
 #  ldrbt, strbt, ldrht, strht, ldrd, strd, ldrex, strex, ldrexb, strexb,
 #  ldrexh, strexh, ldrexd, strexd
@@ -1173,7 +1182,7 @@ def loadStoreInstructionDecoder_ARMImmediate(res, encoding, condition):
     imm12 = res.i
     instrCls = LDRInstruction if isLDR else STRInstruction
     wback = w or not p
-    
+
     op = Indirect(Register(n), Constant(imm12), positive=u, writeBack=wback, index=p)
     if res.b:
         suffix = 'b'
@@ -1184,7 +1193,7 @@ def loadStoreInstructionDecoder_ARMImmediate(res, encoding, condition):
     if w and not p:
         suffix += 't'
     align = ~3 if n == REG_PC else ~0
-    
+
     return instrCls(encoding, 4, 0, res.d, op, suffix, loadLen, align)
 
 # Sect A5.3
@@ -1219,7 +1228,7 @@ _loadStore_thumbEE_shift = (0, 1, 1, 2)
 # Sect A6.2.4
 @InstructionDecoder(2, 1, '0101xxxmmmnnnddd')
 def loadStoreInstructionDecoder_Thumb16Register(res, encoding, condition):
-    '''Decode 16-bit Thumb ``str``, ``strh``, ``strb``, ``ldrsb``, ``ldr``, 
+    '''Decode 16-bit Thumb ``str``, ``strh``, ``strb``, ``ldrsb``, ``ldr``,
     ``ldrh``, ``ldrb`` and ``ldrsh`` instructions of the type ``ldr r0, [r1,
     r2]``.'''
     x = res.x
@@ -1303,15 +1312,15 @@ def loadStoreInstructionDecoder_Thumb32Immediate12(res, encoding, condition):
     if n == REG_PC and not isLDR:
         return None     # undefined
     if n != REG_PC and not u:
-        return None     # these are ldr.w r0, [r1, r2, lsl #3] 
+        return None     # these are ldr.w r0, [r1, r2, lsl #3]
     if (x == 0b10 or not isLDR) and s:
         return None     # undefined
     if isLDR and x != 0b10 and d == REG_PC:
         return None     # unallocated memory hint or 'pld'/'pli' instructions
-    
+
     (instrCls, append, loadLen, snm) = _loadStore_thumb32_getInstrInfo(isLDR, x, s)
     align = ~3 if n == REG_PC else ~0
-    
+
     op = Indirect(Register(n), Constant(res.i), positive=u)
     return instrCls(encoding, 4, 1, res.d, op, append, loadLen, align, signedNotMask=snm).forceWide()
 
@@ -1365,10 +1374,10 @@ def loadStoreInstructionDecoder_Thumb32Register(res, encoding, condition):
     (instrCls, append, loadLen, snm) = _loadStore_thumb32_getInstrInfo(isLDR, x, s)
     op = Indirect(Register(n), Register(res.m), shiftType=SRTYPE_LSL, shiftAmount=res.i)
     return instrCls(encoding, 4, 1, d, op, append, loadLen, signedNotMask=snm)
-    
+
 #===============================================================================
 # Load/store multiple instruction decoder
-# 
+#
 #  ldmXX, stmXX
 #
 #===============================================================================
