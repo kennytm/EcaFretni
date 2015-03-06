@@ -692,6 +692,49 @@ class STMInstruction(Instruction):
         if self.writeBack:
             thread.r[targetReg] = newAddress
 
+#===============================================================================
+# Exception instructions
+#
+#  svc
+#
+#===============================================================================
+
+class SuperviserCall(Exception):
+    '''This exception is raised when trying to execute a ```svc``` instruction.
+
+    .. attribute:: instruction
+
+        The SVC instruction that was executed.
+
+    '''
+    def __init__(self, instruction):
+        self.instruction = instruction
+
+    def __str__(self):
+        return 'superviser call #{:x}'.format(self.instruction.value)
+
+    def resume(self, thread):
+        '''Resume execution by skipping the SVC instruction.'''
+        thread.pc = thread.pcRaw + self.instruction.length
+
+
+class SVCInstruction(Instruction):
+    '''The ```svc``` (superviser call) instruction.'''
+    def __init__(self, encoding, length, instructionSet, value):
+        super().__init__(encoding, length, instructionSet)
+        self.value = value
+
+    @property
+    def operands(self):
+        return [Constant(self.value)]
+
+    def mainOpcode(self):
+        return 'svc'
+
+    def exec(self, thread):
+        raise SuperviserCall(self)
+
+
 
 ################################################################################
 ################################################################################
@@ -1376,3 +1419,19 @@ def loadStoreMultipleInstructionDecoder_Thumb32(res, encoding, condition):
     rl = RegisterList(*_parseRegList(res.r))
     return instrCls(encoding, 4, 1, res.n, rl,
                     writeBack=res.w, inc=isInc, before=isBefore).forceWide()
+
+#===============================================================================
+# Exception instruction decoder
+#
+#  svc
+#
+#===============================================================================
+
+@InstructionDecoder(4, 0, '1111iiiiiiiiiiiiiiiiiiiiiiii')
+def SVCInstructionDecoder_ARM(res, encoding, condition):
+    return SVCInstruction(encoding, 4, 0, res.i)
+
+@InstructionDecoder(2, 1, '11011111iiiiiiii')
+def SVCInstructionDecoder_Thumb(res, encoding, condition):
+    return SVCInstruction(encoding, 2, 1, res.i)
+
